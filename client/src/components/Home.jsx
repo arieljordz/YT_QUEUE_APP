@@ -4,7 +4,7 @@ import VideoList from "./VideoList";
 import Queue from "./Queue";
 import VideoPlayer from "./VideoPlayer";
 
-const API_KEY = "AIzaSyAzqJYAm-RGsbCpwreSsWPC0Wq2uZM2kcg";
+const API_KEY = import.meta.env.VITE_YT_API_KEY;
 
 function Home() {
   const [videos, setVideos] = useState([]);
