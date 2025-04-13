@@ -116,7 +116,7 @@ function Queue({
                           {video.snippet.title}
                         </span>
 
-                        <div>
+                        <div className="d-flex flex-nowrap align-items-center overflow-auto">
                           {isPlaying ? (
                             <button
                               className="btn btn-sm btn-outline-light me-1"

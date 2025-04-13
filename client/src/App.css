@@ -12,3 +12,18 @@
   .hide {
     display: none;
   }
+
+  @media (max-width: 576px) {
+    .btn-group {
+      width: 100%;
+      justify-content: space-around;
+    }
+  }
+  
+  @media (max-width: 576px) {
+    .btn-sm {
+      padding: 0.25rem 0.4rem;
+      font-size: 0.75rem;
+    }
+  }
+  
