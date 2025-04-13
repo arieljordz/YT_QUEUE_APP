@@ -51,7 +51,7 @@ const NavBar = () => {
               </Dropdown.Item>
               <Dropdown.Divider className="m-0" />
               <Dropdown.Item className="small" onClick={handleCoffeeClick}>
-                ☕ Coffee
+                ☕ Coffee?
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>

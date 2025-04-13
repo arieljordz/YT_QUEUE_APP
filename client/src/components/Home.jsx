@@ -3,6 +3,7 @@ import SearchBar from "./SearchBar";
 import VideoList from "./VideoList";
 import Queue from "./Queue";
 import VideoPlayer from "./VideoPlayer";
+import { toast } from "react-toastify";
 
 const API_KEY = import.meta.env.VITE_YT_API_KEY;
 
@@ -21,8 +22,9 @@ function Home() {
     return saved ? JSON.parse(saved) : false;
   });
   const [playCount, setPlayCount] = useState(0);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Save current video and queue on change
+  // LocalStorage sync
   useEffect(() => {
     localStorage.setItem("videoQueue", JSON.stringify(queue));
   }, [queue]);
@@ -35,7 +37,7 @@ function Home() {
     localStorage.setItem("isPaused", JSON.stringify(isPaused));
   }, [isPaused]);
 
-  // Fetch videos from YouTube
+  // Fetch videos
   const handleSearch = async (query) => {
     try {
       const res = await fetch(
@@ -52,18 +54,15 @@ function Home() {
   const addToQueue = (video) => {
     setQueue((prev) => {
       const updated = [...prev, video];
-      if (!currentVideo) {
-        setCurrentVideo(video);
-      }
+      if (!currentVideo) setCurrentVideo(video);
+      toast.success(`Added "${video.snippet.title}" to the queue`);
       return updated;
     });
   };
 
   const handleReorder = (newQueue) => {
     setQueue(newQueue);
-    if (!currentVideo && newQueue.length > 0) {
-      setCurrentVideo(newQueue[0]);
-    }
+    if (!currentVideo && newQueue.length > 0) setCurrentVideo(newQueue[0]);
   };
 
   const handleRemove = (index) => {
@@ -89,7 +88,7 @@ function Home() {
       const nextQueue = [...prev];
       nextQueue.shift();
       setCurrentVideo(nextQueue[0] || null);
-      setPlayCount((count) => count + 1); // 👈 force re-render of same video
+      setPlayCount((count) => count + 1);
       return nextQueue;
     });
   };
@@ -105,41 +104,43 @@ function Home() {
   };
 
   return (
-    <>
-      <div className="container mt-4">
-        <h2 className="text-center mb-4">🎬 YouTube Queueing App</h2>
-     
-        <div className="row mt-4">
-          <div className="col-md-4">
-          <SearchBar onSearch={handleSearch} />
-            <h5 className="pt-2">🔍 Search Results</h5>
+    <div className="m-4">
+      <h2 className="text-center mb-4 hide">🎬 YouTube Queueing App</h2>
+
+      <div className="row">
+        <VideoPlayer
+          video={currentVideo}
+          playCount={playCount}
+          onEnd={playNext}
+          isPaused={isPaused}
+          setIsPaused={setIsPaused}
+        />
+      </div>
+
+      <div className="row">
+        {!isSidebarCollapsed && (
+          <div className="col-md-6 mb-4 mt-4 mb-md-0">
+            <h5 className="pt-2">🔍 Search</h5>
+            <SearchBar onSearch={handleSearch} />
             <VideoList videos={videos} onAdd={addToQueue} />
           </div>
-          <div className="col-md-8">
-            {/* <h5>📺 Now Playing</h5> */}
-            <VideoPlayer
-              video={currentVideo}
-              playCount={playCount}
-              onEnd={playNext}
-              isPaused={isPaused}
-              setIsPaused={setIsPaused}
-            />
+        )}
 
-            <Queue
-              queue={queue}
-              onReorder={handleReorder}
-              onRemove={handleRemove}
-              onClear={handleClear}
-              onPlay={handlePlay}
-              isPaused={isPaused}
-              setIsPaused={(val) => {
-                setIsPaused(val);
-              }}
-            />
-          </div>
+        <div className={isSidebarCollapsed ? "col-12" : "col-md-6"}>
+          <Queue
+            queue={queue}
+            onReorder={handleReorder}
+            onRemove={handleRemove}
+            onClear={handleClear}
+            onPlay={handlePlay}
+            isPaused={isPaused}
+            setIsPaused={setIsPaused}
+            isSidebarCollapsed={isSidebarCollapsed}
+            setIsSidebarCollapsed={setIsSidebarCollapsed}
+          />
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

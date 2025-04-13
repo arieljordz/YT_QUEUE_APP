@@ -7,7 +7,6 @@ const VideoPlayer = ({ video, onEnd, isPaused, setIsPaused, playCount }) => {
   const [shouldEnterFullscreen, setShouldEnterFullscreen] = useState(false);
 
   const opts = {
-    height: "360",
     width: "100%",
     playerVars: {
       autoplay: 1,
@@ -137,17 +136,17 @@ const VideoPlayer = ({ video, onEnd, isPaused, setIsPaused, playCount }) => {
   if (!video) return <div>No video selected</div>;
 
   return (
-    <div>
-      <YouTube
-        key={`${video.id.videoId}-${playCount}`}
-        videoId={video.id.videoId}
-        opts={opts}
-        onReady={onReady}
-        onEnd={onEnd}
-      />
-
-      {/* Control buttons */}
-      {/* <div className="video-controls">
+    <div className="video-wrapper">
+      <div className="video-container">
+        <YouTube
+          key={`${video.id.videoId}-${playCount}`}
+          videoId={video.id.videoId}
+          opts={opts}
+          onReady={onReady}
+          onEnd={onEnd}
+        />
+        {/* Control buttons */}
+        {/* <div className="video-controls">
         <button
           onClick={() => handleButtonClick("playPause")}
           className="btn btn-sm btn-success"
@@ -161,6 +160,7 @@ const VideoPlayer = ({ video, onEnd, isPaused, setIsPaused, playCount }) => {
           Fullscreen
         </button>
       </div> */}
+      </div>
     </div>
   );
 };

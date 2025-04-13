@@ -1,14 +1,17 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./components/Home";
-import "bootstrap/dist/css/bootstrap.min.css";
-import "./App.css";
 import NavBar from "./components/NavBar";
+import "bootstrap/dist/css/bootstrap.min.css";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import "./App.css";
 
 function App() {
   return (
     <BrowserRouter>
-      <NavBar/>
+      <NavBar />
+      <ToastContainer position="top-right" autoClose={2000} />
       <Routes>
         <Route path="/" element={<Home />} />
       </Routes>

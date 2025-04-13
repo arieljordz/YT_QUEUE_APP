@@ -6,7 +6,8 @@ import {
   FaArrowDown,
   FaPause,
   FaPlay as FaPlayIcon,
-  FaExternalLinkAlt,
+  FaArrowRight,
+  FaArrowLeft,
 } from "react-icons/fa";
 
 function Queue({
@@ -17,6 +18,8 @@ function Queue({
   onPlay,
   isPaused,
   setIsPaused,
+  isSidebarCollapsed,
+  setIsSidebarCollapsed,
 }) {
   const handleDragEnd = (result) => {
     if (!result.destination) return;
@@ -51,8 +54,24 @@ function Queue({
     <div className="mt-4">
       <div className="d-flex justify-content-between align-items-center mb-2">
         <h5>🎵 Queue</h5>
-
         <div className="d-flex gap-2">
+          <button
+            className="btn btn-sm btn-primary d-flex align-items-center gap-1"
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          >
+            {isSidebarCollapsed ? (
+              <>
+                <FaArrowRight />
+                Show Search
+              </>
+            ) : (
+              <>
+                <FaArrowLeft />
+                Hide Search
+              </>
+            )}
+          </button>
+
           {queue.length > 0 && (
             <button className="btn btn-sm btn-danger" onClick={onClear}>
               <FaTrash className="me-1" /> Clear All
@@ -115,7 +134,7 @@ function Queue({
                           )}
 
                           <button
-                            className="btn btn-sm btn-outline-secondary me-1"
+                            className="btn btn-sm btn-outline-warning me-1"
                             onClick={() => moveItem(index, -1)}
                             disabled={index <= 1}
                           >
@@ -123,7 +142,7 @@ function Queue({
                           </button>
 
                           <button
-                            className="btn btn-sm btn-outline-secondary me-1"
+                            className="btn btn-sm btn-outline-warning me-1"
                             onClick={() => moveItem(index, 1)}
                             disabled={index === 0 || index === queue.length - 1}
                           >

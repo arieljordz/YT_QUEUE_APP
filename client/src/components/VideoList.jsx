@@ -3,7 +3,7 @@ import { FaPlus } from 'react-icons/fa';
 
 function VideoList({ videos, onAdd }) {
   return (
-    <ul className="list-group">
+    <ul className="list-group mt-2">
       {videos.map((video) => (
         <li key={video.id.videoId} className="list-group-item d-flex justify-content-between align-items-center">
           <div>
