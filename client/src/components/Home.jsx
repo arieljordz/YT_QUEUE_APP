@@ -50,6 +50,8 @@ function Home() {
       const res = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&maxResults=10&key=${API_KEY}`
       );
+      console.log("Search Result:", res);
+      if (res.status === 403) toast.warning("Search quota limit reached. Please try again later.");
       const data = await res.json();
       if (data.items) setVideos(data.items);
       else console.error("Error fetching videos:", data);
@@ -94,10 +96,10 @@ function Home() {
     setQueue((prev) => {
       const nextQueue = [...prev];
       const finishedVideo = nextQueue.shift();
-  
+
       setCurrentVideo(nextQueue[0] || null);
       setPlayCount((count) => count + 1);
-  
+
       // Only add to playedVideos after it's been removed from the queue
       if (finishedVideo) {
         setPlayedVideos((prevPlayed) => {
@@ -108,7 +110,7 @@ function Home() {
           return alreadyPlayed ? prevPlayed : [...prevPlayed, finishedVideo];
         });
       }
-  
+
       return nextQueue;
     });
   };
