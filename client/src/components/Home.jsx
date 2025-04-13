@@ -23,8 +23,12 @@ function Home() {
   });
   const [playCount, setPlayCount] = useState(0);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [playedVideos, setPlayedVideos] = useState(() => {
+    const saved = localStorage.getItem("playedVideos");
+    return saved ? JSON.parse(saved) : [];
+  });
 
-  // LocalStorage sync
+  // Sync with localStorage
   useEffect(() => {
     localStorage.setItem("videoQueue", JSON.stringify(queue));
   }, [queue]);
@@ -37,7 +41,10 @@ function Home() {
     localStorage.setItem("isPaused", JSON.stringify(isPaused));
   }, [isPaused]);
 
-  // Fetch videos
+  useEffect(() => {
+    localStorage.setItem("playedVideos", JSON.stringify(playedVideos));
+  }, [playedVideos]);
+
   const handleSearch = async (query) => {
     try {
       const res = await fetch(
@@ -86,9 +93,22 @@ function Home() {
   const playNext = () => {
     setQueue((prev) => {
       const nextQueue = [...prev];
-      nextQueue.shift();
+      const finishedVideo = nextQueue.shift();
+  
       setCurrentVideo(nextQueue[0] || null);
       setPlayCount((count) => count + 1);
+  
+      // Only add to playedVideos after it's been removed from the queue
+      if (finishedVideo) {
+        setPlayedVideos((prevPlayed) => {
+          // Prevent duplicate in playedVideos
+          const alreadyPlayed = prevPlayed.some(
+            (v) => v.id.videoId === finishedVideo.id.videoId
+          );
+          return alreadyPlayed ? prevPlayed : [...prevPlayed, finishedVideo];
+        });
+      }
+  
       return nextQueue;
     });
   };
@@ -101,6 +121,13 @@ function Home() {
     setQueue(newQueue);
     setCurrentVideo(selected);
     setIsPaused(false);
+  };
+
+  const handleRequeuePlayed = () => {
+    if (playedVideos.length === 0) return;
+    setQueue((prev) => [...prev, ...playedVideos]);
+    toast.success("Re-queued played videos!");
+    setPlayedVideos([]);
   };
 
   return (
@@ -137,6 +164,8 @@ function Home() {
             setIsPaused={setIsPaused}
             isSidebarCollapsed={isSidebarCollapsed}
             setIsSidebarCollapsed={setIsSidebarCollapsed}
+            playedVideos={playedVideos}
+            onRequeuePlayed={handleRequeuePlayed}
           />
         </div>
       </div>

@@ -20,6 +20,8 @@ function Queue({
   setIsPaused,
   isSidebarCollapsed,
   setIsSidebarCollapsed,
+  playedVideos,
+  onRequeuePlayed,
 }) {
   const handleDragEnd = (result) => {
     if (!result.destination) return;
@@ -70,6 +72,13 @@ function Queue({
                 Hide Search
               </>
             )}
+          </button>
+          <button
+            className="btn btn-sm btn-warning"
+            onClick={onRequeuePlayed}
+            disabled={playedVideos.length === 0}
+          >
+            Re-Queue Played
           </button>
 
           {queue.length > 0 && (
