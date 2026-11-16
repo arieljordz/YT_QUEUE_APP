@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import SearchBar from "./SearchBar";
 import VideoList from "./VideoList";
 import Queue from "./Queue";
@@ -17,7 +18,8 @@ function Home() {
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
   const [playedVideos, setPlayedVideos] = useLocalStorage("playedVideos", []);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const searchAbortRef = useRef(null);
 
   useEffect(() => () => searchAbortRef.current?.abort(), []);
@@ -27,8 +29,10 @@ function Home() {
     const controller = new AbortController();
     searchAbortRef.current = controller;
 
+    setIsSearching(true);
     try {
       setVideos(await searchVideos(query, controller.signal));
+      setHasSearched(true);
     } catch (err) {
       if (err.name === "AbortError") return;
       if (err instanceof QuotaError) {
@@ -37,6 +41,9 @@ function Home() {
         toast.error("Search failed. Please try again.");
         console.error("Search Error:", err);
       }
+    } finally {
+      // An aborted search was replaced by a newer one that owns the spinner.
+      if (searchAbortRef.current === controller) setIsSearching(false);
     }
   }, []);
 
@@ -73,6 +80,15 @@ function Home() {
     setIsPaused(false);
   }, [setQueue, setIsPaused]);
 
+  const handleSkip = useCallback(() => {
+    const finished = queue[0];
+    if (!finished) return;
+    setQueue((prev) => prev.slice(1));
+    setPlayedVideos((prev) =>
+      prev.some((v) => v.id.videoId === finished.id.videoId) ? prev : [...prev, finished]
+    );
+  }, [queue, setQueue, setPlayedVideos]);
+
   const handlePlay = useCallback(
     (index) => {
       if (index === 0) return;
@@ -94,55 +110,53 @@ function Home() {
     toast.success("Re-queued played videos!");
   }, [playedVideos, setQueue, setPlayedVideos]);
 
-  const toggleSidebar = useCallback(
-    () => setIsSidebarCollapsed((collapsed) => !collapsed),
-    []
-  );
+  const queuedIds = useMemo(() => new Set(queue.map((v) => v.id.videoId)), [queue]);
   const togglePaused = useCallback(
     () => setIsPaused((paused) => !paused),
     [setIsPaused]
   );
 
   return (
-    <div className="m-4">
-      <h2 className="text-center mb-4 hide">🎬 YouTube Queueing App</h2>
-
-      <div className="alert alert-info d-flex justify-content-between align-items-center">
+    <div className="container-xl py-4">
+      <div className="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2">
         <span>
-          Videos play in a separate player tab, so you can keep searching
-          while they play.
+          Videos play in a separate player tab, so you can keep searching while
+          they play.
         </span>
         <a
-          className="btn btn-sm btn-primary"
+          className="btn btn-sm btn-primary d-flex align-items-center gap-1"
           href="/player"
           target="_blank"
           rel="noopener"
         >
-          Open player tab
+          <FaExternalLinkAlt /> Open player tab
         </a>
       </div>
 
-      <div className="row">
-        {!isSidebarCollapsed && (
-          <div className="col-md-6 mb-4 mt-4 mb-md-0">
-            <h5 className="pt-2">🔍 Search</h5>
-            <SearchBar onSearch={handleSearch} />
-            <VideoList videos={videos} onAdd={addToQueue} />
-          </div>
-        )}
+      <div className="row g-4">
+        <div className="col-lg-6">
+          <h5 className="mb-3">🔍 Search</h5>
+          <SearchBar onSearch={handleSearch} isLoading={isSearching} />
+          <VideoList
+            videos={videos}
+            queuedIds={queuedIds}
+            onAdd={addToQueue}
+            isLoading={isSearching}
+            hasSearched={hasSearched}
+          />
+        </div>
 
-        <div className={isSidebarCollapsed ? "col-12" : "col-md-6"}>
+        <div className="col-lg-6">
           <Queue
             queue={queue}
+            isPaused={isPaused}
+            onTogglePause={togglePaused}
+            onSkip={handleSkip}
+            onPlay={handlePlay}
             onMove={handleMove}
             onRemove={handleRemove}
             onClear={handleClear}
-            onPlay={handlePlay}
-            isPaused={isPaused}
-            onTogglePause={togglePaused}
-            isSidebarCollapsed={isSidebarCollapsed}
-            onToggleSidebar={toggleSidebar}
-            hasPlayedVideos={playedVideos.length > 0}
+            playedCount={playedVideos.length}
             onRequeuePlayed={handleRequeuePlayed}
           />
         </div>
