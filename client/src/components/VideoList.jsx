@@ -1,16 +1,28 @@
-import React from 'react';
-import { FaPlus } from 'react-icons/fa';
+import { memo } from "react";
+import { FaPlus } from "react-icons/fa";
 
 function VideoList({ videos, onAdd }) {
   return (
     <ul className="list-group mt-2">
       {videos.map((video) => (
-        <li key={video.id.videoId} className="list-group-item d-flex justify-content-between align-items-center">
+        <li
+          key={video.id.videoId}
+          className="list-group-item d-flex justify-content-between align-items-center"
+        >
           <div>
-            <img src={video.snippet.thumbnails.default.url} alt="" className="me-2" />
+            <img
+              src={video.snippet.thumbnails.default.url}
+              alt=""
+              loading="lazy"
+              className="me-2"
+            />
             {video.snippet.title}
           </div>
-          <button className="btn btn-sm btn-success" onClick={() => onAdd(video)}>
+          <button
+            className="btn btn-sm btn-success"
+            onClick={() => onAdd(video)}
+            aria-label={`Add ${video.snippet.title} to queue`}
+          >
             <FaPlus />
           </button>
         </li>
@@ -19,4 +31,4 @@ function VideoList({ videos, onAdd }) {
   );
 }
 
-export default VideoList;
+export default memo(VideoList);

@@ -1,136 +1,61 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import YouTube from "react-youtube";
 
-const VideoPlayer = ({ video, onEnd, isPaused, setIsPaused, playCount }) => {
+const PLAYER_OPTS = { width: "100%", playerVars: { autoplay: 1 } };
+const FULLSCREEN_EVENTS = ["fullscreenchange", "webkitfullscreenchange"];
+
+function requestFullscreen(element) {
+  const request = element.requestFullscreen ?? element.webkitRequestFullscreen;
+  // Browsers reject this without a user gesture; that is expected, not an error.
+  Promise.resolve(request?.call(element)).catch(() => {});
+}
+
+const VideoPlayer = ({ video, onEnd, isPaused, playCount }) => {
   const playerRef = useRef(null);
-  const [iframeReady, setIframeReady] = useState(false);
-  const [shouldEnterFullscreen, setShouldEnterFullscreen] = useState(false);
+  const wantsFullscreenRef = useRef(localStorage.getItem("isFullscreen") === "true");
 
-  const opts = {
-    width: "100%",
-    playerVars: {
-      autoplay: 1,
+  const onReady = useCallback(
+    (event) => {
+      playerRef.current = event.target;
+
+      if (isPaused) event.target.pauseVideo();
+      else event.target.playVideo();
+
+      // Restore fullscreen if the user was in it for the previous video.
+      if (wantsFullscreenRef.current) requestFullscreen(event.target.getIframe());
     },
-  };
+    [isPaused]
+  );
 
-  // Track button clicks to ensure the video is playing and interactable
-  const handleButtonClick = (action) => {
-    console.log(`${action} button clicked`);
-
-    if (action === "playPause") {
-      // Toggle the pause/play state
-      setIsPaused((prevIsPaused) => !prevIsPaused);
-    } else if (action === "fullscreen") {
-      handleFullscreenClick();
-    }
-  };
-
-  const onReady = (event) => {
-    playerRef.current = event.target;
-
-    // Initial play/pause
-    if (isPaused) {
-      event.target.pauseVideo();
-    } else {
-      event.target.playVideo();
-    }
-
-    setIframeReady(true);
-
-    // Trigger fullscreen if the state is set to enter fullscreen
-    if (shouldEnterFullscreen) {
-      const iframe = event.target.getIframe();
-      requestFullscreen(iframe);
-    }
-  };
-
-  const requestFullscreen = (element) => {
-    if (element.requestFullscreen) {
-      element.requestFullscreen();
-    } else if (element.webkitRequestFullscreen) {
-      element.webkitRequestFullscreen();
-    } else if (element.mozRequestFullScreen) {
-      element.mozRequestFullScreen();
-    } else if (element.msRequestFullscreen) {
-      element.msRequestFullscreen();
-    }
-  };
-
-  // Fullscreen button click handler
-  const handleFullscreenClick = () => {
-    const iframe = playerRef.current?.getIframe?.();
-    if (iframe) {
-      try {
-        // Attempt to request fullscreen for the YouTube iframe
-        requestFullscreen(iframe);
-        // Store fullscreen state in localStorage
-        localStorage.setItem("isFullscreen", "true");
-      } catch (err) {
-        console.warn("Fullscreen request failed:", err);
-      }
-    }
-  };
-
-  // Handle fullscreen status change
-  const handleFullscreenChange = () => {
-    const iframe = playerRef.current?.getIframe?.();
-    if (!iframe) return;
-
-    const fullscreenElement =
-      document.fullscreenElement ||
-      document.webkitFullscreenElement ||
-      document.mozFullScreenElement ||
-      document.msFullscreenElement;
-
-    const isFull = fullscreenElement === iframe;
-    console.log("Fullscreen status:", isFull);
-    setShouldEnterFullscreen(isFull);
-
-    // Save fullscreen state to localStorage
-    localStorage.setItem("isFullscreen", isFull ? "true" : "false");
-  };
-
+  // Remember whether the player iframe is fullscreen.
   useEffect(() => {
-    if (!iframeReady) return;
+    const handleFullscreenChange = () => {
+      const iframe = playerRef.current?.getIframe?.();
+      // When the iframe is swapped for the next video the browser leaves
+      // fullscreen; that must not be recorded as the user opting out.
+      if (!iframe?.isConnected) return;
 
-    // Check fullscreen state from localStorage
-    const storedFullscreen = localStorage.getItem("isFullscreen");
-    if (storedFullscreen === "true") {
-      setShouldEnterFullscreen(true);
-    }
-
-    // Add event listeners for fullscreen change
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
-    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener(
-        "webkitfullscreenchange",
-        handleFullscreenChange
-      );
-      document.removeEventListener(
-        "mozfullscreenchange",
-        handleFullscreenChange
-      );
-      document.removeEventListener(
-        "MSFullscreenChange",
-        handleFullscreenChange
-      );
+      const isFull =
+        (document.fullscreenElement ?? document.webkitFullscreenElement) === iframe;
+      wantsFullscreenRef.current = isFull;
+      localStorage.setItem("isFullscreen", String(isFull));
     };
-  }, [iframeReady]);
 
+    FULLSCREEN_EVENTS.forEach((name) =>
+      document.addEventListener(name, handleFullscreenChange)
+    );
+    return () =>
+      FULLSCREEN_EVENTS.forEach((name) =>
+        document.removeEventListener(name, handleFullscreenChange)
+      );
+  }, []);
+
+  // Apply play/pause changes made from the queue controls.
   useEffect(() => {
-    if (!playerRef.current) return;
-
     const player = playerRef.current;
-    if (isPaused) {
-      player.pauseVideo?.();
-    } else {
-      player.playVideo?.();
-    }
+    if (!player) return;
+    if (isPaused) player.pauseVideo?.();
+    else player.playVideo?.();
   }, [isPaused]);
 
   if (!video) return <div>No video selected</div>;
@@ -141,25 +66,10 @@ const VideoPlayer = ({ video, onEnd, isPaused, setIsPaused, playCount }) => {
         <YouTube
           key={`${video.id.videoId}-${playCount}`}
           videoId={video.id.videoId}
-          opts={opts}
+          opts={PLAYER_OPTS}
           onReady={onReady}
           onEnd={onEnd}
         />
-        {/* Control buttons */}
-        {/* <div className="video-controls">
-        <button
-          onClick={() => handleButtonClick("playPause")}
-          className="btn btn-sm btn-success"
-        >
-          {isPaused ? "Play" : "Pause"}
-        </button>
-        <button
-          onClick={() => handleButtonClick("fullscreen")}
-          className="btn btn-sm btn-primary ms-2"
-        >
-          Fullscreen
-        </button>
-      </div> */}
       </div>
     </div>
   );

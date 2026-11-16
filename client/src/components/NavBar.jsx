@@ -1,29 +1,23 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dropdown, Modal, Button } from "react-bootstrap";
 import { FaCog } from "react-icons/fa";
 
 const NavBar = () => {
-  const [darkMode, setDarkMode] = useState(true);
+  // Read the saved theme up front so the first paint is already correct.
+  const [darkMode, setDarkMode] = useState(
+    () => localStorage.getItem("theme") === "dark"
+  );
   const [showCoffeeModal, setShowCoffeeModal] = useState(false);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    const isDark = savedTheme === "dark";
-    setDarkMode(isDark);
-    document.body.classList.toggle("bg-dark", isDark);
-    document.body.classList.toggle("text-light", isDark);
-  }, []);
+    document.body.classList.toggle("bg-dark", darkMode);
+    document.body.classList.toggle("text-light", darkMode);
+    localStorage.setItem("theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
 
-  const toggleTheme = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    document.body.classList.toggle("bg-dark", newDarkMode);
-    document.body.classList.toggle("text-light", newDarkMode);
-    localStorage.setItem("theme", newDarkMode ? "dark" : "light");
-  };
-
-  const handleCoffeeClick = () => setShowCoffeeModal(true);
-  const handleCloseModal = () => setShowCoffeeModal(false);
+  const toggleTheme = useCallback(() => setDarkMode((dark) => !dark), []);
+  const handleCoffeeClick = useCallback(() => setShowCoffeeModal(true), []);
+  const handleCloseModal = useCallback(() => setShowCoffeeModal(false), []);
 
   return (
     <>
@@ -32,7 +26,7 @@ const NavBar = () => {
           darkMode ? "navbar-light bg-light" : "navbar-dark bg-dark"
         } px-3`}
       >
-        <a className="navbar-brand">🎬 YouTube Queueing App</a>
+        <span className="navbar-brand">🎬 YouTube Queueing App</span>
 
         <div className="ms-auto">
           <Dropdown align="end">
@@ -70,7 +64,6 @@ const NavBar = () => {
         </Modal.Header>
         <Modal.Body className="text-center">
           <img
-            // src="https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif"
             src="/images/qrcode.jpg"
             alt="Coffee"
             className="img-fluid rounded mb-3"

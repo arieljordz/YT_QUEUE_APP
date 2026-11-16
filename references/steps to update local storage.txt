@@ -1,0 +1,29 @@
+// get the local storage first
+
+JSON.parse(localStorage.getItem('videoQueue'))
+
+// update the local storage
+
+const input = document.createElement('input');
+input.type = 'file';
+input.accept = '.json';
+
+input.onchange = async () => {
+  const file = input.files[0];
+  if (!file) return;
+
+  const contents = await file.text();
+  const queue = JSON.parse(contents);
+
+  if (!Array.isArray(queue)) {
+    throw new Error('Invalid queue format');
+  }
+
+  localStorage.setItem('videoQueue', JSON.stringify(queue));
+
+  console.log('Queue successfully updated:', queue.length, 'videos');
+
+  location.reload();
+};
+
+input.click();

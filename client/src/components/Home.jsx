@@ -1,136 +1,127 @@
-import React, { useState, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { toast } from "react-toastify";
 import SearchBar from "./SearchBar";
 import VideoList from "./VideoList";
 import Queue from "./Queue";
 import VideoPlayer from "./VideoPlayer";
-import { toast } from "react-toastify";
+import useLocalStorage from "../hooks/useLocalStorage";
+import { searchVideos, QuotaError } from "../api/youtube";
 
-const API_KEY = import.meta.env.VITE_YT_API_KEY;
+// Queue entries get their own id so the same video can appear more than once
+// and still have a stable React / drag-and-drop key.
+const newQueueId = () =>
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+const toQueueItem = (video) => ({ ...video, queueId: newQueueId() });
 
 function Home() {
   const [videos, setVideos] = useState([]);
-  const [queue, setQueue] = useState(() => {
-    const saved = localStorage.getItem("videoQueue");
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [currentVideo, setCurrentVideo] = useState(() => {
-    const saved = localStorage.getItem("currentVideo");
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [isPaused, setIsPaused] = useState(() => {
-    const saved = localStorage.getItem("isPaused");
-    return saved ? JSON.parse(saved) : false;
-  });
+  const [queue, setQueue] = useLocalStorage("videoQueue", []);
+  const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
+  const [playedVideos, setPlayedVideos] = useLocalStorage("playedVideos", []);
   const [playCount, setPlayCount] = useState(0);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [playedVideos, setPlayedVideos] = useState(() => {
-    const saved = localStorage.getItem("playedVideos");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const searchAbortRef = useRef(null);
 
-  // Sync with localStorage
-  useEffect(() => {
-    localStorage.setItem("videoQueue", JSON.stringify(queue));
-  }, [queue]);
+  // The current video is always the head of the queue, so it is derived
+  // instead of being stored (and persisted) as separate state.
+  const currentVideo = queue[0] ?? null;
 
-  useEffect(() => {
-    localStorage.setItem("currentVideo", JSON.stringify(currentVideo));
-  }, [currentVideo]);
+  useEffect(() => () => searchAbortRef.current?.abort(), []);
 
-  useEffect(() => {
-    localStorage.setItem("isPaused", JSON.stringify(isPaused));
-  }, [isPaused]);
+  const handleSearch = useCallback(async (query) => {
+    searchAbortRef.current?.abort();
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
 
-  useEffect(() => {
-    localStorage.setItem("playedVideos", JSON.stringify(playedVideos));
-  }, [playedVideos]);
-
-  const handleSearch = async (query) => {
     try {
-      const res = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&maxResults=10&key=${API_KEY}`
-      );
-      console.log("Search Result:", res);
-      if (res.status === 403) toast.warning("Search quota limit reached. Please try again later.");
-      const data = await res.json();
-      if (data.items) setVideos(data.items);
-      else console.error("Error fetching videos:", data);
+      setVideos(await searchVideos(query, controller.signal));
     } catch (err) {
-      console.error("Search Error:", err);
+      if (err.name === "AbortError") return;
+      if (err instanceof QuotaError) {
+        toast.warning("Search quota limit reached. Please try again later.");
+      } else {
+        toast.error("Search failed. Please try again.");
+        console.error("Search Error:", err);
+      }
     }
-  };
+  }, []);
 
-  const addToQueue = (video) => {
-    setQueue((prev) => {
-      const updated = [...prev, video];
-      if (!currentVideo) setCurrentVideo(video);
+  const addToQueue = useCallback(
+    (video) => {
+      setQueue((prev) => [...prev, toQueueItem(video)]);
       toast.success(`Added "${video.snippet.title}" to the queue`);
-      return updated;
-    });
-  };
+    },
+    [setQueue]
+  );
 
-  const handleReorder = (newQueue) => {
-    setQueue(newQueue);
-    if (!currentVideo && newQueue.length > 0) setCurrentVideo(newQueue[0]);
-  };
+  // Move an item between two positions; position 0 is the playing video and is locked.
+  const handleMove = useCallback(
+    (from, to) => {
+      setQueue((prev) => {
+        if (from < 1 || to < 1 || from >= prev.length || to >= prev.length) {
+          return prev;
+        }
+        const next = [...prev];
+        next.splice(to, 0, next.splice(from, 1)[0]);
+        return next;
+      });
+    },
+    [setQueue]
+  );
 
-  const handleRemove = (index) => {
-    setQueue((prev) => {
-      const updated = [...prev];
-      updated.splice(index, 1);
-      if (index === 0) {
-        const next = updated[0] || null;
-        setCurrentVideo(next);
-      }
-      return updated;
-    });
-  };
+  const handleRemove = useCallback(
+    (index) => setQueue((prev) => prev.filter((_, i) => i !== index)),
+    [setQueue]
+  );
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     setQueue([]);
-    setCurrentVideo(null);
     setIsPaused(false);
-  };
+  }, [setQueue, setIsPaused]);
 
-  const playNext = () => {
-    setQueue((prev) => {
-      const nextQueue = [...prev];
-      const finishedVideo = nextQueue.shift();
+  const playNext = useCallback(() => {
+    const [finished, ...rest] = queue;
+    setQueue(rest);
+    setPlayCount((count) => count + 1);
 
-      setCurrentVideo(nextQueue[0] || null);
-      setPlayCount((count) => count + 1);
+    if (finished) {
+      setPlayedVideos((prev) =>
+        prev.some((v) => v.id.videoId === finished.id.videoId)
+          ? prev
+          : [...prev, finished]
+      );
+    }
+  }, [queue, setQueue, setPlayedVideos]);
 
-      // Only add to playedVideos after it's been removed from the queue
-      if (finishedVideo) {
-        setPlayedVideos((prevPlayed) => {
-          // Prevent duplicate in playedVideos
-          const alreadyPlayed = prevPlayed.some(
-            (v) => v.id.videoId === finishedVideo.id.videoId
-          );
-          return alreadyPlayed ? prevPlayed : [...prevPlayed, finishedVideo];
-        });
-      }
+  const handlePlay = useCallback(
+    (index) => {
+      if (index === 0) return;
+      setQueue((prev) => {
+        if (index >= prev.length) return prev;
+        const next = [...prev];
+        next.unshift(next.splice(index, 1)[0]);
+        return next;
+      });
+      setIsPaused(false);
+    },
+    [setQueue, setIsPaused]
+  );
 
-      return nextQueue;
-    });
-  };
-
-  const handlePlay = (index) => {
-    if (index === 0) return;
-    const newQueue = [...queue];
-    const [selected] = newQueue.splice(index, 1);
-    newQueue.unshift(selected);
-    setQueue(newQueue);
-    setCurrentVideo(selected);
-    setIsPaused(false);
-  };
-
-  const handleRequeuePlayed = () => {
+  const handleRequeuePlayed = useCallback(() => {
     if (playedVideos.length === 0) return;
-    setQueue((prev) => [...prev, ...playedVideos]);
-    toast.success("Re-queued played videos!");
+    setQueue((prev) => [...prev, ...playedVideos.map(toQueueItem)]);
     setPlayedVideos([]);
-  };
+    toast.success("Re-queued played videos!");
+  }, [playedVideos, setQueue, setPlayedVideos]);
+
+  const toggleSidebar = useCallback(
+    () => setIsSidebarCollapsed((collapsed) => !collapsed),
+    []
+  );
+  const togglePaused = useCallback(
+    () => setIsPaused((paused) => !paused),
+    [setIsPaused]
+  );
 
   return (
     <div className="m-4">
@@ -142,7 +133,6 @@ function Home() {
           playCount={playCount}
           onEnd={playNext}
           isPaused={isPaused}
-          setIsPaused={setIsPaused}
         />
       </div>
 
@@ -158,15 +148,15 @@ function Home() {
         <div className={isSidebarCollapsed ? "col-12" : "col-md-6"}>
           <Queue
             queue={queue}
-            onReorder={handleReorder}
+            onMove={handleMove}
             onRemove={handleRemove}
             onClear={handleClear}
             onPlay={handlePlay}
             isPaused={isPaused}
-            setIsPaused={setIsPaused}
+            onTogglePause={togglePaused}
             isSidebarCollapsed={isSidebarCollapsed}
-            setIsSidebarCollapsed={setIsSidebarCollapsed}
-            playedVideos={playedVideos}
+            onToggleSidebar={toggleSidebar}
+            hasPlayedVideos={playedVideos.length > 0}
             onRequeuePlayed={handleRequeuePlayed}
           />
         </div>

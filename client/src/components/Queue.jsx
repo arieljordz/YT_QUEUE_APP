@@ -1,56 +1,118 @@
-import React from "react";
+import { memo, useCallback } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import {
   FaTrash,
   FaArrowUp,
   FaArrowDown,
   FaPause,
-  FaPlay as FaPlayIcon,
+  FaPlay,
   FaArrowRight,
   FaArrowLeft,
 } from "react-icons/fa";
 
+// Entries saved before queueIds existed fall back to a videoId+index key.
+const getItemId = (video, index) => video.queueId ?? `${video.id.videoId}-${index}`;
+
+const QueueItem = memo(function QueueItem({
+  video,
+  index,
+  isLast,
+  isPaused,
+  onTogglePause,
+  onPlay,
+  onMove,
+  onRemove,
+}) {
+  const isPlaying = index === 0;
+  const itemId = getItemId(video, index);
+
+  return (
+    <Draggable draggableId={itemId} index={index} isDragDisabled={isPlaying}>
+      {(provided) => (
+        <li
+          className={`list-group-item d-flex justify-content-between align-items-center ${
+            isPlaying ? "bg-primary text-white" : ""
+          }`}
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+        >
+          <span
+            className="me-2 text-truncate"
+            style={{ maxWidth: "50%" }}
+            title={video.snippet.title}
+          >
+            {isPlaying ? "▶️ " : "🎬 "}
+            {video.snippet.title}
+          </span>
+
+          <div className="d-flex flex-nowrap align-items-center overflow-auto">
+            {isPlaying ? (
+              <button
+                className="btn btn-sm btn-outline-light me-1"
+                onClick={onTogglePause}
+              >
+                {isPaused ? <FaPlay /> : <FaPause />}
+              </button>
+            ) : (
+              <button
+                className="btn btn-sm btn-outline-primary me-1"
+                onClick={() => onPlay(index)}
+              >
+                <FaPlay />
+              </button>
+            )}
+
+            <button
+              className="btn btn-sm btn-outline-warning me-1"
+              onClick={() => onMove(index, index - 1)}
+              disabled={index <= 1}
+            >
+              <FaArrowUp />
+            </button>
+
+            <button
+              className="btn btn-sm btn-outline-warning me-1"
+              onClick={() => onMove(index, index + 1)}
+              disabled={isPlaying || isLast}
+            >
+              <FaArrowDown />
+            </button>
+
+            <button
+              className="btn btn-sm btn-outline-danger"
+              onClick={() => onRemove(index)}
+            >
+              <FaTrash />
+            </button>
+          </div>
+        </li>
+      )}
+    </Draggable>
+  );
+});
+
 function Queue({
   queue,
-  onReorder,
+  onMove,
   onRemove,
   onClear,
   onPlay,
   isPaused,
-  setIsPaused,
+  onTogglePause,
   isSidebarCollapsed,
-  setIsSidebarCollapsed,
-  playedVideos,
+  onToggleSidebar,
+  hasPlayedVideos,
   onRequeuePlayed,
 }) {
-  const handleDragEnd = (result) => {
-    if (!result.destination) return;
-
-    // Prevent dragging the currently playing video
-    if (result.source.index === 0 || result.destination.index === 0) return;
-
-    const reordered = [...queue];
-    const [movedItem] = reordered.splice(result.source.index, 1);
-    reordered.splice(result.destination.index, 0, movedItem);
-
-    onReorder(reordered);
-  };
-
-  const moveItem = (index, direction) => {
-    const newQueue = [...queue];
-    const targetIndex = index + direction;
-
-    // Prevent moving into index 0 (currently playing)
-    if (index === 0 || targetIndex === 0) return;
-
-    if (targetIndex > 0 && targetIndex < newQueue.length) {
-      const [item] = newQueue.splice(index, 1);
-      newQueue.splice(targetIndex, 0, item);
-      onReorder(newQueue);
-    }
-  };
-
-  const currentlyPlaying = queue[0];
+  const handleDragEnd = useCallback(
+    (result) => {
+      if (!result.destination) return;
+      // Position 0 is the playing video; Home.handleMove enforces that too.
+      onMove(result.source.index, result.destination.index);
+    },
+    [onMove]
+  );
 
   return (
     <div className="mt-4">
@@ -59,7 +121,7 @@ function Queue({
         <div className="d-flex gap-2">
           <button
             className="btn btn-sm btn-primary d-flex align-items-center gap-1"
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            onClick={onToggleSidebar}
           >
             {isSidebarCollapsed ? (
               <>
@@ -76,7 +138,7 @@ function Queue({
           <button
             className="btn btn-sm btn-warning"
             onClick={onRequeuePlayed}
-            disabled={playedVideos.length === 0}
+            disabled={!hasPlayedVideos}
           >
             Re-Queue Played
           </button>
@@ -97,79 +159,19 @@ function Queue({
               ref={provided.innerRef}
               {...provided.droppableProps}
             >
-              {queue.map((video, index) => {
-                const isPlaying = index === 0;
-
-                return (
-                  <Draggable
-                    key={`${video.id.videoId}-${index}`}
-                    draggableId={`${video.id.videoId}-${index}`}
-                    index={index}
-                    isDragDisabled={isPlaying}
-                  >
-                    {(provided) => (
-                      <li
-                        className={`list-group-item d-flex justify-content-between align-items-center ${
-                          isPlaying ? "bg-primary text-white" : ""
-                        }`}
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                      >
-                        <span
-                          className="me-2 text-truncate"
-                          style={{ maxWidth: "50%" }}
-                          title={video.snippet.title}
-                        >
-                          {isPlaying ? "▶️ " : "🎬 "}
-                          {video.snippet.title}
-                        </span>
-
-                        <div className="d-flex flex-nowrap align-items-center overflow-auto">
-                          {isPlaying ? (
-                            <button
-                              className="btn btn-sm btn-outline-light me-1"
-                              onClick={() => setIsPaused((prev) => !prev)}
-                            >
-                              {isPaused ? <FaPlayIcon /> : <FaPause />}
-                            </button>
-                          ) : (
-                            <button
-                              className="btn btn-sm btn-outline-primary me-1"
-                              onClick={() => onPlay(index)}
-                            >
-                              <FaPlayIcon />
-                            </button>
-                          )}
-
-                          <button
-                            className="btn btn-sm btn-outline-warning me-1"
-                            onClick={() => moveItem(index, -1)}
-                            disabled={index <= 1}
-                          >
-                            <FaArrowUp />
-                          </button>
-
-                          <button
-                            className="btn btn-sm btn-outline-warning me-1"
-                            onClick={() => moveItem(index, 1)}
-                            disabled={index === 0 || index === queue.length - 1}
-                          >
-                            <FaArrowDown />
-                          </button>
-
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => onRemove(index)}
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
-                      </li>
-                    )}
-                  </Draggable>
-                );
-              })}
+              {queue.map((video, index) => (
+                <QueueItem
+                  key={getItemId(video, index)}
+                  video={video}
+                  index={index}
+                  isLast={index === queue.length - 1}
+                  isPaused={isPaused}
+                  onTogglePause={onTogglePause}
+                  onPlay={onPlay}
+                  onMove={onMove}
+                  onRemove={onRemove}
+                />
+              ))}
               {provided.placeholder}
             </ul>
           )}

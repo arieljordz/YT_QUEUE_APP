@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import { useState, memo } from "react";
 
 function SearchBar({ onSearch }) {
-  const [term, setTerm] = useState('');
+  const [term, setTerm] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (term) onSearch(term);
+    const query = term.trim();
+    if (query) onSearch(query);
   };
 
   return (
@@ -17,9 +18,11 @@ function SearchBar({ onSearch }) {
         value={term}
         onChange={(e) => setTerm(e.target.value)}
       />
-      <button className="btn btn-primary" type="submit">Search</button>
+      <button className="btn btn-primary" type="submit">
+        Search
+      </button>
     </form>
   );
 }
 
-export default SearchBar;
+export default memo(SearchBar);
