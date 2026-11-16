@@ -4,6 +4,8 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import SearchBar from "./SearchBar";
 import VideoList from "./VideoList";
 import Queue from "./Queue";
+import Library from "./Library";
+import useLibrary from "../hooks/useLibrary";
 import useLocalStorage from "../hooks/useLocalStorage";
 import { searchVideos, QuotaError } from "../api/youtube";
 
@@ -20,6 +22,8 @@ function Home() {
   const [playedVideos, setPlayedVideos] = useLocalStorage("playedVideos", []);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [tab, setTab] = useState("search");
+  const { library, addToLibrary, syncCode, setSyncCode, status, retrySync } = useLibrary();
   const searchAbortRef = useRef(null);
 
   useEffect(() => () => searchAbortRef.current?.abort(), []);
@@ -50,9 +54,10 @@ function Home() {
   const addToQueue = useCallback(
     (video) => {
       setQueue((prev) => [...prev, toQueueItem(video)]);
+      addToLibrary([video]);
       toast.success(`Added "${video.snippet.title}" to the queue`);
     },
-    [setQueue]
+    [setQueue, addToLibrary]
   );
 
   // Move an item between two positions; position 0 is the playing video and is locked.
@@ -83,6 +88,7 @@ function Home() {
   const handleImport = useCallback(
     (imported, skipped) => {
       setQueue((prev) => [...prev, ...imported.map(toQueueItem)]);
+      addToLibrary(imported);
       const count = `${imported.length} video${imported.length === 1 ? "" : "s"}`;
       toast.success(
         skipped > 0
@@ -90,7 +96,7 @@ function Home() {
           : `Imported ${count}`
       );
     },
-    [setQueue]
+    [setQueue, addToLibrary]
   );
   const handleImportError = useCallback((message) => toast.error(message), []);
 
@@ -149,15 +155,44 @@ function Home() {
 
       <div className="row g-4">
         <div className="col-lg-6">
-          <h5 className="mb-3">🔍 Search</h5>
-          <SearchBar onSearch={handleSearch} isLoading={isSearching} />
-          <VideoList
-            videos={videos}
-            queuedIds={queuedIds}
-            onAdd={addToQueue}
-            isLoading={isSearching}
-            hasSearched={hasSearched}
-          />
+          <ul className="nav nav-tabs mb-3">
+            {[
+              ["search", "🔍 Search"],
+              ["library", `📚 Library (${library.length})`],
+            ].map(([key, label]) => (
+              <li className="nav-item" key={key}>
+                <button
+                  className={`nav-link ${tab === key ? "active" : ""}`}
+                  onClick={() => setTab(key)}
+                >
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {tab === "search" ? (
+            <>
+              <SearchBar onSearch={handleSearch} isLoading={isSearching} />
+              <VideoList
+                videos={videos}
+                queuedIds={queuedIds}
+                onAdd={addToQueue}
+                isLoading={isSearching}
+                hasSearched={hasSearched}
+              />
+            </>
+          ) : (
+            <Library
+              library={library}
+              onAdd={addToQueue}
+              queuedIds={queuedIds}
+              syncCode={syncCode}
+              onChangeCode={setSyncCode}
+              status={status}
+              onRetry={retrySync}
+            />
+          )}
         </div>
 
         <div className="col-lg-6">

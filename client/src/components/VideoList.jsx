@@ -1,7 +1,14 @@
 import { memo } from "react";
 import { FaPlus } from "react-icons/fa";
 
-function VideoList({ videos, queuedIds, onAdd, isLoading, hasSearched }) {
+function VideoList({
+  videos,
+  queuedIds,
+  onAdd,
+  isLoading,
+  hasSearched,
+  emptyText = "No results found.",
+}) {
   if (isLoading) {
     return <p className="text-muted text-center my-4">Searching…</p>;
   }
@@ -13,7 +20,7 @@ function VideoList({ videos, queuedIds, onAdd, isLoading, hasSearched }) {
     );
   }
   if (videos.length === 0) {
-    return <p className="text-muted text-center my-4">No results found.</p>;
+    return <p className="text-muted text-center my-4">{emptyText}</p>;
   }
 
   return (
