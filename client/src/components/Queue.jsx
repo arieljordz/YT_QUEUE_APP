@@ -1,4 +1,5 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useState } from "react";
+import { Modal, Button } from "react-bootstrap";
 import ImportQueueButton from "./ImportQueueButton";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import {
@@ -110,6 +111,25 @@ const UpNextItem = memo(function UpNextItem({
   );
 });
 
+function ConfirmModal({ show, title, children, confirmLabel, onConfirm, onCancel }) {
+  return (
+    <Modal show={show} onHide={onCancel} centered>
+      <Modal.Header closeButton>
+        <Modal.Title as="h5">{title}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>{children}</Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button variant="danger" onClick={onConfirm} autoFocus>
+          {confirmLabel}
+        </Button>
+      </Modal.Footer>
+    </Modal>
+  );
+}
+
 function Queue({
   queue,
   isPaused,
@@ -135,6 +155,32 @@ function Queue({
 
   const [current, ...upNext] = queue;
 
+  // Removing needs a confirmation. The pending video is tracked by id, not
+  // position, because the queue can change (e.g. the player tab moves on)
+  // while the dialog is open.
+  const [pendingRemoveId, setPendingRemoveId] = useState(null);
+  const [confirmingClear, setConfirmingClear] = useState(false);
+
+  const pendingRemove = upNext.find(
+    (video, i) => getItemId(video, i + 1) === pendingRemoveId
+  );
+
+  const handleRequestRemove = useCallback(
+    (index) => setPendingRemoveId(getItemId(queue[index], index)),
+    [queue]
+  );
+
+  const confirmRemove = () => {
+    const index = queue.findIndex((video, i) => getItemId(video, i) === pendingRemoveId);
+    if (index >= 1) onRemove(index);
+    setPendingRemoveId(null);
+  };
+
+  const confirmClear = () => {
+    onClear();
+    setConfirmingClear(false);
+  };
+
   return (
     <section>
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -152,7 +198,7 @@ function Queue({
           </button>
           <button
             className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
-            onClick={onClear}
+            onClick={() => setConfirmingClear(true)}
             disabled={queue.length === 0}
           >
             <FaTrash /> Clear
@@ -192,7 +238,7 @@ function Queue({
                       isLast={i === upNext.length - 1}
                       onPlay={onPlay}
                       onMove={onMove}
-                      onRemove={onRemove}
+                      onRemove={handleRequestRemove}
                     />
                   ))}
                   {provided.placeholder}
@@ -202,6 +248,31 @@ function Queue({
           </DragDropContext>
         </>
       )}
+
+      <ConfirmModal
+        show={Boolean(pendingRemove)}
+        title="Remove from queue?"
+        confirmLabel="Remove"
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingRemoveId(null)}
+      >
+        {pendingRemove && (
+          <>
+            Remove <strong>{pendingRemove.snippet.title}</strong> from the queue?
+          </>
+        )}
+      </ConfirmModal>
+
+      <ConfirmModal
+        show={confirmingClear}
+        title="Clear the queue?"
+        confirmLabel="Clear all"
+        onConfirm={confirmClear}
+        onCancel={() => setConfirmingClear(false)}
+      >
+        This removes all {queue.length} videos from the queue, including the one
+        playing now.
+      </ConfirmModal>
     </section>
   );
 }

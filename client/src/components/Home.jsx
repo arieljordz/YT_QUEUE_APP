@@ -22,7 +22,7 @@ function Home() {
   const [playedVideos, setPlayedVideos] = useLocalStorage("playedVideos", []);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [tab, setTab] = useState("search");
+  const [tab, setTab] = useState("library");
   const { library, addToLibrary, syncCode, setSyncCode, status, retrySync } = useLibrary();
   const searchAbortRef = useRef(null);
 
@@ -157,8 +157,8 @@ function Home() {
         <div className="col-lg-6">
           <ul className="nav nav-tabs mb-3">
             {[
-              ["search", "🔍 Search"],
               ["library", `📚 Library (${library.length})`],
+              ["search", "🔍 Search"],
             ].map(([key, label]) => (
               <li className="nav-item" key={key}>
                 <button
