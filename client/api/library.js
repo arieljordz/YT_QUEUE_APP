@@ -1,12 +1,17 @@
+/* global process */
 // Vercel serverless function: stores one JSON file per sync code in a PRIVATE
-// Vercel Blob store. No database. Requires the BLOB_READ_WRITE_TOKEN env var,
-// which Vercel adds automatically when a Blob store is connected to the project.
+// Vercel Blob store. No database. Needs the store's read/write token, which
+// Vercel adds when the store is connected to the project. Depending on the
+// prefix chosen at connect time the variable is named either
+// BLOB_READ_WRITE_TOKEN or BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN.
 import { createHash } from "node:crypto";
 import { get, put } from "@vercel/blob";
 
 const MAX_BODY_BYTES = 4 * 1024 * 1024; // Vercel functions cap request bodies at ~4.5 MB.
 const MAX_ITEMS = 20000;
 const MIN_CODE_LENGTH = 8;
+const TOKEN =
+  process.env.BLOB_READ_WRITE_TOKEN ?? process.env.BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN;
 
 // Keep only what the UI needs so the stored file stays small.
 function slim(video) {
@@ -37,7 +42,7 @@ function merge(stored, incoming) {
 }
 
 async function readStored(pathname) {
-  const result = await get(pathname, { access: "private", useCache: false });
+  const result = await get(pathname, { access: "private", useCache: false, token: TOKEN });
   if (!result || result.statusCode !== 200) return [];
   const data = JSON.parse(await new Response(result.stream).text());
   return Array.isArray(data) ? data : [];
@@ -72,6 +77,7 @@ export default async function handler(req, res) {
       contentType: "application/json",
       addRandomSuffix: false,
       allowOverwrite: true,
+      token: TOKEN,
     });
     return res.status(200).json({ library: merged });
   } catch (error) {
