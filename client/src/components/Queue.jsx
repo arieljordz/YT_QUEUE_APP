@@ -21,9 +21,9 @@ const thumbOf = (video) => {
 const NowPlaying = memo(function NowPlaying({ video, isPaused, onTogglePause, onSkip }) {
   return (
     <div className="card mb-3 border-primary">
-      <div className="card-body d-flex align-items-center gap-3">
+      <div className="card-body d-flex flex-wrap align-items-center gap-3">
         <img src={thumbOf(video)} alt="" className="result-thumb rounded" />
-        <div className="flex-grow-1 min-w-0">
+        <div className="now-playing-info min-w-0">
           <small className="text-primary text-uppercase fw-bold">
             {isPaused ? "Paused" : "Now playing"}
           </small>
@@ -31,7 +31,7 @@ const NowPlaying = memo(function NowPlaying({ video, isPaused, onTogglePause, on
             {video.snippet.title}
           </div>
         </div>
-        <div className="btn-group flex-shrink-0">
+        <div className="btn-group queue-actions">
           <button
             className="btn btn-primary"
             onClick={onTogglePause}
@@ -61,17 +61,17 @@ const UpNextItem = memo(function UpNextItem({
     <Draggable draggableId={getItemId(video, index)} index={index - 1}>
       {(provided) => (
         <li
-          className="list-group-item d-flex align-items-center gap-2"
+          className="list-group-item d-flex flex-wrap align-items-center gap-2"
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
         >
           <span className="text-muted small queue-position">{index}</span>
           <img src={thumbOf(video)} alt="" className="queue-thumb rounded" />
-          <span className="flex-grow-1 min-w-0 text-truncate-2" title={video.snippet.title}>
+          <span className="up-next-title min-w-0 text-truncate-2" title={video.snippet.title}>
             {video.snippet.title}
           </span>
-          <div className="btn-group btn-group-sm flex-shrink-0">
+          <div className="btn-group btn-group-sm queue-actions">
             <button
               className="btn btn-outline-primary"
               onClick={() => onPlay(index)}
