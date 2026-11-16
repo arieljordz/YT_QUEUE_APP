@@ -1,4 +1,5 @@
 import { memo, useCallback } from "react";
+import ImportQueueButton from "./ImportQueueButton";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import {
   FaTrash,
@@ -120,6 +121,8 @@ function Queue({
   onClear,
   playedCount,
   onRequeuePlayed,
+  onImport,
+  onImportError,
 }) {
   const handleDragEnd = useCallback(
     (result) => {
@@ -138,7 +141,8 @@ function Queue({
         <h5 className="mb-0">
           🎵 Queue <span className="badge bg-secondary">{queue.length}</span>
         </h5>
-        <div className="d-flex gap-2">
+        <div className="d-flex gap-2 flex-wrap">
+          <ImportQueueButton onImport={onImport} onError={onImportError} />
           <button
             className="btn btn-sm btn-outline-warning d-flex align-items-center gap-1"
             onClick={onRequeuePlayed}
