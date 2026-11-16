@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import YouTube from "react-youtube";
 
 const PLAYER_OPTS = { width: "100%", playerVars: { autoplay: 1 } };
@@ -10,8 +10,10 @@ function requestFullscreen(element) {
   Promise.resolve(request?.call(element)).catch(() => {});
 }
 
-const VideoPlayer = ({ video, onEnd, isPaused, playCount }) => {
+const VideoPlayer = ({ video, onEnd, isPaused }) => {
   const playerRef = useRef(null);
+  const isPausedRef = useRef(isPaused);
+  isPausedRef.current = isPaused;
   const wantsFullscreenRef = useRef(localStorage.getItem("isFullscreen") === "true");
 
   const onReady = useCallback(
@@ -58,17 +60,65 @@ const VideoPlayer = ({ video, onEnd, isPaused, playCount }) => {
     else player.playVideo?.();
   }, [isPaused]);
 
-  if (!video) return <div>No video selected</div>;
+  // The iframe is kept alive between videos (react-youtube loads the new id
+  // into the existing player), because a freshly created iframe in a background
+  // tab is blocked from autoplaying. Only a repeat of the same video id needs
+  // an explicit restart, since the id prop does not change.
+  const queueId = video?.queueId;
+  const videoId = video?.id.videoId;
+  const lastRef = useRef({ queueId, videoId });
+  useEffect(() => {
+    const last = lastRef.current;
+    lastRef.current = { queueId, videoId };
+    const player = playerRef.current;
+    if (!player || !queueId || queueId === last.queueId) return;
+    if (videoId === last.videoId && !isPausedRef.current) {
+      player.seekTo?.(0);
+      player.playVideo?.();
+    }
+  }, [queueId, videoId]);
+
+  // Fallback: if the browser still blocked the next video while the tab was in
+  // the background, start it as soon as the user comes back.
+  useEffect(() => {
+    const resumeIfStalled = () => {
+      if (document.hidden || isPausedRef.current) return;
+      const player = playerRef.current;
+      const state = player?.getPlayerState?.();
+      // -1 unstarted, 2 paused, 5 cued
+      if (state === -1 || state === 2 || state === 5) player.playVideo();
+    };
+    document.addEventListener("visibilitychange", resumeIfStalled);
+    return () => document.removeEventListener("visibilitychange", resumeIfStalled);
+  }, []);
+
+  const handleStateChange = useCallback((e) => {
+    // -1 unstarted / 5 cued: the next video was loaded but not started.
+    if ((e.data === -1 || e.data === 5) && !isPausedRef.current) e.target.playVideo();
+  }, []);
+
+  // One click on this page gives it the user activation the browser needs to
+  // let later videos autoplay while the tab is in the background.
+  const [activated, setActivated] = useState(false);
+  const handleActivate = useCallback(() => {
+    setActivated(true);
+    if (!isPausedRef.current) playerRef.current?.playVideo?.();
+  }, []);
 
   return (
     <div className="video-wrapper">
       <div className="video-container">
+        {!activated && (
+          <button className="btn btn-primary mb-3" onClick={handleActivate}>
+            ▶ Click once to enable continuous playback
+          </button>
+        )}
         <YouTube
-          key={`${video.id.videoId}-${playCount}`}
-          videoId={video.id.videoId}
+          videoId={videoId}
           opts={PLAYER_OPTS}
           onReady={onReady}
           onEnd={onEnd}
+          onStateChange={handleStateChange}
         />
       </div>
     </div>

@@ -3,7 +3,6 @@ import { toast } from "react-toastify";
 import SearchBar from "./SearchBar";
 import VideoList from "./VideoList";
 import Queue from "./Queue";
-import VideoPlayer from "./VideoPlayer";
 import useLocalStorage from "../hooks/useLocalStorage";
 import { searchVideos, QuotaError } from "../api/youtube";
 
@@ -18,13 +17,8 @@ function Home() {
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
   const [playedVideos, setPlayedVideos] = useLocalStorage("playedVideos", []);
-  const [playCount, setPlayCount] = useState(0);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const searchAbortRef = useRef(null);
-
-  // The current video is always the head of the queue, so it is derived
-  // instead of being stored (and persisted) as separate state.
-  const currentVideo = queue[0] ?? null;
 
   useEffect(() => () => searchAbortRef.current?.abort(), []);
 
@@ -79,20 +73,6 @@ function Home() {
     setIsPaused(false);
   }, [setQueue, setIsPaused]);
 
-  const playNext = useCallback(() => {
-    const [finished, ...rest] = queue;
-    setQueue(rest);
-    setPlayCount((count) => count + 1);
-
-    if (finished) {
-      setPlayedVideos((prev) =>
-        prev.some((v) => v.id.videoId === finished.id.videoId)
-          ? prev
-          : [...prev, finished]
-      );
-    }
-  }, [queue, setQueue, setPlayedVideos]);
-
   const handlePlay = useCallback(
     (index) => {
       if (index === 0) return;
@@ -127,13 +107,19 @@ function Home() {
     <div className="m-4">
       <h2 className="text-center mb-4 hide">🎬 YouTube Queueing App</h2>
 
-      <div className="row">
-        <VideoPlayer
-          video={currentVideo}
-          playCount={playCount}
-          onEnd={playNext}
-          isPaused={isPaused}
-        />
+      <div className="alert alert-info d-flex justify-content-between align-items-center">
+        <span>
+          Videos play in a separate player tab, so you can keep searching
+          while they play.
+        </span>
+        <a
+          className="btn btn-sm btn-primary"
+          href="/player"
+          target="_blank"
+          rel="noopener"
+        >
+          Open player tab
+        </a>
       </div>
 
       <div className="row">

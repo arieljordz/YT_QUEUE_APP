@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import Home from "./components/Home";
+import PlayerPage from "./components/PlayerPage";
 import NavBar from "./components/NavBar";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "react-toastify/dist/ReactToastify.css";
@@ -13,6 +14,7 @@ function App() {
       <ToastContainer position="top-right" autoClose={2000} />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/player" element={<PlayerPage />} />
       </Routes>
     </BrowserRouter>
   );

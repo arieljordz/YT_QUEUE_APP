@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 function readStorage(key, fallback) {
   try {
@@ -13,6 +13,19 @@ function readStorage(key, fallback) {
 /** useState that is persisted to localStorage under `key`. */
 export default function useLocalStorage(key, initialValue) {
   const [value, setValue] = useState(() => readStorage(key, initialValue));
+
+  const initialRef = useRef(initialValue);
+
+  // Pick up writes made by other tabs, so the search tab and the player tab
+  // always see the same queue.
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (event.storageArea !== localStorage || event.key !== key) return;
+      setValue(readStorage(key, initialRef.current));
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [key]);
 
   useEffect(() => {
     try {
