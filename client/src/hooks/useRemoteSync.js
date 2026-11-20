@@ -87,7 +87,8 @@ export default function useRemoteSync() {
       );
       setQueue(state.queue);
       setIsPaused(state.isPaused);
-      setIsRepeat(state.isRepeat);
+      // An older server does not know about repeat; keep this device's setting then.
+      if (typeof state.isRepeat === "boolean") setIsRepeat(state.isRepeat);
       setPlayed(state.played);
     };
 

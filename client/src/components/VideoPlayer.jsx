@@ -98,8 +98,15 @@ const VideoPlayer = ({ video, onEnd, isPaused, isRepeat }) => {
   const handleEnd = useCallback(
     (e) => {
       if (isRepeatRef.current) {
-        e.target.seekTo(0);
-        e.target.playVideo();
+        const player = e.target;
+        const { video_id: id } = player.getVideoData?.() ?? {};
+        player.seekTo(0, true);
+        player.playVideo();
+        // Some browsers leave an ended video stuck on the end screen; if it did
+        // not restart, load it again.
+        setTimeout(() => {
+          if (player.getPlayerState?.() === 0 && id) player.loadVideoById(id);
+        }, 800);
       } else {
         onEnd(e);
       }

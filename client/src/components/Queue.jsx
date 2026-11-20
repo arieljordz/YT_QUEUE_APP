@@ -50,7 +50,7 @@ const NowPlaying = memo(function NowPlaying({
             {isPaused ? <FaPlay /> : <FaPause />}
           </button>
           <button
-            className={`btn ${isRepeat ? "btn-primary" : "btn-outline-primary"}`}
+            className={`btn ${isRepeat ? "btn-success" : "btn-outline-secondary"}`}
             onClick={onToggleRepeat}
             aria-label={isRepeat ? "Turn repeat off" : "Turn repeat on"}
             aria-pressed={isRepeat}
