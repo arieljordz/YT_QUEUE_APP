@@ -31,13 +31,14 @@ function SyncPanel({ syncCode, onChangeCode, status, onRetry, liveStatus }) {
     }
   };
 
-  return (
-    <div className="card card-body mb-3">
-      <div className="small mb-2">{STATUS_TEXT[status]}</div>
-      {syncCode && LIVE_TEXT[liveStatus] && (
-        <div className="small mb-2">{LIVE_TEXT[liveStatus]}</div>
-      )}
-      {syncCode ? (
+  // With sync on, show a compact one-row card: status text on the left, buttons on the right.
+  if (syncCode) {
+    return (
+      <div className="card card-body py-2 px-3 mb-2 flex-row flex-wrap align-items-center gap-2">
+        <div className="small flex-grow-1">
+          <div>{STATUS_TEXT[status]}</div>
+          {LIVE_TEXT[liveStatus] && <div>{LIVE_TEXT[liveStatus]}</div>}
+        </div>
         <div className="d-flex gap-2">
           {(status === "error" || status === "unavailable") && (
             <button className="btn btn-sm btn-outline-primary" onClick={onRetry}>
@@ -48,31 +49,34 @@ function SyncPanel({ syncCode, onChangeCode, status, onRetry, liveStatus }) {
             className="btn btn-sm btn-outline-secondary"
             onClick={() => onChangeCode("")}
           >
-            Turn off sync on this device
+            Turn off sync
           </button>
         </div>
-      ) : (
-        <form onSubmit={save} className="input-group input-group-sm">
-          <input
-            type="password"
-            className="form-control"
-            placeholder="Choose a secret sync code (8+ characters)"
-            aria-label="Sync code"
-            autoComplete="off"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-          />
-          <button className="btn btn-primary" type="submit" disabled={tooShort}>
-            Turn on sync
-          </button>
-        </form>
-      )}
-      {!syncCode && (
-        <div className="form-text">
-          Use the same code on every device. Anyone with the code can see and add
-          to your library, so keep it private.
-        </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="card card-body py-2 px-3 mb-2">
+      <div className="small mb-2">{STATUS_TEXT[status]}</div>
+      <form onSubmit={save} className="input-group input-group-sm">
+        <input
+          type="password"
+          className="form-control"
+          placeholder="Choose a secret sync code (8+ characters)"
+          aria-label="Sync code"
+          autoComplete="off"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+        <button className="btn btn-primary" type="submit" disabled={tooShort}>
+          Turn on sync
+        </button>
+      </form>
+      <div className="form-text">
+        Use the same code on every device. Anyone with the code can see and add to
+        your library, so keep it private.
+      </div>
     </div>
   );
 }
