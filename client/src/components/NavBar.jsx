@@ -24,9 +24,9 @@ const NavBar = () => {
       <nav
         className={`navbar navbar-expand-lg ${
           darkMode ? "navbar-light bg-light" : "navbar-dark bg-dark"
-        } px-3`}
+        } px-3 py-1`}
       >
-        <span className="navbar-brand">🎬 YouTube Queueing App</span>
+        <span className="navbar-brand py-0 fs-6">🎬 YouTube Queueing App</span>
 
         <div className="ms-auto">
           <Dropdown align="end">
@@ -36,7 +36,7 @@ const NavBar = () => {
               className="d-flex align-items-center"
               style={{ cursor: "pointer" }}
             >
-              <FaCog size={20} color={darkMode ? "#000" : "#fff"} />
+              <FaCog size={16} color={darkMode ? "#000" : "#fff"} />
             </Dropdown.Toggle>
 
             <Dropdown.Menu className="py-1">
