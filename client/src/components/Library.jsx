@@ -11,7 +11,15 @@ const STATUS_TEXT = {
   error: "Sync failed. Check your connection and try again.",
 };
 
-function SyncPanel({ syncCode, onChangeCode, status, onRetry }) {
+const LIVE_TEXT = {
+  connecting: "Live queue: connecting…",
+  connected: "Live queue: connected. Queue changes appear on your other devices within a few seconds.",
+  reconnecting: "Live queue: connection lost, retrying…",
+  unavailable: "Live queue: not available here (deployed site only).",
+  error: "Live queue: the server could not reach the database. Check MONGODB_URI.",
+};
+
+function SyncPanel({ syncCode, onChangeCode, status, onRetry, liveStatus }) {
   const [draft, setDraft] = useState("");
   const tooShort = draft.trim().length < 8;
 
@@ -26,6 +34,9 @@ function SyncPanel({ syncCode, onChangeCode, status, onRetry }) {
   return (
     <div className="card card-body mb-3">
       <div className="small mb-2">{STATUS_TEXT[status]}</div>
+      {syncCode && LIVE_TEXT[liveStatus] && (
+        <div className="small mb-2">{LIVE_TEXT[liveStatus]}</div>
+      )}
       {syncCode ? (
         <div className="d-flex gap-2">
           {(status === "error" || status === "unavailable") && (
@@ -66,7 +77,16 @@ function SyncPanel({ syncCode, onChangeCode, status, onRetry }) {
   );
 }
 
-function Library({ library, onAdd, queuedIds, syncCode, onChangeCode, status, onRetry }) {
+function Library({
+  library,
+  onAdd,
+  queuedIds,
+  syncCode,
+  onChangeCode,
+  status,
+  onRetry,
+  liveStatus,
+}) {
   const [filter, setFilter] = useState("");
 
   // Newest additions first, narrowed by the filter box.
@@ -90,6 +110,7 @@ function Library({ library, onAdd, queuedIds, syncCode, onChangeCode, status, on
         onChangeCode={onChangeCode}
         status={status}
         onRetry={onRetry}
+        liveStatus={liveStatus}
       />
 
       <input

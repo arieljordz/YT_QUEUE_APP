@@ -1,51 +1,30 @@
-/* global process */
-// Vercel serverless function: stores one JSON file per sync code in a PRIVATE
-// Vercel Blob store. No database. Needs the store's read/write token, which
-// Vercel adds when the store is connected to the project. Depending on the
-// prefix chosen at connect time the variable is named either
-// BLOB_READ_WRITE_TOKEN or BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN.
-import { createHash } from "node:crypto";
-import { get, put } from "@vercel/blob";
+// Vercel serverless function: the saved video library for one sync code, stored
+// in MongoDB. The client sends its library; the server merges it with the
+// stored one (union by video id) and returns the result.
+import { getRooms, readSyncCode, roomIdFor, slimVideo } from "./_db.js";
 
-const MAX_BODY_BYTES = 4 * 1024 * 1024; // Vercel functions cap request bodies at ~4.5 MB.
 const MAX_ITEMS = 20000;
-const MIN_CODE_LENGTH = 8;
-const TOKEN =
-  process.env.BLOB_READ_WRITE_TOKEN ?? process.env.BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN;
 
-// Keep only what the UI needs so the stored file stays small.
-function slim(video) {
-  const id = video?.id?.videoId;
-  const snippet = video?.snippet;
-  if (typeof id !== "string" || !id || typeof snippet?.title !== "string") return null;
-  const thumbs = snippet.thumbnails ?? {};
-  const pick = (t) => (typeof t?.url === "string" ? { url: t.url } : undefined);
-  const thumbnails = { default: pick(thumbs.default), medium: pick(thumbs.medium) };
-  if (!thumbnails.default && !thumbnails.medium) return null;
-  return {
-    id: { videoId: id },
-    snippet: {
-      title: snippet.title,
-      channelTitle: typeof snippet.channelTitle === "string" ? snippet.channelTitle : "",
-      thumbnails,
-    },
-  };
-}
-
-function merge(stored, incoming) {
+export function mergeLibrary(stored, incoming) {
   const byId = new Map();
   for (const video of [...stored, ...incoming]) {
-    const item = slim(video);
+    const item = slimVideo(video);
     if (item && !byId.has(item.id.videoId)) byId.set(item.id.videoId, item);
   }
   return [...byId.values()].slice(0, MAX_ITEMS);
 }
 
-async function readStored(pathname) {
-  const result = await get(pathname, { access: "private", useCache: false, token: TOKEN });
-  if (!result || result.statusCode !== 200) return [];
-  const data = JSON.parse(await new Response(result.stream).text());
-  return Array.isArray(data) ? data : [];
+/** Core logic, separated from the HTTP layer so it can be tested with any collection. */
+export async function handleLibrary(rooms, roomId, body) {
+  const incoming = body?.library;
+  if (!Array.isArray(incoming) || incoming.length > MAX_ITEMS) {
+    return { status: 400, body: { error: "Body must be { library: [...] }" } };
+  }
+
+  const doc = await rooms.findOne({ _id: roomId }, { projection: { library: 1 } });
+  const merged = mergeLibrary(doc?.library ?? [], incoming);
+  await rooms.updateOne({ _id: roomId }, { $set: { library: merged } }, { upsert: true });
+  return { status: 200, body: { library: merged } };
 }
 
 export default async function handler(req, res) {
@@ -53,33 +32,12 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
-
-  const code = req.headers["x-sync-code"];
-  if (typeof code !== "string" || code.length < MIN_CODE_LENGTH) {
-    return res.status(401).json({ error: "Missing or too short sync code" });
-  }
-
-  const incoming = req.body?.library;
-  if (!Array.isArray(incoming) || incoming.length > MAX_ITEMS) {
-    return res.status(400).json({ error: "Body must be { library: [...] }" });
-  }
-  if (Number(req.headers["content-length"] ?? 0) > MAX_BODY_BYTES) {
-    return res.status(413).json({ error: "Library too large" });
-  }
-
-  // Only a hash of the code is used, so the code itself is never stored.
-  const pathname = `library/${createHash("sha256").update(code).digest("hex")}.json`;
+  const code = readSyncCode(req);
+  if (!code) return res.status(401).json({ error: "Missing or too short sync code" });
 
   try {
-    const merged = merge(await readStored(pathname), incoming);
-    await put(pathname, JSON.stringify(merged), {
-      access: "private",
-      contentType: "application/json",
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      token: TOKEN,
-    });
-    return res.status(200).json({ library: merged });
+    const result = await handleLibrary(await getRooms(), roomIdFor(code), req.body);
+    return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("library sync failed", error);
     return res.status(500).json({ error: "Could not sync the library" });
