@@ -5,15 +5,15 @@ const MAX_SHOWN = 100;
 
 const STATUS_TEXT = {
   off: "Sync is off. Your library is only saved in this browser.",
-  syncing: "Syncing…",
-  synced: "Synced. Open the app on another device with the same sync code.",
+  syncing: "Syncing library…",
+  synced: "Library synced across your devices.",
   unavailable: "Sync is not available here (it only works on the deployed site).",
   error: "Sync failed. Check your connection and try again.",
 };
 
 const LIVE_TEXT = {
   connecting: "Live queue: connecting…",
-  connected: "Live queue: connected. Queue changes appear on your other devices within a few seconds.",
+  connected: "Live queue connected.",
   reconnecting: "Live queue: connection lost, retrying…",
   unavailable: "Live queue: not available here (deployed site only).",
   error: "Live queue: the server could not reach the database. Check MONGODB_URI.",

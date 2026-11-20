@@ -93,3 +93,15 @@
     padding: 0;
   }
 }
+
+/* Dark theme: the page text is light, so cards must be dark too (they default to white). */
+body.bg-dark .card {
+  background-color: #2b3035;
+  color: #f8f9fa;
+  border-color: #495057;
+}
+
+body.bg-dark .card .btn-outline-secondary {
+  color: #ced4da;
+  border-color: #adb5bd;
+}
