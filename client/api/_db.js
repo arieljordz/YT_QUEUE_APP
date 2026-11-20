@@ -13,7 +13,7 @@ export async function getRooms() {
   if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI is not configured");
   clientPromise ??= new MongoClient(process.env.MONGODB_URI).connect();
   const client = await clientPromise;
-  return client.db(process.env.MONGODB_DB || "yt_queue").collection("rooms");
+  return client.db(process.env.MONGODB_DB || "yt_queue-db").collection("rooms");
 }
 
 /** Room id = hash of the sync code, so the code itself is never stored. */
