@@ -4,8 +4,7 @@ import ImportQueueButton from "./ImportQueueButton";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import {
   FaTrash,
-  FaArrowUp,
-  FaArrowDown,
+  FaGripVertical,
   FaPause,
   FaPlay,
   FaStepForward,
@@ -68,14 +67,7 @@ const NowPlaying = memo(function NowPlaying({
 });
 
 // `index` is the absolute queue position (so >= 1 for upcoming items).
-const UpNextItem = memo(function UpNextItem({
-  video,
-  index,
-  isLast,
-  onPlay,
-  onMove,
-  onRemove,
-}) {
+const UpNextItem = memo(function UpNextItem({ video, index, onPlay, onRemove }) {
   return (
     <Draggable draggableId={getItemId(video, index)} index={index - 1}>
       {(provided) => (
@@ -83,14 +75,21 @@ const UpNextItem = memo(function UpNextItem({
           className="list-group-item d-flex flex-wrap align-items-center gap-2"
           ref={provided.innerRef}
           {...provided.draggableProps}
-          {...provided.dragHandleProps}
         >
+          <span
+            className="drag-handle text-muted"
+            title="Drag to reorder"
+            aria-label="Drag to reorder"
+            {...provided.dragHandleProps}
+          >
+            <FaGripVertical />
+          </span>
           <span className="text-muted small queue-position">{index}</span>
           <img src={thumbOf(video)} alt="" className="queue-thumb rounded" />
           <span className="up-next-title min-w-0 text-truncate-2" title={video.snippet.title}>
             {video.snippet.title}
           </span>
-          <div className="btn-group btn-group-sm queue-actions">
+          <div className="btn-group btn-group-sm flex-shrink-0">
             <button
               className="btn btn-outline-primary"
               onClick={() => onPlay(index)}
@@ -98,22 +97,6 @@ const UpNextItem = memo(function UpNextItem({
               title="Play now"
             >
               <FaPlay />
-            </button>
-            <button
-              className="btn btn-outline-secondary"
-              onClick={() => onMove(index, index - 1)}
-              disabled={index <= 1}
-              aria-label="Move up"
-            >
-              <FaArrowUp />
-            </button>
-            <button
-              className="btn btn-outline-secondary"
-              onClick={() => onMove(index, index + 1)}
-              disabled={isLast}
-              aria-label="Move down"
-            >
-              <FaArrowDown />
             </button>
             <button
               className="btn btn-outline-danger"
@@ -257,9 +240,7 @@ function Queue({
                       key={getItemId(video, i + 1)}
                       video={video}
                       index={i + 1}
-                      isLast={i === upNext.length - 1}
                       onPlay={onPlay}
-                      onMove={onMove}
                       onRemove={handleRequestRemove}
                     />
                   ))}
