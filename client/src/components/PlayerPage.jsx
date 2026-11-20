@@ -8,6 +8,7 @@ import useLocalStorage from "../hooks/useLocalStorage";
 function PlayerPage() {
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused] = useLocalStorage("isPaused", false);
+  const [isRepeat] = useLocalStorage("isRepeat", false);
   const [, setPlayedVideos] = useLocalStorage("playedVideos", []);
 
   const currentVideo = queue[0] ?? null;
@@ -26,7 +27,12 @@ function PlayerPage() {
 
   return (
     <div className="m-4">
-      <VideoPlayer video={currentVideo} onEnd={playNext} isPaused={isPaused} />
+      <VideoPlayer
+        video={currentVideo}
+        onEnd={playNext}
+        isPaused={isPaused}
+        isRepeat={isRepeat}
+      />
       {!currentVideo && (
         <p className="text-center mt-3">
           Queue is empty. Add a video from the search tab and it will start here.

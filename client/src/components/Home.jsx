@@ -19,6 +19,7 @@ function Home({ liveStatus }) {
   const [videos, setVideos] = useState([]);
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
+  const [isRepeat, setIsRepeat] = useLocalStorage("isRepeat", false);
   const [playedVideos, setPlayedVideos] = useLocalStorage("playedVideos", []);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -130,6 +131,7 @@ function Home({ liveStatus }) {
     toast.success("Re-queued played videos!");
   }, [playedVideos, setQueue, setPlayedVideos]);
 
+  const toggleRepeat = useCallback(() => setIsRepeat((repeat) => !repeat), [setIsRepeat]);
   const queuedIds = useMemo(() => new Set(queue.map((v) => v.id.videoId)), [queue]);
   const togglePaused = useCallback(
     () => setIsPaused((paused) => !paused),
@@ -200,6 +202,8 @@ function Home({ liveStatus }) {
           <Queue
             queue={queue}
             isPaused={isPaused}
+            isRepeat={isRepeat}
+            onToggleRepeat={toggleRepeat}
             onTogglePause={togglePaused}
             onSkip={handleSkip}
             onPlay={handlePlay}

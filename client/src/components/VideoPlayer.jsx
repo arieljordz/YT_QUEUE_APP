@@ -10,10 +10,12 @@ function requestFullscreen(element) {
   Promise.resolve(request?.call(element)).catch(() => {});
 }
 
-const VideoPlayer = ({ video, onEnd, isPaused }) => {
+const VideoPlayer = ({ video, onEnd, isPaused, isRepeat }) => {
   const playerRef = useRef(null);
   const isPausedRef = useRef(isPaused);
   isPausedRef.current = isPaused;
+  const isRepeatRef = useRef(isRepeat);
+  isRepeatRef.current = isRepeat;
   const wantsFullscreenRef = useRef(localStorage.getItem("isFullscreen") === "true");
 
   const onReady = useCallback(
@@ -92,6 +94,19 @@ const VideoPlayer = ({ video, onEnd, isPaused }) => {
     return () => document.removeEventListener("visibilitychange", resumeIfStalled);
   }, []);
 
+  // With repeat on, the finished video starts over instead of moving on.
+  const handleEnd = useCallback(
+    (e) => {
+      if (isRepeatRef.current) {
+        e.target.seekTo(0);
+        e.target.playVideo();
+      } else {
+        onEnd(e);
+      }
+    },
+    [onEnd]
+  );
+
   const handleStateChange = useCallback((e) => {
     // -1 unstarted / 5 cued: the next video was loaded but not started.
     if ((e.data === -1 || e.data === 5) && !isPausedRef.current) e.target.playVideo();
@@ -117,7 +132,7 @@ const VideoPlayer = ({ video, onEnd, isPaused }) => {
           videoId={videoId}
           opts={PLAYER_OPTS}
           onReady={onReady}
-          onEnd={onEnd}
+          onEnd={handleEnd}
           onStateChange={handleStateChange}
         />
       </div>

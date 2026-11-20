@@ -13,6 +13,7 @@ function cleanState(push) {
     !Array.isArray(push?.queue) ||
     push.queue.length > MAX_ITEMS ||
     typeof push.isPaused !== "boolean" ||
+    (push.isRepeat !== undefined && typeof push.isRepeat !== "boolean") ||
     !Array.isArray(push.played) ||
     push.played.length > MAX_ITEMS
   ) {
@@ -21,6 +22,7 @@ function cleanState(push) {
   return {
     queue: push.queue.map(slimQueueItem).filter(Boolean),
     isPaused: push.isPaused,
+    isRepeat: push.isRepeat === true,
     played: push.played.map(slimVideo).filter(Boolean),
   };
 }
@@ -42,7 +44,7 @@ export async function handleQueue(rooms, roomId, body) {
   const known = Number.isInteger(body?.rev) ? body.rev : -1;
   const doc = await rooms.findOne(
     { _id: roomId },
-    { projection: { queue: 1, isPaused: 1, played: 1, rev: 1 } }
+    { projection: { queue: 1, isPaused: 1, isRepeat: 1, played: 1, rev: 1 } }
   );
   if (!doc || doc.queue === undefined) {
     return { status: 200, body: { exists: false, changed: false, rev: 0 } };
@@ -56,7 +58,12 @@ export async function handleQueue(rooms, roomId, body) {
       exists: true,
       changed: true,
       rev: doc.rev,
-      state: { queue: doc.queue, isPaused: doc.isPaused, played: doc.played ?? [] },
+      state: {
+        queue: doc.queue,
+        isPaused: doc.isPaused,
+        isRepeat: doc.isRepeat === true,
+        played: doc.played ?? [],
+      },
     },
   };
 }

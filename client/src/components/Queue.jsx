@@ -10,6 +10,7 @@ import {
   FaPlay,
   FaStepForward,
   FaRedo,
+  FaRedoAlt,
 } from "react-icons/fa";
 
 // Entries saved before queueIds existed fall back to a videoId+index key.
@@ -19,7 +20,14 @@ const thumbOf = (video) => {
   return (thumbnails.medium ?? thumbnails.default).url;
 };
 
-const NowPlaying = memo(function NowPlaying({ video, isPaused, onTogglePause, onSkip }) {
+const NowPlaying = memo(function NowPlaying({
+  video,
+  isPaused,
+  isRepeat,
+  onTogglePause,
+  onToggleRepeat,
+  onSkip,
+}) {
   return (
     <div className="card mb-3 border-primary">
       <div className="card-body d-flex flex-wrap align-items-center gap-3">
@@ -27,6 +35,7 @@ const NowPlaying = memo(function NowPlaying({ video, isPaused, onTogglePause, on
         <div className="now-playing-info min-w-0">
           <small className="text-primary text-uppercase fw-bold">
             {isPaused ? "Paused" : "Now playing"}
+            {isRepeat && " · Repeat on"}
           </small>
           <div className="fw-semibold text-truncate-2" title={video.snippet.title}>
             {video.snippet.title}
@@ -39,6 +48,15 @@ const NowPlaying = memo(function NowPlaying({ video, isPaused, onTogglePause, on
             aria-label={isPaused ? "Resume" : "Pause"}
           >
             {isPaused ? <FaPlay /> : <FaPause />}
+          </button>
+          <button
+            className={`btn ${isRepeat ? "btn-primary" : "btn-outline-primary"}`}
+            onClick={onToggleRepeat}
+            aria-label={isRepeat ? "Turn repeat off" : "Turn repeat on"}
+            aria-pressed={isRepeat}
+            title={isRepeat ? "Repeat is on" : "Repeat this video"}
+          >
+            <FaRedoAlt />
           </button>
           <button className="btn btn-outline-primary" onClick={onSkip} aria-label="Skip">
             <FaStepForward />
@@ -133,7 +151,9 @@ function ConfirmModal({ show, title, children, confirmLabel, onConfirm, onCancel
 function Queue({
   queue,
   isPaused,
+  isRepeat,
   onTogglePause,
+  onToggleRepeat,
   onSkip,
   onPlay,
   onMove,
@@ -214,7 +234,9 @@ function Queue({
         <NowPlaying
           video={current}
           isPaused={isPaused}
+          isRepeat={isRepeat}
           onTogglePause={onTogglePause}
+          onToggleRepeat={onToggleRepeat}
           onSkip={onSkip}
         />
       )}

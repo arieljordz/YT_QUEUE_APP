@@ -12,10 +12,11 @@ const slimQueueItem = (video) => {
   return slim && { ...slim, queueId: video.queueId };
 };
 
-function serialize(queue, isPaused, played) {
+function serialize(queue, isPaused, played, isRepeat) {
   return JSON.stringify({
     queue: queue.map(slimQueueItem).filter(Boolean),
     isPaused,
+    isRepeat,
     played: played.map(slimVideo).filter(Boolean),
   });
 }
@@ -51,10 +52,11 @@ export default function useRemoteSync() {
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
   const [played, setPlayed] = useLocalStorage("playedVideos", []);
+  const [isRepeat, setIsRepeat] = useLocalStorage("isRepeat", false);
   const [status, setStatus] = useState("off");
 
-  const stateRef = useRef({ queue, isPaused, played });
-  stateRef.current = { queue, isPaused, played };
+  const stateRef = useRef({ queue, isPaused, played, isRepeat });
+  stateRef.current = { queue, isPaused, played, isRepeat };
   // What the server is known to hold (as a string) and its revision.
   const syncedJsonRef = useRef(null);
   const revRef = useRef(-1);
@@ -77,15 +79,21 @@ export default function useRemoteSync() {
 
     const adopt = (state, rev) => {
       revRef.current = rev;
-      syncedJsonRef.current = serialize(state.queue, state.isPaused, state.played);
+      syncedJsonRef.current = serialize(
+        state.queue,
+        state.isPaused,
+        state.played,
+        state.isRepeat
+      );
       setQueue(state.queue);
       setIsPaused(state.isPaused);
+      setIsRepeat(state.isRepeat);
       setPlayed(state.played);
     };
 
     const push = async () => {
-      const { queue, isPaused, played } = stateRef.current;
-      const json = serialize(queue, isPaused, played);
+      const { queue, isPaused, played, isRepeat } = stateRef.current;
+      const json = serialize(queue, isPaused, played, isRepeat);
       if (json === syncedJsonRef.current) return;
       const { rev } = await callQueueApi(syncCode, { push: JSON.parse(json) }, controller.signal);
       revRef.current = rev;
@@ -133,12 +141,12 @@ export default function useRemoteSync() {
       controller.abort();
       pushNowRef.current = null;
     };
-  }, [syncCode, setQueue, setIsPaused, setPlayed]);
+  }, [syncCode, setQueue, setIsPaused, setPlayed, setIsRepeat]);
 
   // Save local changes shortly after they happen.
   useEffect(() => {
     if (status !== "connected") return;
-    if (serialize(queue, isPaused, played) === syncedJsonRef.current) return;
+    if (serialize(queue, isPaused, played, isRepeat) === syncedJsonRef.current) return;
 
     busyRef.current = true;
     const timer = setTimeout(async () => {
@@ -155,7 +163,7 @@ export default function useRemoteSync() {
       clearTimeout(timer);
       busyRef.current = false;
     };
-  }, [queue, isPaused, played, status]);
+  }, [queue, isPaused, played, isRepeat, status]);
 
   return status;
 }
