@@ -15,7 +15,7 @@ const newQueueId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const toQueueItem = (video) => ({ ...video, queueId: newQueueId() });
 
-function Home() {
+function Home({ liveStatus }) {
   const [videos, setVideos] = useState([]);
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
@@ -191,6 +191,7 @@ function Home() {
               onChangeCode={setSyncCode}
               status={status}
               onRetry={retrySync}
+              liveStatus={liveStatus}
             />
           )}
         </div>

@@ -12,6 +12,7 @@
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
     "@vercel/blob": "^2.9.0",
+    "ably": "^2.30.0",
     "bootstrap": "^5.3.5",
     "react": "^19.0.0",
     "react-bootstrap": "^2.10.9",
