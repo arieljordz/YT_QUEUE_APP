@@ -15,7 +15,7 @@ function VideoList({
   if (!hasSearched) {
     return (
       <p className="text-muted text-center my-4">
-        Search for a song or video, then press Add to put it in the queue.
+        Search for a song or video, then press Queue to line it up.
       </p>
     );
   }
@@ -51,11 +51,13 @@ function VideoList({
               )}
             </div>
             <button
-              className="btn btn-success d-flex align-items-center gap-1 flex-shrink-0"
+              className="btn btn-success add-to-queue d-flex align-items-center justify-content-center gap-1 flex-shrink-0"
               onClick={() => onAdd(video)}
               aria-label={`Add ${title} to queue`}
+              title="Add to queue"
             >
-              <FaPlus /> Add
+              <FaPlus aria-hidden="true" />
+              <span className="d-none d-sm-inline">Queue</span>
             </button>
           </li>
         );

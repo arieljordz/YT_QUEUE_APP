@@ -84,3 +84,12 @@
 .drag-handle:active {
   cursor: grabbing;
 }
+
+/* Phones: the queue button is icon-only, so keep it a comfortable tap target. */
+@media (max-width: 575.98px) {
+  .add-to-queue {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+  }
+}
