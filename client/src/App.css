@@ -105,3 +105,10 @@ body.bg-dark .card .btn-outline-secondary {
   color: #ced4da;
   border-color: #adb5bd;
 }
+
+/* The library can hold hundreds of videos, so it scrolls on its own. */
+.library-scroll {
+  max-height: min(65vh, 600px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

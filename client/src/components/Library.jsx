@@ -126,6 +126,7 @@ function Library({
         onChange={(e) => setFilter(e.target.value)}
       />
 
+      <div className="library-scroll">
       <VideoList
         videos={shown.slice(0, MAX_SHOWN)}
         queuedIds={queuedIds}
@@ -138,6 +139,7 @@ function Library({
             : "No saved videos match that filter."
         }
       />
+      </div>
       {shown.length > MAX_SHOWN && (
         <p className="text-muted small text-center mt-2">
           Showing the newest {MAX_SHOWN} of {shown.length}. Use the filter to find more.
