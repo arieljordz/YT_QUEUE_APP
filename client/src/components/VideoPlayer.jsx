@@ -54,6 +54,15 @@ const VideoPlayer = ({ video, onEnd, isPaused, isRepeat }) => {
       );
   }, []);
 
+  // Videos whose owner disabled embedding (YouTube error 101/150) cannot play
+  // here. The user is offered to open them on youtube.com instead.
+  const [failed, setFailed] = useState(null); // { queueId, code }
+  const queueIdRef = useRef(video?.queueId);
+  queueIdRef.current = video?.queueId;
+  const handleError = useCallback((e) => {
+    if (queueIdRef.current) setFailed({ queueId: queueIdRef.current, code: e.data });
+  }, []);
+
   // Apply play/pause changes made from the queue controls.
   useEffect(() => {
     const player = playerRef.current;
@@ -127,9 +136,34 @@ const VideoPlayer = ({ video, onEnd, isPaused, isRepeat }) => {
     if (!isPausedRef.current) playerRef.current?.playVideo?.();
   }, []);
 
+  const failure = failed && failed.queueId === queueId ? failed : null;
+  const embedBlocked = failure && (failure.code === 101 || failure.code === 150);
+
   return (
     <div className="video-wrapper">
       <div className="video-container">
+        {failure && (
+          <div className="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert">
+            <span className="flex-grow-1 min-w-0">
+              {embedBlocked
+                ? `"${video.snippet.title}" can only be watched on YouTube.`
+                : `"${video.snippet.title}" is unavailable.`}
+            </span>
+            {embedBlocked && (
+              <a
+                className="btn btn-sm btn-danger"
+                href={`https://www.youtube.com/watch?v=${videoId}`}
+                target="_blank"
+                rel="noopener"
+              >
+                Open on YouTube
+              </a>
+            )}
+            <button className="btn btn-sm btn-outline-secondary" onClick={onEnd}>
+              Skip to next
+            </button>
+          </div>
+        )}
         {!activated && (
           <button className="btn btn-primary mb-3" onClick={handleActivate}>
             ▶ Click once to enable continuous playback
@@ -141,6 +175,7 @@ const VideoPlayer = ({ video, onEnd, isPaused, isRepeat }) => {
           onReady={onReady}
           onEnd={handleEnd}
           onStateChange={handleStateChange}
+          onError={handleError}
         />
       </div>
     </div>
