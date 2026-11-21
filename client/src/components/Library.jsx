@@ -151,6 +151,7 @@ function Library({
 }) {
   const [filter, setFilter] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingQueueAll, setConfirmingQueueAll] = useState(false);
 
   // Newest additions first, narrowed by the filter box.
   const shown = useMemo(() => {
@@ -171,13 +172,13 @@ function Library({
     () => shown.filter((v) => !queuedIds.has(v.id.videoId)),
     [shown, queuedIds]
   );
+  // Large batches ask for confirmation first.
   const handleQueueAll = () => {
-    if (
-      queueable.length > 25 &&
-      !window.confirm(`Add ${queueable.length} videos to the queue?`)
-    ) {
-      return;
-    }
+    if (queueable.length > 25) setConfirmingQueueAll(true);
+    else onAddAll(queueable);
+  };
+  const confirmQueueAll = () => {
+    setConfirmingQueueAll(false);
     onAddAll(queueable);
   };
 
@@ -218,6 +219,24 @@ function Library({
           Delete all
         </button>
       </div>
+      <Modal show={confirmingQueueAll} onHide={() => setConfirmingQueueAll(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title as="h5">Add to the queue?</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {filter.trim()
+            ? `Add all ${queueable.length} videos matching "${filter.trim()}" to the queue?`
+            : `Add all ${queueable.length} videos in your library to the queue?`}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setConfirmingQueueAll(false)}>
+            Cancel
+          </Button>
+          <Button variant="success" onClick={confirmQueueAll}>
+            Queue all ({queueable.length})
+          </Button>
+        </Modal.Footer>
+      </Modal>
       <DeleteAllModal
         show={confirmingDelete}
         count={library.length}
