@@ -9,11 +9,21 @@ export const MIN_CODE_LENGTH = 8;
 // Reused between invocations of a warm function instead of reconnecting each time.
 let clientPromise;
 
-export async function getRooms() {
+async function getDb() {
   if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI is not configured");
   clientPromise ??= new MongoClient(process.env.MONGODB_URI).connect();
   const client = await clientPromise;
-  return client.db(process.env.MONGODB_DB || "yt_queue-db").collection("rooms");
+  return client.db(process.env.MONGODB_DB || "yt_queue-db");
+}
+
+/** Per-sync-code state (queue, library). */
+export async function getRooms() {
+  return (await getDb()).collection("rooms");
+}
+
+/** Shared catalogs of videos (for example karaoke lists), one document per video. */
+export async function getCatalog() {
+  return (await getDb()).collection("catalog_videos");
 }
 
 /** Room id = hash of the sync code, so the code itself is never stored. */
