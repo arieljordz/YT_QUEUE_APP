@@ -175,7 +175,7 @@ function Home({ liveStatus }) {
       </div>
 
       <div className="row g-4">
-        <div className="col-lg-6">
+        <div className="col-lg-12">
           <ul className="nav nav-tabs mb-3">
             {[
               ["library", `📚 Library (${library.length})`],
@@ -219,7 +219,7 @@ function Home({ liveStatus }) {
           )}
         </div>
 
-        <div className="col-lg-6">
+        <div className="col-lg-12">
           <Queue
             queue={queue}
             isPaused={isPaused}
