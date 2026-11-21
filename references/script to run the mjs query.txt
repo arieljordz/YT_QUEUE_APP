@@ -1,1 +1,3 @@
 node scripts/generate-karaoke-json.mjs
+
+node scripts/generate-karaoke-json.mjs --channel "Atomic Karaoke" --out ../references/atomic-karaoke.json

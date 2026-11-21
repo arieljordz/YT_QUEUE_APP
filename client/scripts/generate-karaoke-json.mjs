@@ -4,6 +4,9 @@
 //
 //   node scripts/generate-karaoke-json.mjs [options]
 //
+//   --channel "name" only videos from this YouTube channel (e.g. "Atomic Karaoke");
+//                    a channel id (starts with UC) is used as is. Without
+//                    --query it lists the channel's videos.
 //   --query "text"   search text; repeat for several (default: a built-in list)
 //   --max 500        max videos per query (YouTube stops paging at about 500)
 //   --out file.json  output file (default: ../references/karaoke.json)
@@ -31,17 +34,18 @@ const DEFAULT_QUERIES = [
 ];
 
 function parseArgs(argv) {
-  const args = { queries: [], max: 500, out: resolve(here, "../../references/karaoke.json"), any: false };
+  const args = { queries: [], channel: null, max: 500, out: resolve(here, "../../references/karaoke.json"), any: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--query") args.queries.push(argv[++i]);
+    else if (arg === "--channel") args.channel = argv[++i];
     else if (arg === "--max") args.max = Number(argv[++i]);
     else if (arg === "--out") args.out = resolve(argv[++i]);
     else if (arg === "--any") args.any = true;
     else throw new Error(`Unknown option: ${arg}`);
   }
   if (!Number.isInteger(args.max) || args.max < 1) throw new Error("--max must be a positive number");
-  if (args.queries.length === 0) args.queries = DEFAULT_QUERIES;
+  if (args.queries.length === 0) args.queries = args.channel ? [""] : DEFAULT_QUERIES;
   return args;
 }
 
@@ -55,9 +59,22 @@ function readApiKey() {
   throw new Error("VITE_YT_API_KEY not found (set it in client/.env).");
 }
 
+/** Turns a channel name into its id (costs 100 quota units). */
+async function resolveChannel(name, key) {
+  if (/^UC[\w-]{20,}$/.test(name)) return name;
+  const params = new URLSearchParams({ part: "snippet", q: name, type: "channel", maxResults: "1", key });
+  const res = await fetch(`${SEARCH_URL}?${params}`);
+  if (!res.ok) throw new Error(`Channel lookup failed (${res.status})`);
+  const channel = (await res.json()).items?.[0];
+  if (!channel) throw new Error(`No channel found for "${name}"`);
+  console.log(`Using channel "${channel.snippet.title}" (${channel.id.channelId})`);
+  return channel.id.channelId;
+}
+
 async function main() {
-  const { queries, max, out, any } = parseArgs(process.argv.slice(2));
+  const { queries, channel, max, out, any } = parseArgs(process.argv.slice(2));
   const key = readApiKey();
+  const channelId = channel ? await resolveChannel(channel, key) : null;
   const found = new Map();
   let quotaHit = false;
 
@@ -67,11 +84,12 @@ async function main() {
     while (count < max && !quotaHit) {
       const params = new URLSearchParams({
         part: "snippet",
-        q: query,
         type: "video",
         maxResults: "50",
         key,
       });
+      if (query) params.set("q", query);
+      if (channelId) params.set("channelId", channelId);
       if (!any) params.set("videoEmbeddable", "true");
       if (pageToken) params.set("pageToken", pageToken);
 
@@ -89,7 +107,7 @@ async function main() {
       }
       count += data.items?.length ?? 0;
       pageToken = data.nextPageToken;
-      console.log(`"${query}": ${count} fetched, ${found.size} unique so far`);
+      console.log(`"${query || channel}": ${count} fetched, ${found.size} unique so far`);
       if (!pageToken) break;
     }
     if (quotaHit) break;
