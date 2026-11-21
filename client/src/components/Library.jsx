@@ -152,7 +152,7 @@ function Library({
         </button>
       </div>
 
-      <div className="library-scroll">
+      <div className="library-scroll mt-2">
       <VideoList
         videos={shown.slice(0, MAX_SHOWN)}
         queuedIds={queuedIds}

@@ -25,7 +25,7 @@ function VideoList({
   }
 
   return (
-    <ul className="list-group mt-3">
+    <ul className="list-group">
       {videos.map((video) => {
         const { thumbnails, title, channelTitle } = video.snippet;
         const inQueue = queuedIds.has(video.id.videoId);
