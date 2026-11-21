@@ -169,8 +169,8 @@ function Home({ liveStatus }) {
       <ul className="nav nav-tabs mb-3">
         {[
           ["library", `📚 Library (${library.length})`],
-          ["search", "🔍 Search"],
           ["queue", `🎵 Queue (${queue.length})`],
+          ["search", "🔍 Search"],
         ].map(([key, label]) => (
           <li className="nav-item" key={key}>
             <button
