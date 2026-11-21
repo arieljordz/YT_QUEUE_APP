@@ -1,12 +1,50 @@
-/* The player keeps a 16:9 shape and never grows taller than the window, so it
-   fits small laptop screens as well as large monitors. */
+/* The player is as large as the window allows. On a landscape screen it fills
+   the whole page under the navbar (YouTube letterboxes the video inside, so
+   nothing is cropped); on a portrait screen it keeps its 16:9 shape. */
+.player-page {
+  position: relative;
+  padding: 0;
+}
+
+.video-container {
+  position: relative;
+  background: #000;
+}
+
 .video-container iframe {
   display: block;
   margin: 0 auto;
-  width: min(100%, calc((100vh - 140px) * 16 / 9));
-  width: min(100%, calc((100dvh - 140px) * 16 / 9));
+  width: 100%;
   height: auto;
   aspect-ratio: 16 / 9;
+}
+
+@media (orientation: landscape) {
+  .video-container iframe {
+    height: calc(100vh - var(--navbar-height, 32px));
+    height: calc(100dvh - var(--navbar-height, 32px));
+    aspect-ratio: auto;
+  }
+}
+
+.player-empty {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  margin: 0;
+  color: #fff;
+  pointer-events: none;
+}
+
+/* Floats over the video so it does not take up space above it. */
+.activate-overlay {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  max-width: 90%;
 }
 
 .video-container iframe:fullscreen {

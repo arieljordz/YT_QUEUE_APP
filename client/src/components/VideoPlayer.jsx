@@ -131,7 +131,7 @@ const VideoPlayer = ({ video, onEnd, isPaused, isRepeat }) => {
     <div className="video-wrapper">
       <div className="video-container">
         {!activated && (
-          <button className="btn btn-primary mb-3" onClick={handleActivate}>
+          <button className="btn btn-primary activate-overlay" onClick={handleActivate}>
             ▶ Click once to enable continuous playback
           </button>
         )}

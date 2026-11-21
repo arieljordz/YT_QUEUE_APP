@@ -26,7 +26,7 @@ function PlayerPage() {
   }, [currentVideo, setQueue, setPlayedVideos]);
 
   return (
-    <div className="m-4">
+    <div className="player-page">
       <VideoPlayer
         video={currentVideo}
         onEnd={playNext}
@@ -34,7 +34,7 @@ function PlayerPage() {
         isRepeat={isRepeat}
       />
       {!currentVideo && (
-        <p className="text-center mt-3">
+        <p className="text-center player-empty px-3">
           Queue is empty. Add a video from the search tab and it will start here.
         </p>
       )}
