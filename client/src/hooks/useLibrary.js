@@ -16,7 +16,20 @@ const SYNC_DELAY_MS = 2000;
  */
 export default function useLibrary() {
   const [library, setLibrary] = useLocalStorage("videoLibrary", []);
-  const [syncCode, setSyncCode] = useLocalStorage("syncCode", "");
+  const [syncCode, setSyncCodeRaw] = useLocalStorage("syncCode", "");
+  // The deletion epoch this device last saw (null = never synced with epochs).
+  const [epoch, setEpoch] = useLocalStorage("libraryEpoch", null);
+  const epochRef = useRef(epoch);
+  epochRef.current = epoch;
+
+  // A device that enters a sync code adds its own videos to the shared library.
+  const setSyncCode = useCallback(
+    (code) => {
+      setEpoch(code ? "join" : null);
+      setSyncCodeRaw(code);
+    },
+    [setEpoch, setSyncCodeRaw]
+  );
   // "off" | "syncing" | "synced" | "unavailable" | "error"
   const [status, setStatus] = useState("off");
   const syncedCountRef = useRef(-1);
@@ -35,7 +48,7 @@ export default function useLibrary() {
         const response = await fetch("/api/library", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-sync-code": syncCode },
-          body: JSON.stringify({ library: libraryRef.current }),
+          body: JSON.stringify({ library: libraryRef.current, epoch: epochRef.current }),
           signal,
         });
         const isJson = response.headers.get("content-type")?.includes("application/json");
@@ -43,8 +56,10 @@ export default function useLibrary() {
         if (!isJson || response.status === 404) return setStatus("unavailable");
         if (!response.ok) return setStatus("error");
 
-        const { library: remote } = await response.json();
-        const merged = mergeLibrary(libraryRef.current, remote);
+        const { library: remote, epoch: serverEpoch, reset } = await response.json();
+        if (Number.isInteger(serverEpoch)) setEpoch(serverEpoch);
+        // Deleted on another device since this one last synced: take the server's copy.
+        const merged = reset ? remote : mergeLibrary(libraryRef.current, remote);
         syncedCountRef.current = merged.length;
         setLibrary(merged);
         setStatus("synced");
@@ -52,7 +67,7 @@ export default function useLibrary() {
         if (err.name !== "AbortError") setStatus("error");
       }
     },
-    [syncCode, setLibrary]
+    [syncCode, setLibrary, setEpoch]
   );
 
   // Sync when a code is set, and shortly after the library changes.
@@ -86,6 +101,8 @@ export default function useLibrary() {
           body: JSON.stringify({ clear: true }),
         });
         if (!response.ok) return false;
+        const { epoch: newEpoch } = await response.json();
+        if (Number.isInteger(newEpoch)) setEpoch(newEpoch);
       } catch {
         return false;
       }
@@ -94,7 +111,7 @@ export default function useLibrary() {
     syncedCountRef.current = 0;
     setLibrary([]);
     return true;
-  }, [syncCode, setLibrary]);
+  }, [syncCode, setLibrary, setEpoch]);
 
   const retrySync = useCallback(() => {
     syncedCountRef.current = -1;

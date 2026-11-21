@@ -14,22 +14,59 @@ export function mergeLibrary(stored, incoming) {
   return [...byId.values()].slice(0, MAX_ITEMS);
 }
 
-/** Core logic, separated from the HTTP layer so it can be tested with any collection. */
+/**
+ * Core logic, separated from the HTTP layer so it can be tested with any collection.
+ *
+ * The room keeps a `libraryEpoch` that goes up every time the library is
+ * deleted. A device sends the epoch it last saw:
+ *   - same epoch, or "join" (a device that just entered the sync code): its
+ *     library is merged into the stored one;
+ *   - older epoch: the library was deleted since this device last synced, so its
+ *     copy is stale and is replaced by the stored one instead of being merged
+ *     (otherwise deleted videos would come back from the other devices).
+ */
 export async function handleLibrary(rooms, roomId, body) {
-  // { clear: true } empties the stored library.
+  const doc = await rooms.findOne(
+    { _id: roomId },
+    { projection: { library: 1, libraryEpoch: 1 } }
+  );
+  const serverEpoch = doc?.libraryEpoch ?? 0;
+
+  // { clear: true } empties the stored library for every device.
   if (body?.clear === true) {
-    await rooms.updateOne({ _id: roomId }, { $set: { library: [] } }, { upsert: true });
-    return { status: 200, body: { library: [] } };
+    const epoch = serverEpoch + 1;
+    await rooms.updateOne(
+      { _id: roomId },
+      { $set: { library: [], libraryEpoch: epoch } },
+      { upsert: true }
+    );
+    return { status: 200, body: { library: [], epoch, reset: true } };
   }
+
   const incoming = body?.library;
-  if (!Array.isArray(incoming) || incoming.length > MAX_ITEMS) {
+  const clientEpoch = body?.epoch;
+  if (
+    !Array.isArray(incoming) ||
+    incoming.length > MAX_ITEMS ||
+    !(clientEpoch == null || clientEpoch === "join" || Number.isInteger(clientEpoch))
+  ) {
     return { status: 400, body: { error: "Body must be { library: [...] }" } };
   }
 
-  const doc = await rooms.findOne({ _id: roomId }, { projection: { library: 1 } });
+  const isCurrent =
+    clientEpoch === "join" ||
+    clientEpoch === serverEpoch ||
+    (clientEpoch == null && serverEpoch === 0);
+  if (!isCurrent) {
+    return {
+      status: 200,
+      body: { library: doc?.library ?? [], epoch: serverEpoch, reset: true },
+    };
+  }
+
   const merged = mergeLibrary(doc?.library ?? [], incoming);
   await rooms.updateOne({ _id: roomId }, { $set: { library: merged } }, { upsert: true });
-  return { status: 200, body: { library: merged } };
+  return { status: 200, body: { library: merged, epoch: serverEpoch, reset: false } };
 }
 
 export default async function handler(req, res) {
