@@ -4,6 +4,7 @@ import { FaPlus } from "react-icons/fa";
 function VideoList({
   videos,
   queuedIds,
+  youtubeOnlyIds,
   onAdd,
   isLoading,
   hasSearched,
@@ -44,9 +45,17 @@ function VideoList({
                 {title}
               </div>
               {channelTitle && <small className="text-muted">{channelTitle}</small>}
-              {inQueue && (
-                <div>
-                  <span className="badge bg-secondary">In queue</span>
+              {(inQueue || youtubeOnlyIds?.has(video.id.videoId)) && (
+                <div className="d-flex flex-wrap gap-1">
+                  {inQueue && <span className="badge bg-secondary">In queue</span>}
+                  {youtubeOnlyIds?.has(video.id.videoId) && (
+                    <span
+                      className="badge bg-warning text-dark"
+                      title="The owner disabled embedding, so it can't play in the player tab."
+                    >
+                      YouTube only
+                    </span>
+                  )}
                 </div>
               )}
             </div>
