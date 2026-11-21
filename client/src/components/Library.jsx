@@ -84,6 +84,7 @@ function SyncPanel({ syncCode, onChangeCode, status, onRetry, liveStatus }) {
 function Library({
   library,
   onAdd,
+  onAddAll,
   queuedIds,
   syncCode,
   onChangeCode,
@@ -107,6 +108,21 @@ function Library({
     return matches;
   }, [library, filter]);
 
+  // Everything the filter matches that is not already in the queue, in the order shown.
+  const queueable = useMemo(
+    () => shown.filter((v) => !queuedIds.has(v.id.videoId)),
+    [shown, queuedIds]
+  );
+  const handleQueueAll = () => {
+    if (
+      queueable.length > 25 &&
+      !window.confirm(`Add ${queueable.length} videos to the queue?`)
+    ) {
+      return;
+    }
+    onAddAll(queueable);
+  };
+
   return (
     <div>
       <SyncPanel
@@ -117,14 +133,24 @@ function Library({
         liveStatus={liveStatus}
       />
 
-      <input
-        type="search"
-        className="form-control"
-        placeholder={`Filter ${library.length} saved videos...`}
-        aria-label="Filter library"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-      />
+      <div className="d-flex gap-2">
+        <input
+          type="search"
+          className="form-control"
+          placeholder={`Filter ${library.length} saved videos...`}
+          aria-label="Filter library"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+        <button
+          className="btn btn-success text-nowrap"
+          onClick={handleQueueAll}
+          disabled={queueable.length === 0}
+          title={filter.trim() ? "Add every matching video to the queue" : "Add the whole library to the queue"}
+        >
+          + Queue all{queueable.length > 0 ? ` (${queueable.length})` : ""}
+        </button>
+      </div>
 
       <div className="library-scroll">
       <VideoList

@@ -71,6 +71,15 @@ function Home({ liveStatus }) {
     [setQueue, addToLibrary]
   );
 
+  const addAllToQueue = useCallback(
+    (list) => {
+      if (list.length === 0) return;
+      setQueue((prev) => [...prev, ...list.map(toQueueItem)]);
+      toast.success(`Added ${list.length} video${list.length === 1 ? "" : "s"} to the queue`);
+    },
+    [setQueue]
+  );
+
   // Move an item between two positions; position 0 is the playing video and is locked.
   const handleMove = useCallback(
     (from, to) => {
@@ -199,6 +208,7 @@ function Home({ liveStatus }) {
             <Library
               library={library}
               onAdd={addToQueue}
+              onAddAll={addAllToQueue}
               queuedIds={queuedIds}
               syncCode={syncCode}
               onChangeCode={setSyncCode}
