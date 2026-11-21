@@ -7,7 +7,7 @@ import Queue from "./Queue";
 import Library from "./Library";
 import useLibrary from "../hooks/useLibrary";
 import useLocalStorage from "../hooks/useLocalStorage";
-import { searchVideos, findNonEmbeddable, QuotaError } from "../api/youtube";
+import { searchVideos, QuotaError } from "../api/youtube";
 
 // Queue entries get their own id so the same video can appear more than once
 // and still have a stable React / drag-and-drop key.
@@ -23,7 +23,6 @@ function Home({ liveStatus }) {
   const [playedVideos, setPlayedVideos] = useLocalStorage("playedVideos", []);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [youtubeOnlyIds, setYoutubeOnlyIds] = useState(() => new Set());
   const [tab, setTab] = useState("library");
   const { library, addToLibrary, syncCode, setSyncCode, status, retrySync } = useLibrary();
   const searchAbortRef = useRef(null);
@@ -37,17 +36,8 @@ function Home({ liveStatus }) {
 
     setIsSearching(true);
     try {
-      const results = await searchVideos(query, controller.signal);
-      setVideos(results);
+      setVideos(await searchVideos(query, controller.signal));
       setHasSearched(true);
-      // Flag videos that cannot play in the embedded player (best effort).
-      const blocked = await findNonEmbeddable(
-        results.map((v) => v.id.videoId),
-        controller.signal
-      );
-      if (searchAbortRef.current === controller) {
-        setYoutubeOnlyIds((prev) => new Set([...prev, ...blocked]));
-      }
     } catch (err) {
       if (err.name === "AbortError") return;
       if (err instanceof QuotaError) {
@@ -189,7 +179,6 @@ function Home({ liveStatus }) {
               <VideoList
                 videos={videos}
                 queuedIds={queuedIds}
-                youtubeOnlyIds={youtubeOnlyIds}
                 onAdd={addToQueue}
                 isLoading={isSearching}
                 hasSearched={hasSearched}
