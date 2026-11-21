@@ -105,21 +105,6 @@ function Home({ liveStatus }) {
     setIsPaused(false);
   }, [setQueue, setIsPaused]);
 
-  const handleImport = useCallback(
-    (imported, skipped) => {
-      setQueue((prev) => [...prev, ...imported.map(toQueueItem)]);
-      addToLibrary(imported);
-      const count = `${imported.length} video${imported.length === 1 ? "" : "s"}`;
-      toast.success(
-        skipped > 0
-          ? `Imported ${count} (skipped ${skipped} invalid)`
-          : `Imported ${count}`
-      );
-    },
-    [setQueue, addToLibrary]
-  );
-  const handleImportError = useCallback((message) => toast.error(message), []);
-
   const handleSkip = useCallback(() => {
     const finished = queue[0];
     if (!finished) return;
@@ -241,8 +226,6 @@ function Home({ liveStatus }) {
           onClear={handleClear}
           playedCount={playedVideos.length}
           onRequeuePlayed={handleRequeuePlayed}
-          onImport={handleImport}
-          onImportError={handleImportError}
         />
       )}
     </div>
