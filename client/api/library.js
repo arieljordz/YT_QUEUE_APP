@@ -16,6 +16,11 @@ export function mergeLibrary(stored, incoming) {
 
 /** Core logic, separated from the HTTP layer so it can be tested with any collection. */
 export async function handleLibrary(rooms, roomId, body) {
+  // { clear: true } empties the stored library.
+  if (body?.clear === true) {
+    await rooms.updateOne({ _id: roomId }, { $set: { library: [] } }, { upsert: true });
+    return { status: 200, body: { library: [] } };
+  }
   const incoming = body?.library;
   if (!Array.isArray(incoming) || incoming.length > MAX_ITEMS) {
     return { status: 400, body: { error: "Body must be { library: [...] }" } };

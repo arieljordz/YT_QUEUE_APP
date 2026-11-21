@@ -25,7 +25,7 @@ function Home({ liveStatus }) {
   const [hasSearched, setHasSearched] = useState(false);
   const [youtubeOnlyIds, setYoutubeOnlyIds] = useState(() => new Set());
   const [tab, setTab] = useState("library");
-  const { library, addToLibrary, syncCode, setSyncCode, status, retrySync } = useLibrary();
+  const { library, addToLibrary, syncCode, setSyncCode, status, retrySync, clearLibrary } = useLibrary();
   const searchAbortRef = useRef(null);
 
   useEffect(() => () => searchAbortRef.current?.abort(), []);
@@ -150,6 +150,13 @@ function Home({ liveStatus }) {
     toast.success("Re-queued played videos!");
   }, [playedVideos, setQueue, setPlayedVideos]);
 
+  const handleClearLibrary = useCallback(async () => {
+    const ok = await clearLibrary();
+    if (ok) toast.success("Library deleted");
+    else toast.error("Could not delete the synced library. Please try again.");
+    return ok;
+  }, [clearLibrary]);
+
   const toggleRepeat = useCallback(() => setIsRepeat((repeat) => !repeat), [setIsRepeat]);
   const queuedIds = useMemo(() => new Set(queue.map((v) => v.id.videoId)), [queue]);
   const togglePaused = useCallback(
@@ -209,6 +216,7 @@ function Home({ liveStatus }) {
               library={library}
               onAdd={addToQueue}
               onAddAll={addAllToQueue}
+              onClearLibrary={handleClearLibrary}
               queuedIds={queuedIds}
               syncCode={syncCode}
               onChangeCode={setSyncCode}

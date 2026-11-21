@@ -9,8 +9,10 @@ const SYNC_DELAY_MS = 2000;
  * in localStorage and, when a sync code is set, merged with a copy stored on
  * the server (/api/library) so every device ends up with the same list.
  *
- * Merging is a union, so videos are never lost, but removing one from the
- * library is not supported (it would come back from another device).
+ * Merging is a union, so videos are never lost. Only "clear everything" is
+ * supported; it empties the server copy first, because a merge would otherwise
+ * bring the videos straight back. Other devices that still hold their own copy
+ * will upload it again the next time they sync.
  */
 export default function useLibrary() {
   const [library, setLibrary] = useLocalStorage("videoLibrary", []);
@@ -73,10 +75,31 @@ export default function useLibrary() {
     };
   }, [syncCode, library.length, sync]);
 
+  // Deletes the whole library. Resolves to true on success; with sync on, a
+  // failed server call leaves the library untouched and resolves to false.
+  const clearLibrary = useCallback(async () => {
+    if (syncCode) {
+      try {
+        const response = await fetch("/api/library", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-sync-code": syncCode },
+          body: JSON.stringify({ clear: true }),
+        });
+        if (!response.ok) return false;
+      } catch {
+        return false;
+      }
+    }
+    // Mark the empty list as already synced so it is not merged with the server.
+    syncedCountRef.current = 0;
+    setLibrary([]);
+    return true;
+  }, [syncCode, setLibrary]);
+
   const retrySync = useCallback(() => {
     syncedCountRef.current = -1;
     sync();
   }, [sync]);
 
-  return { library, addToLibrary, syncCode, setSyncCode, status, retrySync };
+  return { library, addToLibrary, syncCode, setSyncCode, status, retrySync, clearLibrary };
 }

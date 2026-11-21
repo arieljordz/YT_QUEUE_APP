@@ -1,4 +1,5 @@
 import { useState, useMemo, memo } from "react";
+import { Modal, Button } from "react-bootstrap";
 import VideoList from "./VideoList";
 
 const MAX_SHOWN = 100;
@@ -18,6 +19,61 @@ const LIVE_TEXT = {
   unavailable: "Live queue: not available here (deployed site only).",
   error: "Live queue: the server could not reach the database. Check MONGODB_URI.",
 };
+
+const newDeleteCode = () => String(Math.floor(1000 + Math.random() * 9000));
+
+// Deleting the whole library needs a typed code, so it cannot happen by accident.
+function DeleteAllModal({ show, count, synced, onConfirm, onCancel }) {
+  const [code, setCode] = useState(newDeleteCode);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const close = () => {
+    setTyped("");
+    setCode(newDeleteCode());
+    onCancel();
+  };
+  const confirm = async () => {
+    setBusy(true);
+    const ok = await onConfirm();
+    setBusy(false);
+    if (ok) close();
+  };
+
+  return (
+    <Modal show={show} onHide={close} centered>
+      <Modal.Header closeButton>
+        <Modal.Title as="h5">Delete the whole library?</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <p>
+          This removes all {count} saved videos
+          {synced ? " from this device and from your sync code" : " from this browser"}.
+          It cannot be undone.
+        </p>
+        <label htmlFor="delete-code" className="form-label">
+          Type <strong>{code}</strong> to confirm
+        </label>
+        <input
+          id="delete-code"
+          className="form-control"
+          inputMode="numeric"
+          autoComplete="off"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value.trim())}
+        />
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={close} disabled={busy}>
+          Cancel
+        </Button>
+        <Button variant="danger" onClick={confirm} disabled={typed !== code || busy}>
+          {busy ? "Deleting…" : "Delete all"}
+        </Button>
+      </Modal.Footer>
+    </Modal>
+  );
+}
 
 function SyncPanel({ syncCode, onChangeCode, status, onRetry, liveStatus }) {
   const [draft, setDraft] = useState("");
@@ -85,6 +141,7 @@ function Library({
   library,
   onAdd,
   onAddAll,
+  onClearLibrary,
   queuedIds,
   syncCode,
   onChangeCode,
@@ -93,6 +150,7 @@ function Library({
   liveStatus,
 }) {
   const [filter, setFilter] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   // Newest additions first, narrowed by the filter box.
   const shown = useMemo(() => {
@@ -133,10 +191,11 @@ function Library({
         liveStatus={liveStatus}
       />
 
-      <div className="d-flex gap-2">
+      <div className="d-flex flex-wrap gap-2">
         <input
           type="search"
-          className="form-control"
+          className="form-control flex-grow-1 w-auto"
+          style={{ flexBasis: "12rem" }}
           placeholder={`Filter ${library.length} saved videos...`}
           aria-label="Filter library"
           value={filter}
@@ -150,7 +209,22 @@ function Library({
         >
           + Queue all{queueable.length > 0 ? ` (${queueable.length})` : ""}
         </button>
+        <button
+          className="btn btn-outline-danger text-nowrap"
+          onClick={() => setConfirmingDelete(true)}
+          disabled={library.length === 0}
+          title="Delete every saved video"
+        >
+          Delete all
+        </button>
       </div>
+      <DeleteAllModal
+        show={confirmingDelete}
+        count={library.length}
+        synced={Boolean(syncCode)}
+        onConfirm={onClearLibrary}
+        onCancel={() => setConfirmingDelete(false)}
+      />
 
       <div className="library-scroll mt-2">
       <VideoList
