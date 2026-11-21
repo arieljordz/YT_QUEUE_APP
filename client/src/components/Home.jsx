@@ -181,71 +181,70 @@ function Home({ liveStatus }) {
         </a>
       </div>
 
-      <div className="row g-4">
-        <div className="col-lg-12">
-          <ul className="nav nav-tabs mb-3">
-            {[
-              ["library", `📚 Library (${library.length})`],
-              ["search", "🔍 Search"],
-            ].map(([key, label]) => (
-              <li className="nav-item" key={key}>
-                <button
-                  className={`nav-link ${tab === key ? "active" : ""}`}
-                  onClick={() => setTab(key)}
-                >
-                  {label}
-                </button>
-              </li>
-            ))}
-          </ul>
+      <ul className="nav nav-tabs mb-3">
+        {[
+          ["library", `📚 Library (${library.length})`],
+          ["search", "🔍 Search"],
+          ["queue", `🎵 Queue (${queue.length})`],
+        ].map(([key, label]) => (
+          <li className="nav-item" key={key}>
+            <button
+              className={`nav-link ${tab === key ? "active" : ""}`}
+              onClick={() => setTab(key)}
+            >
+              {label}
+            </button>
+          </li>
+        ))}
+      </ul>
 
-          {tab === "search" ? (
-            <>
-              <SearchBar onSearch={handleSearch} isLoading={isSearching} />
-              <VideoList
-                videos={videos}
-                queuedIds={queuedIds}
-                youtubeOnlyIds={youtubeOnlyIds}
-                onAdd={addToQueue}
-                isLoading={isSearching}
-                hasSearched={hasSearched}
-              />
-            </>
-          ) : (
-            <Library
-              library={library}
-              onAdd={addToQueue}
-              onAddAll={addAllToQueue}
-              onClearLibrary={handleClearLibrary}
-              queuedIds={queuedIds}
-              syncCode={syncCode}
-              onChangeCode={setSyncCode}
-              status={status}
-              onRetry={retrySync}
-              liveStatus={liveStatus}
-            />
-          )}
-        </div>
-
-        <div className="col-lg-12">
-          <Queue
-            queue={queue}
-            isPaused={isPaused}
-            isRepeat={isRepeat}
-            onToggleRepeat={toggleRepeat}
-            onTogglePause={togglePaused}
-            onSkip={handleSkip}
-            onPlay={handlePlay}
-            onMove={handleMove}
-            onRemove={handleRemove}
-            onClear={handleClear}
-            playedCount={playedVideos.length}
-            onRequeuePlayed={handleRequeuePlayed}
-            onImport={handleImport}
-            onImportError={handleImportError}
+      {tab === "search" && (
+        <>
+          <SearchBar onSearch={handleSearch} isLoading={isSearching} />
+          <VideoList
+            videos={videos}
+            queuedIds={queuedIds}
+            youtubeOnlyIds={youtubeOnlyIds}
+            onAdd={addToQueue}
+            isLoading={isSearching}
+            hasSearched={hasSearched}
           />
-        </div>
-      </div>
+        </>
+      )}
+
+      {tab === "library" && (
+        <Library
+          library={library}
+          onAdd={addToQueue}
+          onAddAll={addAllToQueue}
+          onClearLibrary={handleClearLibrary}
+          queuedIds={queuedIds}
+          syncCode={syncCode}
+          onChangeCode={setSyncCode}
+          status={status}
+          onRetry={retrySync}
+          liveStatus={liveStatus}
+        />
+      )}
+
+      {tab === "queue" && (
+        <Queue
+          queue={queue}
+          isPaused={isPaused}
+          isRepeat={isRepeat}
+          onToggleRepeat={toggleRepeat}
+          onTogglePause={togglePaused}
+          onSkip={handleSkip}
+          onPlay={handlePlay}
+          onMove={handleMove}
+          onRemove={handleRemove}
+          onClear={handleClear}
+          playedCount={playedVideos.length}
+          onRequeuePlayed={handleRequeuePlayed}
+          onImport={handleImport}
+          onImportError={handleImportError}
+        />
+      )}
     </div>
   );
 }
