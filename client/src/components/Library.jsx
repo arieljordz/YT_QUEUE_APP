@@ -3,9 +3,20 @@ import { Modal, Button } from "react-bootstrap";
 import { FaTrash } from "react-icons/fa";
 import { MdPlaylistAdd } from "react-icons/md";
 import VideoList from "./VideoList";
+import useLocalStorage from "../hooks/useLocalStorage";
 
 // The list grows by this many rows each time the user scrolls near the bottom.
 const PAGE_SIZE = 100;
+
+// YouTube titles come with HTML entities (&#39; &amp;); decode the common ones for sorting.
+const sortKey = (title) =>
+  title.replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+const byTitle = (a, b) =>
+  sortKey(a.snippet.title).localeCompare(sortKey(b.snippet.title), undefined, {
+    sensitivity: "base",
+    numeric: true,
+    ignorePunctuation: true,
+  });
 
 const STATUS_TEXT = {
   off: "Sync is off. Your library is only saved in this browser.",
@@ -154,23 +165,22 @@ function Library({
   liveStatus,
 }) {
   const [filter, setFilter] = useState("");
+  const [sort, setSort] = useLocalStorage("librarySort", "az"); // "az" | "newest"
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmingQueueAll, setConfirmingQueueAll] = useState(false);
 
-  // Newest additions first, narrowed by the filter box.
+  // Sorted (A-Z by title, or newest additions first), narrowed by the filter box.
   const shown = useMemo(() => {
     const needle = filter.trim().toLowerCase();
-    const matches = [...library]
-      .reverse()
-      .filter(
-        (v) =>
-          !needle ||
-          v.snippet.title.toLowerCase().includes(needle) ||
-          v.snippet.channelTitle?.toLowerCase().includes(needle)
-      );
-    return matches;
-  }, [library, filter]);
+    const matches = library.filter(
+      (v) =>
+        !needle ||
+        v.snippet.title.toLowerCase().includes(needle) ||
+        v.snippet.channelTitle?.toLowerCase().includes(needle)
+    );
+    return sort === "newest" ? matches.reverse() : matches.sort(byTitle);
+  }, [library, filter, sort]);
 
   const visible = useMemo(() => shown.slice(0, visibleCount), [shown, visibleCount]);
   // Load the next page of rows when the user scrolls close to the bottom.
@@ -219,6 +229,18 @@ function Library({
             setVisibleCount(PAGE_SIZE);
           }}
         />
+        <select
+          className="form-select w-auto"
+          aria-label="Sort library"
+          value={sort}
+          onChange={(e) => {
+            setSort(e.target.value);
+            setVisibleCount(PAGE_SIZE);
+          }}
+        >
+          <option value="az">A–Z</option>
+          <option value="newest">Newest first</option>
+        </select>
         <button
           className="btn btn-success text-nowrap d-flex align-items-center gap-1"
           onClick={handleQueueAll}
