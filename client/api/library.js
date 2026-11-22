@@ -3,7 +3,6 @@
 // stored one (union by video id) and returns the result.
 import { readFlags } from "./flags.js";
 import {
-  SEARCHES_LIST,
   getCatalog,
   getRooms,
   readSyncCode,
@@ -123,14 +122,10 @@ export async function handleLibrary(rooms, roomId, body, catalog) {
     { $set: { library: merged, removals, removalSeq: seq } },
     { upsert: true }
   );
-  // The catalog documents use the same room id as their owner. "My Searches" is
-  // left alone so a removed video can be added back from Add Library.
+  // The catalog documents use the same room id as their owner. The video is
+  // removed from every saved list, "My Searches" included.
   if (catalog && removedNow.length > 0) {
-    await catalog.deleteMany({
-      owner: roomId,
-      catalog: { $ne: SEARCHES_LIST },
-      "video.id.videoId": { $in: removedNow },
-    });
+    await catalog.deleteMany({ owner: roomId, "video.id.videoId": { $in: removedNow } });
   }
   return {
     status: 200,
