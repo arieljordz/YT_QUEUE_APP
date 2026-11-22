@@ -1,15 +1,19 @@
-import { memo } from "react";
-import { FaPlus } from "react-icons/fa";
+import { memo, useState } from "react";
+import { FaPlus, FaTrash } from "react-icons/fa";
 
 function VideoList({
   videos,
   queuedIds,
   youtubeOnlyIds,
   onAdd,
+  onRemove,
   isLoading,
   hasSearched,
   emptyText = "No results found.",
 }) {
+  // With onRemove, the trash button needs a second click to confirm.
+  const [confirmId, setConfirmId] = useState(null);
+
   if (isLoading) {
     return <p className="text-muted text-center my-4">Searching…</p>;
   }
@@ -68,6 +72,33 @@ function VideoList({
               <FaPlus aria-hidden="true" />
               <span className="d-none d-sm-inline">Queue</span>
             </button>
+            {onRemove && (
+              <button
+                className={`btn add-to-queue d-flex align-items-center justify-content-center gap-1 flex-shrink-0 ${
+                  confirmId === video.id.videoId ? "btn-danger" : "btn-outline-danger"
+                }`}
+                onClick={() => {
+                  if (confirmId === video.id.videoId) {
+                    setConfirmId(null);
+                    onRemove(video.id.videoId);
+                  } else {
+                    setConfirmId(video.id.videoId);
+                  }
+                }}
+                onBlur={() => setConfirmId(null)}
+                aria-label={`Remove ${title} from library`}
+                title={
+                  confirmId === video.id.videoId
+                    ? "Click again to remove"
+                    : "Remove from library"
+                }
+              >
+                <FaTrash aria-hidden="true" />
+                {confirmId === video.id.videoId && (
+                  <span className="d-none d-sm-inline">Sure?</span>
+                )}
+              </button>
+            )}
           </li>
         );
       })}

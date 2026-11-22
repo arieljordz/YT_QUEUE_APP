@@ -21,14 +21,24 @@ export default function useLibrary() {
   const [epoch, setEpoch] = useLocalStorage("libraryEpoch", null);
   const epochRef = useRef(epoch);
   epochRef.current = epoch;
+  // Number of single-video removals this device has seen, and removals not yet
+  // reported to the server.
+  const [removalSeq, setRemovalSeq] = useLocalStorage("libraryRemovalSeq", 0);
+  const [pendingRemovals, setPendingRemovals] = useLocalStorage("libraryRemovals", []);
+  const removalSeqRef = useRef(removalSeq);
+  removalSeqRef.current = removalSeq;
+  const pendingRef = useRef(pendingRemovals);
+  pendingRef.current = pendingRemovals;
 
   // A device that enters a sync code adds its own videos to the shared library.
   const setSyncCode = useCallback(
     (code) => {
       setEpoch(code ? "join" : null);
+      setRemovalSeq(0);
+      setPendingRemovals([]);
       setSyncCodeRaw(code);
     },
-    [setEpoch, setSyncCodeRaw]
+    [setEpoch, setRemovalSeq, setPendingRemovals, setSyncCodeRaw]
   );
   // "off" | "syncing" | "synced" | "unavailable" | "error"
   const [status, setStatus] = useState("off");
@@ -41,14 +51,30 @@ export default function useLibrary() {
     [setLibrary]
   );
 
+  // Takes one video out of the library on this device and, with sync on, on all.
+  const removeFromLibrary = useCallback(
+    (videoId) => {
+      setLibrary((prev) => prev.filter((v) => v.id.videoId !== videoId));
+      if (syncCode) setPendingRemovals((prev) => (prev.includes(videoId) ? prev : [...prev, videoId]));
+    },
+    [syncCode, setLibrary, setPendingRemovals]
+  );
+
   const sync = useCallback(
     async (signal) => {
       setStatus("syncing");
+      const sentLibrary = libraryRef.current;
+      const sentRemovals = pendingRef.current;
       try {
         const response = await fetch("/api/library", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-sync-code": syncCode },
-          body: JSON.stringify({ library: libraryRef.current, epoch: epochRef.current }),
+          body: JSON.stringify({
+            library: sentLibrary,
+            epoch: epochRef.current,
+            removalSeq: removalSeqRef.current,
+            removed: sentRemovals,
+          }),
           signal,
         });
         const isJson = response.headers.get("content-type")?.includes("application/json");
@@ -56,10 +82,23 @@ export default function useLibrary() {
         if (!isJson || response.status === 404) return setStatus("unavailable");
         if (!response.ok) return setStatus("error");
 
-        const { library: remote, epoch: serverEpoch, reset } = await response.json();
+        const { library: remote, epoch: serverEpoch, removalSeq: serverSeq, reset } =
+          await response.json();
         if (Number.isInteger(serverEpoch)) setEpoch(serverEpoch);
-        // Deleted on another device since this one last synced: take the server's copy.
-        const merged = reset ? remote : mergeLibrary(libraryRef.current, remote);
+        if (Number.isInteger(serverSeq)) setRemovalSeq(serverSeq);
+
+        // The server's copy is the truth (it already has the removals applied).
+        // Changes made on this device while the request was running are kept.
+        const sentIds = new Set(sentLibrary.map((v) => v.id.videoId));
+        const added = libraryRef.current.filter((v) => !sentIds.has(v.id.videoId));
+        const sentGone = new Set(sentRemovals);
+        const stillPending = pendingRef.current.filter((id) => !sentGone.has(id));
+        setPendingRemovals(stillPending);
+        const hidden = new Set(stillPending);
+        const merged = mergeLibrary(
+          remote.filter((v) => !hidden.has(v.id.videoId)),
+          reset ? [] : added
+        );
         syncedCountRef.current = merged.length;
         setLibrary(merged);
         setStatus("synced");
@@ -67,7 +106,7 @@ export default function useLibrary() {
         if (err.name !== "AbortError") setStatus("error");
       }
     },
-    [syncCode, setLibrary, setEpoch]
+    [syncCode, setLibrary, setEpoch, setRemovalSeq, setPendingRemovals]
   );
 
   // Sync when a code is set, and shortly after the library changes.
@@ -77,7 +116,7 @@ export default function useLibrary() {
       syncedCountRef.current = -1;
       return;
     }
-    if (library.length === syncedCountRef.current) return;
+    if (library.length === syncedCountRef.current && pendingRemovals.length === 0) return;
 
     const controller = new AbortController();
     const timer = setTimeout(
@@ -88,7 +127,7 @@ export default function useLibrary() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [syncCode, library.length, sync]);
+  }, [syncCode, library.length, pendingRemovals.length, sync]);
 
   // Deletes the whole library. Resolves to true on success; with sync on, a
   // failed server call leaves the library untouched and resolves to false.
@@ -103,6 +142,7 @@ export default function useLibrary() {
         if (!response.ok) return false;
         const { epoch: newEpoch } = await response.json();
         if (Number.isInteger(newEpoch)) setEpoch(newEpoch);
+        setPendingRemovals([]);
       } catch {
         return false;
       }
@@ -111,12 +151,21 @@ export default function useLibrary() {
     syncedCountRef.current = 0;
     setLibrary([]);
     return true;
-  }, [syncCode, setLibrary, setEpoch]);
+  }, [syncCode, setLibrary, setEpoch, setPendingRemovals]);
 
   const retrySync = useCallback(() => {
     syncedCountRef.current = -1;
     sync();
   }, [sync]);
 
-  return { library, addToLibrary, syncCode, setSyncCode, status, retrySync, clearLibrary };
+  return {
+    library,
+    addToLibrary,
+    syncCode,
+    setSyncCode,
+    status,
+    retrySync,
+    clearLibrary,
+    removeFromLibrary,
+  };
 }

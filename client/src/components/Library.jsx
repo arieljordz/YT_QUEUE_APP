@@ -143,6 +143,7 @@ function Library({
   onAdd,
   onAddAll,
   onClearLibrary,
+  onRemove,
   queuedIds,
   syncCode,
   onChangeCode,
@@ -264,6 +265,7 @@ function Library({
         videos={visible}
         queuedIds={queuedIds}
         onAdd={onAdd}
+        onRemove={onRemove}
         isLoading={false}
         hasSearched
         emptyText={

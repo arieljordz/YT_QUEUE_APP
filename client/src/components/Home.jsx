@@ -25,7 +25,8 @@ function Home({ liveStatus }) {
   const [hasSearched, setHasSearched] = useState(false);
   const [youtubeOnlyIds, setYoutubeOnlyIds] = useState(() => new Set());
   const [tab, setTab] = useState("library");
-  const { library, addToLibrary, syncCode, setSyncCode, status, retrySync, clearLibrary } = useLibrary();
+  const { library, addToLibrary, syncCode, setSyncCode, status, retrySync, clearLibrary, removeFromLibrary } =
+    useLibrary();
   const searchAbortRef = useRef(null);
 
   useEffect(() => () => searchAbortRef.current?.abort(), []);
@@ -203,6 +204,7 @@ function Home({ liveStatus }) {
           onAdd={addToQueue}
           onAddAll={addAllToQueue}
           onClearLibrary={handleClearLibrary}
+          onRemove={removeFromLibrary}
           queuedIds={queuedIds}
           syncCode={syncCode}
           onChangeCode={setSyncCode}
