@@ -88,21 +88,24 @@ const UpNextItem = memo(function UpNextItem({ video, index, onPlay, onRemove }) 
           <span className="up-next-title min-w-0 text-truncate-2" title={video.snippet.title}>
             {video.snippet.title}
           </span>
-          <div className="btn-group btn-group-sm flex-shrink-0">
+          <div className="d-flex gap-1 flex-shrink-0">
             <button
-              className="btn btn-outline-primary"
+              className="btn btn-primary row-action d-flex align-items-center justify-content-center gap-1"
               onClick={() => onPlay(index)}
-              aria-label="Play now"
+              aria-label={`Play ${video.snippet.title} now`}
               title="Play now"
             >
-              <FaPlay />
+              <FaPlay aria-hidden="true" />
+              <span className="d-none d-sm-inline">Play now</span>
             </button>
             <button
-              className="btn btn-outline-danger"
+              className="btn btn-outline-danger row-action d-flex align-items-center justify-content-center gap-1"
               onClick={() => onRemove(index)}
-              aria-label="Remove"
+              aria-label={`Remove ${video.snippet.title} from the queue`}
+              title="Remove from queue"
             >
-              <FaTrash />
+              <FaTrash aria-hidden="true" />
+              <span className="d-none d-sm-inline">Remove</span>
             </button>
           </div>
         </li>

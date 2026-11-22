@@ -66,7 +66,7 @@ function VideoList({
             </div>
             <div className="d-flex gap-1 flex-shrink-0">
               <button
-                className="btn btn-success add-to-queue d-flex align-items-center justify-content-center gap-1 flex-shrink-0"
+                className="btn btn-success row-action d-flex align-items-center justify-content-center gap-1 flex-shrink-0"
                 onClick={() => onAdd(video)}
                 aria-label={`Add ${title} to queue`}
                 title="Add to queue"
@@ -76,7 +76,7 @@ function VideoList({
               </button>
               {onRemove && (
                 <button
-                  className={`btn add-to-queue d-flex align-items-center justify-content-center gap-1 flex-shrink-0 ${
+                  className={`btn row-action d-flex align-items-center justify-content-center gap-1 flex-shrink-0 ${
                     confirmId === video.id.videoId
                       ? "btn-danger is-confirming"
                       : "btn-outline-danger"

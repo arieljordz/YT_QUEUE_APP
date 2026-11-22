@@ -123,8 +123,8 @@
   cursor: grabbing;
 }
 
-/* The Queue and Remove buttons are the same size. */
-.add-to-queue {
+/* The row buttons (Queue / Play now / Remove) are all the same size. */
+.row-action {
   width: 6.25rem;
   height: 2.5rem;
   padding: 0;
@@ -132,13 +132,13 @@
 
 /* Phones: the queue button is icon-only, so keep it a comfortable tap target. */
 @media (max-width: 575.98px) {
-  .add-to-queue {
+  .row-action {
     width: 2.5rem;
     height: 2.5rem;
     padding: 0;
   }
   /* The remove button grows to fit its "Sure?" text. */
-  .add-to-queue.is-confirming {
+  .row-action.is-confirming {
     width: auto;
     padding: 0 0.6rem;
   }
