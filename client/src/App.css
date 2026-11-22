@@ -103,6 +103,25 @@
   }
 }
 
+/* Pause / Repeat / Next: small buttons with an icon and a label. */
+.now-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 5.25rem;
+  height: 2rem;
+  padding: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 576px) {
+  .now-action {
+    width: auto;
+    height: 2.25rem;
+  }
+}
+
 .now-playing-info {
   flex: 1 1 140px;
 }
@@ -123,19 +142,19 @@
   cursor: grabbing;
 }
 
-/* The row buttons (Queue / Play now / Remove) are small and all the same size. */
+/* The row buttons (Queue / Play now / Remove) are all the same size. */
 .row-action {
-  width: 5.25rem;
-  height: 2rem;
+  width: 6.25rem;
+  height: 2.5rem;
   padding: 0;
-  white-space: nowrap;
 }
 
-/* Phones: icon-only squares, still easy to tap. */
+/* Phones: the queue button is icon-only, so keep it a comfortable tap target. */
 @media (max-width: 575.98px) {
   .row-action {
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
   }
   /* The remove button grows to fit its "Sure?" text. */
   .row-action.is-confirming {

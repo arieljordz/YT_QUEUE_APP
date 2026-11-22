@@ -39,25 +39,35 @@ const NowPlaying = memo(function NowPlaying({
             {video.snippet.title}
           </div>
         </div>
-        <div className="btn-group queue-actions">
+        <div className="d-flex gap-1 queue-actions">
           <button
-            className="btn btn-primary"
+            className="btn btn-sm btn-primary now-action"
             onClick={onTogglePause}
             aria-label={isPaused ? "Resume" : "Pause"}
           >
-            {isPaused ? <FaPlay /> : <FaPause />}
+            {isPaused ? <FaPlay aria-hidden="true" /> : <FaPause aria-hidden="true" />}
+            <span>{isPaused ? "Resume" : "Pause"}</span>
           </button>
           <button
-            className={`btn ${isRepeat ? "btn-success" : "btn-outline-secondary"}`}
+            className={`btn btn-sm now-action ${
+              isRepeat ? "btn-success" : "btn-outline-secondary"
+            }`}
             onClick={onToggleRepeat}
             aria-label={isRepeat ? "Turn repeat off" : "Turn repeat on"}
             aria-pressed={isRepeat}
             title={isRepeat ? "Repeat is on" : "Repeat this video"}
           >
-            <FaRedoAlt />
+            <FaRedoAlt aria-hidden="true" />
+            <span>Repeat</span>
           </button>
-          <button className="btn btn-outline-primary" onClick={onSkip} aria-label="Skip">
-            <FaStepForward />
+          <button
+            className="btn btn-sm btn-outline-primary now-action"
+            onClick={onSkip}
+            aria-label="Skip to the next video"
+            title="Skip to the next video"
+          >
+            <FaStepForward aria-hidden="true" />
+            <span>Next</span>
           </button>
         </div>
       </div>
@@ -90,7 +100,7 @@ const UpNextItem = memo(function UpNextItem({ video, index, onPlay, onRemove }) 
           </span>
           <div className="d-flex gap-1 flex-shrink-0">
             <button
-              className="btn btn-sm btn-primary row-action d-flex align-items-center justify-content-center gap-1"
+              className="btn btn-primary row-action d-flex align-items-center justify-content-center gap-1"
               onClick={() => onPlay(index)}
               aria-label={`Play ${video.snippet.title} now`}
               title="Play now"
@@ -99,7 +109,7 @@ const UpNextItem = memo(function UpNextItem({ video, index, onPlay, onRemove }) 
               <span className="d-none d-sm-inline">Play now</span>
             </button>
             <button
-              className="btn btn-sm btn-outline-danger row-action d-flex align-items-center justify-content-center gap-1"
+              className="btn btn-outline-danger row-action d-flex align-items-center justify-content-center gap-1"
               onClick={() => onRemove(index)}
               aria-label={`Remove ${video.snippet.title} from the queue`}
               title="Remove from queue"
