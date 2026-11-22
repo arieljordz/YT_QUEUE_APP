@@ -1,7 +1,7 @@
 // Vercel serverless function: the saved video library for one sync code, stored
 // in MongoDB. The client sends its library; the server merges it with the
 // stored one (union by video id) and returns the result.
-import { getRooms, readSyncCode, roomIdFor, slimVideo } from "./_db.js";
+import { getCatalog, getRooms, readSyncCode, roomIdFor, slimVideo } from "./_db.js";
 
 const MAX_ITEMS = 20000;
 
@@ -33,9 +33,13 @@ const MAX_REMOVED_PER_REQUEST = 500;
  * back from a device that has not heard about the removal yet. A video added
  * again later by a device that already saw the removal is kept normally.
  *
+ * Videos removed one by one are also deleted from the saved lists
+ * (`catalog`, the catalog_videos collection) of this room. Deleting the whole
+ * library does not touch them.
+ *
  * The response always holds the full library the device should end up with.
  */
-export async function handleLibrary(rooms, roomId, body) {
+export async function handleLibrary(rooms, roomId, body, catalog) {
   const doc = await rooms.findOne(
     { _id: roomId },
     { projection: { library: 1, libraryEpoch: 1, removals: 1, removalSeq: 1 } }
@@ -102,6 +106,10 @@ export async function handleLibrary(rooms, roomId, body) {
     { $set: { library: merged, removals, removalSeq: seq } },
     { upsert: true }
   );
+  // The catalog documents use the same room id as their owner.
+  if (catalog && removedNow.length > 0) {
+    await catalog.deleteMany({ owner: roomId, "video.id.videoId": { $in: removedNow } });
+  }
   return {
     status: 200,
     body: { library: merged, epoch: serverEpoch, removalSeq: seq, reset: false },
@@ -117,7 +125,12 @@ export default async function handler(req, res) {
   if (!code) return res.status(401).json({ error: "Missing or too short sync code" });
 
   try {
-    const result = await handleLibrary(await getRooms(), roomIdFor(code), req.body);
+    const result = await handleLibrary(
+      await getRooms(),
+      roomIdFor(code),
+      req.body,
+      await getCatalog()
+    );
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("library sync failed", error);
