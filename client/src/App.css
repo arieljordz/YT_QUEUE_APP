@@ -142,19 +142,19 @@
   cursor: grabbing;
 }
 
-/* The row buttons (Queue / Play now / Remove) are all the same size. */
+/* The row buttons (Queue / Play now / Remove) are small and all the same size. */
 .row-action {
-  width: 6.25rem;
-  height: 2.5rem;
+  width: 5.25rem;
+  height: 2rem;
   padding: 0;
+  white-space: nowrap;
 }
 
-/* Phones: the queue button is icon-only, so keep it a comfortable tap target. */
+/* Phones: icon-only squares, still easy to tap. */
 @media (max-width: 575.98px) {
   .row-action {
-    width: 2.5rem;
-    height: 2.5rem;
-    padding: 0;
+    width: 2.25rem;
+    height: 2.25rem;
   }
   /* The remove button grows to fit its "Sure?" text. */
   .row-action.is-confirming {
