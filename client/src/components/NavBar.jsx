@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Dropdown } from "react-bootstrap";
-import { FaCog, FaDownload, FaPalette, FaCoffee } from "react-icons/fa";
+import { FaCog, FaDownload, FaBookOpen, FaPalette, FaCoffee } from "react-icons/fa";
 import ImportVideosModal from "./ImportVideosModal";
+import AddLibraryModal from "./AddLibraryModal";
 import AppearanceModal from "./AppearanceModal";
 import SupportModal from "./SupportModal";
 
@@ -10,7 +11,7 @@ const NavBar = () => {
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem("theme") === "dark"
   );
-  // Which settings window is open: null | "import" | "appearance" | "support".
+  // Which settings window is open: null | "import" | "library" | "appearance" | "support".
   const [openModal, setOpenModal] = useState(null);
 
   useEffect(() => {
@@ -53,6 +54,13 @@ const NavBar = () => {
               <Dropdown.Divider className="m-0" />
               <Dropdown.Item
                 className="small d-flex align-items-center gap-2"
+                onClick={() => setOpenModal("library")}
+              >
+                <FaBookOpen aria-hidden="true" /> Add Library
+              </Dropdown.Item>
+              <Dropdown.Divider className="m-0" />
+              <Dropdown.Item
+                className="small d-flex align-items-center gap-2"
                 onClick={() => setOpenModal("appearance")}
               >
                 <FaPalette aria-hidden="true" /> Appearance
@@ -70,6 +78,7 @@ const NavBar = () => {
       </nav>
 
       <ImportVideosModal show={openModal === "import"} onHide={closeModal} />
+      <AddLibraryModal show={openModal === "library"} onHide={closeModal} />
       <AppearanceModal
         show={openModal === "appearance"}
         onHide={closeModal}
