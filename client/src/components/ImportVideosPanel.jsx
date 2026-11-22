@@ -166,7 +166,7 @@ export default function ImportVideosPanel() {
             disabled={busy}
           />
         </div>
-        <div className="col-sm-6">
+        <div className="col-7 col-sm-6">
           <label className="form-label small mb-1" htmlFor="imp-name">
             Save as (list name)
           </label>
@@ -179,7 +179,7 @@ export default function ImportVideosPanel() {
             disabled={busy}
           />
         </div>
-        <div className="col-sm-6">
+        <div className="col-5 col-sm-6">
           <label className="form-label small mb-1" htmlFor="imp-max">
             Up to
           </label>
@@ -218,7 +218,7 @@ export default function ImportVideosPanel() {
 
       <div className="d-flex gap-2 mt-3">
         <button
-          className="btn btn-primary d-flex align-items-center gap-2"
+          className="btn btn-primary d-flex align-items-center justify-content-center gap-2 flex-grow-1 flex-sm-grow-0"
           onClick={startImport}
           disabled={!canStart}
         >
@@ -259,7 +259,7 @@ export default function ImportVideosPanel() {
                 className="list-group-item d-flex flex-wrap align-items-center gap-2"
               >
                 <div className="flex-grow-1 min-w-0">
-                  <div className="fw-semibold text-truncate">{name}</div>
+                  <div className="fw-semibold text-break">{name}</div>
                   <small className="text-muted">
                     {count} videos
                     {missing === 0
@@ -269,39 +269,41 @@ export default function ImportVideosPanel() {
                         : ""}
                   </small>
                 </div>
-                {missing === 0 ? (
+                <div className="d-flex gap-2 flex-grow-1 flex-sm-grow-0 justify-content-end">
+                  {missing === 0 ? (
+                    <button
+                      className="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center gap-1 flex-grow-1 flex-sm-grow-0"
+                      disabled
+                      title="Every video of this list is already in your library"
+                    >
+                      <FaCheck /> Added
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-sm btn-success d-flex align-items-center justify-content-center gap-1 flex-grow-1 flex-sm-grow-0"
+                      onClick={() => addToLibrary(name)}
+                      disabled={workingOn !== null || busy}
+                    >
+                      <FaBookOpen />{" "}
+                      {workingOn === name
+                        ? "Working…"
+                        : inLibrary > 0
+                          ? `Add ${missing} missing`
+                          : "Add to library"}
+                    </button>
+                  )}
                   <button
-                    className="btn btn-sm btn-outline-success d-flex align-items-center gap-1"
-                    disabled
-                    title="Every video of this list is already in your library"
-                  >
-                    <FaCheck /> Added
-                  </button>
-                ) : (
-                  <button
-                    className="btn btn-sm btn-success d-flex align-items-center gap-1"
-                    onClick={() => addToLibrary(name)}
+                    className={`btn btn-sm d-flex align-items-center gap-1 ${
+                      confirmDelete === name ? "btn-danger" : "btn-outline-danger"
+                    }`}
+                    onClick={() => removeList(name)}
+                    onBlur={() => setConfirmDelete(null)}
                     disabled={workingOn !== null || busy}
+                    title="Delete this saved list (your library is not changed)"
                   >
-                    <FaBookOpen />{" "}
-                    {workingOn === name
-                      ? "Working…"
-                      : inLibrary > 0
-                        ? `Add ${missing} missing`
-                        : "Add to library"}
+                    <FaTrash /> {confirmDelete === name ? "Sure?" : ""}
                   </button>
-                )}
-                <button
-                  className={`btn btn-sm d-flex align-items-center gap-1 ${
-                    confirmDelete === name ? "btn-danger" : "btn-outline-danger"
-                  }`}
-                  onClick={() => removeList(name)}
-                  onBlur={() => setConfirmDelete(null)}
-                  disabled={workingOn !== null || busy}
-                  title="Delete this saved list (your library is not changed)"
-                >
-                  <FaTrash /> {confirmDelete === name ? "Sure?" : ""}
-                </button>
+                </div>
               </li>
             );
           })}
