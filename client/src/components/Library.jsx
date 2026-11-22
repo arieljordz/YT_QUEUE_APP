@@ -2,7 +2,8 @@ import { useState, useMemo, memo } from "react";
 import { Modal, Button } from "react-bootstrap";
 import VideoList from "./VideoList";
 
-const MAX_SHOWN = 100;
+// The list grows by this many rows each time the user scrolls near the bottom.
+const PAGE_SIZE = 100;
 
 const STATUS_TEXT = {
   off: "Sync is off. Your library is only saved in this browser.",
@@ -150,6 +151,7 @@ function Library({
   liveStatus,
 }) {
   const [filter, setFilter] = useState("");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmingQueueAll, setConfirmingQueueAll] = useState(false);
 
@@ -166,6 +168,15 @@ function Library({
       );
     return matches;
   }, [library, filter]);
+
+  const visible = useMemo(() => shown.slice(0, visibleCount), [shown, visibleCount]);
+  // Load the next page of rows when the user scrolls close to the bottom.
+  const handleScroll = (e) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 400) {
+      setVisibleCount((count) => (count < shown.length ? count + PAGE_SIZE : count));
+    }
+  };
 
   // Everything the filter matches that is not already in the queue, in the order shown.
   const queueable = useMemo(
@@ -200,7 +211,10 @@ function Library({
           placeholder={`Filter ${library.length} saved videos...`}
           aria-label="Filter library"
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={(e) => {
+            setFilter(e.target.value);
+            setVisibleCount(PAGE_SIZE);
+          }}
         />
         <button
           className="btn btn-success text-nowrap"
@@ -245,9 +259,9 @@ function Library({
         onCancel={() => setConfirmingDelete(false)}
       />
 
-      <div className="library-scroll mt-2">
+      <div className="library-scroll mt-2" onScroll={handleScroll}>
       <VideoList
-        videos={shown.slice(0, MAX_SHOWN)}
+        videos={visible}
         queuedIds={queuedIds}
         onAdd={onAdd}
         isLoading={false}
@@ -259,9 +273,9 @@ function Library({
         }
       />
       </div>
-      {shown.length > MAX_SHOWN && (
+      {shown.length > visible.length && (
         <p className="text-muted small text-center mt-2">
-          Showing the newest {MAX_SHOWN} of {shown.length}. Use the filter to find more.
+          Showing {visible.length} of {shown.length}. Scroll down to load more.
         </p>
       )}
     </div>
