@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import VideoPlayer from "./VideoPlayer";
 import useLocalStorage from "../hooks/useLocalStorage";
 
@@ -12,6 +12,18 @@ function PlayerPage() {
   const [, setPlayedVideos] = useLocalStorage("playedVideos", []);
 
   const currentVideo = queue[0] ?? null;
+
+  // Name the browser tab after what is playing (titles may contain HTML entities).
+  const title = currentVideo?.snippet.title;
+  useEffect(() => {
+    const decoded = title
+      ? new DOMParser().parseFromString(title, "text/html").documentElement.textContent
+      : null;
+    document.title = decoded ? `▶ ${decoded} · Player` : "Player · YouTube Queueing App";
+    return () => {
+      document.title = "YouTube Queueing App";
+    };
+  }, [title]);
 
   const playNext = useCallback(() => {
     if (!currentVideo) return;

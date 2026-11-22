@@ -152,21 +152,6 @@ function Home({ liveStatus }) {
 
   return (
     <div className="container-xl py-4">
-      <div className="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span>
-          Videos play in a separate player tab, so you can keep searching while
-          they play.
-        </span>
-        <a
-          className="btn btn-sm btn-primary d-flex align-items-center gap-1"
-          href="/player"
-          target="_blank"
-          rel="noopener"
-        >
-          <FaExternalLinkAlt /> Open player tab
-        </a>
-      </div>
-
       <ul className="nav nav-tabs mb-3">
         {[
           ["library", `📚 Library (${library.length})`],
@@ -182,6 +167,18 @@ function Home({ liveStatus }) {
             </button>
           </li>
         ))}
+        {/* Not a page of its own: it opens the player in a new browser tab. */}
+        <li className="nav-item">
+          <a
+            className="nav-link d-flex align-items-center gap-1"
+            href="/player"
+            target="_blank"
+            rel="noopener"
+            title="Open the player in a new browser tab, so videos keep playing while you search"
+          >
+            📺 Player <FaExternalLinkAlt size={11} aria-hidden="true" />
+          </a>
+        </li>
       </ul>
 
       {tab === "search" && (
