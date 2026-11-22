@@ -4,6 +4,7 @@ import { FaTrash } from "react-icons/fa";
 import { MdPlaylistAdd } from "react-icons/md";
 import VideoList from "./VideoList";
 import useLocalStorage from "../hooks/useLocalStorage";
+import useFeatureFlags from "../hooks/useFeatureFlags";
 
 // The list grows by this many rows each time the user scrolls near the bottom.
 const PAGE_SIZE = 100;
@@ -164,6 +165,7 @@ function Library({
   onRetry,
   liveStatus,
 }) {
+  const { flags } = useFeatureFlags();
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useLocalStorage("librarySort", "az"); // "az" | "newest"
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -250,15 +252,17 @@ function Library({
           <MdPlaylistAdd size={20} aria-hidden="true" />
           Queue all{queueable.length > 0 ? ` (${queueable.length})` : ""}
         </button>
-        <button
-          className="btn btn-outline-danger text-nowrap d-flex align-items-center gap-1"
-          onClick={() => setConfirmingDelete(true)}
-          disabled={library.length === 0}
-          title="Delete every saved video"
-        >
-          <FaTrash aria-hidden="true" />
-          Delete all
-        </button>
+        {flags.deleteAllButton && (
+          <button
+            className="btn btn-outline-danger text-nowrap d-flex align-items-center gap-1"
+            onClick={() => setConfirmingDelete(true)}
+            disabled={library.length === 0}
+            title="Delete every saved video"
+          >
+            <FaTrash aria-hidden="true" />
+            Delete all
+          </button>
+        )}
       </div>
       <Modal show={confirmingQueueAll} onHide={() => setConfirmingQueueAll(false)} centered>
         <Modal.Header closeButton>
@@ -278,20 +282,22 @@ function Library({
           </Button>
         </Modal.Footer>
       </Modal>
-      <DeleteAllModal
-        show={confirmingDelete}
-        count={library.length}
-        synced={Boolean(syncCode)}
-        onConfirm={onClearLibrary}
-        onCancel={() => setConfirmingDelete(false)}
-      />
+      {flags.deleteAllButton && (
+        <DeleteAllModal
+          show={confirmingDelete}
+          count={library.length}
+          synced={Boolean(syncCode)}
+          onConfirm={onClearLibrary}
+          onCancel={() => setConfirmingDelete(false)}
+        />
+      )}
 
       <div className="library-scroll mt-2" onScroll={handleScroll}>
       <VideoList
         videos={visible}
         queuedIds={queuedIds}
         onAdd={onAdd}
-        onRemove={onRemove}
+        onRemove={flags.removeButton ? onRemove : undefined}
         isLoading={false}
         hasSearched
         emptyText={

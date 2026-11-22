@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Dropdown } from "react-bootstrap";
-import { FaCog, FaDownload, FaBookOpen, FaPalette, FaCoffee } from "react-icons/fa";
+import { FaCog, FaDownload, FaBookOpen, FaFlag, FaCoffee } from "react-icons/fa";
 import ImportVideosModal from "./ImportVideosModal";
 import AddLibraryModal from "./AddLibraryModal";
-import AppearanceModal from "./AppearanceModal";
+import FeatureFlagsModal from "./FeatureFlagsModal";
 import SupportModal from "./SupportModal";
 
 const NavBar = () => {
@@ -11,7 +11,7 @@ const NavBar = () => {
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem("theme") === "dark"
   );
-  // Which settings window is open: null | "import" | "library" | "appearance" | "support".
+  // Which settings window is open: null | "import" | "library" | "flags" | "support".
   const [openModal, setOpenModal] = useState(null);
 
   useEffect(() => {
@@ -61,9 +61,9 @@ const NavBar = () => {
               <Dropdown.Divider className="m-0" />
               <Dropdown.Item
                 className="small d-flex align-items-center gap-2"
-                onClick={() => setOpenModal("appearance")}
+                onClick={() => setOpenModal("flags")}
               >
-                <FaPalette aria-hidden="true" /> Appearance
+                <FaFlag aria-hidden="true" /> Feature Flags
               </Dropdown.Item>
               <Dropdown.Divider className="m-0" />
               <Dropdown.Item
@@ -79,8 +79,8 @@ const NavBar = () => {
 
       <ImportVideosModal show={openModal === "import"} onHide={closeModal} />
       <AddLibraryModal show={openModal === "library"} onHide={closeModal} />
-      <AppearanceModal
-        show={openModal === "appearance"}
+      <FeatureFlagsModal
+        show={openModal === "flags"}
         onHide={closeModal}
         darkMode={darkMode}
         onToggleTheme={toggleTheme}

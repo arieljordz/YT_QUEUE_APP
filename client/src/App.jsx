@@ -4,6 +4,7 @@ import Home from "./components/Home";
 import PlayerPage from "./components/PlayerPage";
 import NavBar from "./components/NavBar";
 import useRemoteSync from "./hooks/useRemoteSync";
+import { useFeatureFlagsSync } from "./hooks/useFeatureFlags";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
@@ -11,6 +12,8 @@ import "./App.css";
 function App() {
   // Keeps the queue identical on every device that uses the same sync code.
   const liveStatus = useRemoteSync();
+  // Keeps the feature flags identical on every device that uses the same sync code.
+  useFeatureFlagsSync();
 
   return (
     <BrowserRouter>

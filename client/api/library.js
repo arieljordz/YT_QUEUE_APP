@@ -1,6 +1,7 @@
 // Vercel serverless function: the saved video library for one sync code, stored
 // in MongoDB. The client sends its library; the server merges it with the
 // stored one (union by video id) and returns the result.
+import { readFlags } from "./flags.js";
 import { getCatalog, getRooms, readSyncCode, roomIdFor, slimVideo } from "./_db.js";
 
 const MAX_ITEMS = 20000;
@@ -33,6 +34,9 @@ const MAX_REMOVED_PER_REQUEST = 500;
  * back from a device that has not heard about the removal yet. A video added
  * again later by a device that already saw the removal is kept normally.
  *
+ * Both kinds of deletion are refused unless their feature flag (see flags.js) is
+ * on for the room.
+ *
  * Videos removed one by one are also deleted from the saved lists
  * (`catalog`, the catalog_videos collection) of this room. Deleting the whole
  * library does not touch them.
@@ -42,13 +46,17 @@ const MAX_REMOVED_PER_REQUEST = 500;
 export async function handleLibrary(rooms, roomId, body, catalog) {
   const doc = await rooms.findOne(
     { _id: roomId },
-    { projection: { library: 1, libraryEpoch: 1, removals: 1, removalSeq: 1 } }
+    { projection: { library: 1, libraryEpoch: 1, removals: 1, removalSeq: 1, flags: 1 } }
   );
   const serverEpoch = doc?.libraryEpoch ?? 0;
   const serverSeq = doc?.removalSeq ?? 0;
+  const flags = readFlags(doc);
 
   // { clear: true } empties the stored library for every device.
   if (body?.clear === true) {
+    if (!flags.deleteAllButton) {
+      return { status: 403, body: { error: "Delete all is turned off" } };
+    }
     const epoch = serverEpoch + 1;
     await rooms.updateOne(
       { _id: roomId },
@@ -61,7 +69,9 @@ export async function handleLibrary(rooms, roomId, body, catalog) {
   const incoming = body?.library;
   const clientEpoch = body?.epoch;
   const clientSeq = Number.isInteger(body?.removalSeq) && body.removalSeq >= 0 ? body.removalSeq : 0;
-  const removedNow = Array.isArray(body?.removed)
+  // Removing single videos only counts while the Remove flag is on; otherwise the
+  // request is treated as if nothing had been removed (the video stays).
+  const removedNow = Array.isArray(body?.removed) && flags.removeButton
     ? [...new Set(body.removed.filter((id) => typeof id === "string" && id && id.length <= 40))]
     : [];
   if (
