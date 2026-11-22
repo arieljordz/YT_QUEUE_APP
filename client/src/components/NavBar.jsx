@@ -14,8 +14,9 @@ const NavBar = () => {
   const [openModal, setOpenModal] = useState(null);
 
   useEffect(() => {
-    document.body.classList.toggle("bg-dark", darkMode);
-    document.body.classList.toggle("text-light", darkMode);
+    // Bootstrap 5.3 themes every component (cards, lists, inputs, modals, tabs)
+    // from this attribute.
+    document.documentElement.setAttribute("data-bs-theme", darkMode ? "dark" : "light");
     localStorage.setItem("theme", darkMode ? "dark" : "light");
   }, [darkMode]);
 
@@ -24,10 +25,10 @@ const NavBar = () => {
 
   return (
     <>
+      {/* The bar uses the opposite theme to the page so it always stands out. */}
       <nav
-        className={`navbar navbar-expand-lg ${
-          darkMode ? "navbar-light bg-light" : "navbar-dark bg-dark"
-        } px-3 py-1`}
+        data-bs-theme={darkMode ? "light" : "dark"}
+        className={`navbar navbar-expand-lg ${darkMode ? "bg-light" : "bg-dark"} px-3 py-1`}
       >
         <span className="navbar-brand py-0 fs-6">🎬 YouTube Queueing App</span>
 
