@@ -2,7 +2,14 @@
 // in MongoDB. The client sends its library; the server merges it with the
 // stored one (union by video id) and returns the result.
 import { readFlags } from "./flags.js";
-import { getCatalog, getRooms, readSyncCode, roomIdFor, slimVideo } from "./_db.js";
+import {
+  SEARCHES_LIST,
+  getCatalog,
+  getRooms,
+  readSyncCode,
+  roomIdFor,
+  slimVideo,
+} from "./_db.js";
 
 const MAX_ITEMS = 20000;
 
@@ -116,9 +123,14 @@ export async function handleLibrary(rooms, roomId, body, catalog) {
     { $set: { library: merged, removals, removalSeq: seq } },
     { upsert: true }
   );
-  // The catalog documents use the same room id as their owner.
+  // The catalog documents use the same room id as their owner. "My Searches" is
+  // left alone so a removed video can be added back from Add Library.
   if (catalog && removedNow.length > 0) {
-    await catalog.deleteMany({ owner: roomId, "video.id.videoId": { $in: removedNow } });
+    await catalog.deleteMany({
+      owner: roomId,
+      catalog: { $ne: SEARCHES_LIST },
+      "video.id.videoId": { $in: removedNow },
+    });
   }
   return {
     status: 200,

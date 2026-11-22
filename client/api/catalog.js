@@ -9,6 +9,7 @@
 //                                        (ids = the video ids in the list)
 //   GET    /api/catalog?name=X        -> { videos: [...] }
 //   DELETE /api/catalog?name=X        -> { deleted }
+//   POST   /api/catalog { save: video } -> adds one video to the "My Searches" list
 //   POST   /api/catalog               -> collects ONE page (50) of YouTube
 //          { name, channel?, channelId?, title?, pageToken?, offset?, any? }
 //          channel = only videos of that channel; title = only videos whose title
@@ -16,7 +17,14 @@
 //          -> { fetched, added, nextPageToken?, channelId?, channelTitle? }
 //     The browser calls POST repeatedly until it has enough videos, so no
 //     single request runs long.
-import { getCatalog, readSyncCode, roomIdFor, slimVideo } from "./_db.js";
+import {
+  SEARCHES_LIST,
+  getCatalog,
+  isSearchesList,
+  readSyncCode,
+  roomIdFor,
+  slimVideo,
+} from "./_db.js";
 
 const SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 const MAX_VIDEOS = 8000; // keeps one response under Vercel's 4.5 MB limit
@@ -95,9 +103,28 @@ async function youtubeSearch(fetchFn, params) {
   return { data: await res.json() };
 }
 
+/** Saves one video the user searched for and queued into the "My Searches" list. */
+export async function handleSaveSearched(catalog, owner, body) {
+  const video = slimVideo(body?.save);
+  if (!video) return fail(400, "Invalid video");
+  await catalog.updateOne(
+    { _id: `${owner}:${SEARCHES_LIST}:${video.id.videoId}` },
+    {
+      $set: { owner, catalog: SEARCHES_LIST, video },
+      // Keeps its place if the same video is queued again.
+      $setOnInsert: { order: Date.now() },
+    },
+    { upsert: true }
+  );
+  return { status: 200, body: { saved: true } };
+}
+
 export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fetch }) {
   const name = cleanName(body?.name);
   if (!name) return fail(400, `Give the list a name (up to ${MAX_NAME} characters)`);
+  if (isSearchesList(name)) {
+    return fail(400, `"${SEARCHES_LIST}" is reserved for videos you search and queue. Pick another name.`);
+  }
 
   const title = text(body?.title);
   const channel = text(body?.channel);
@@ -189,7 +216,10 @@ export default async function handler(req, res) {
     else if (req.method === "DELETE") result = await handleDelete(catalog, owner, req.query);
     else if (req.method === "POST") {
       const apiKey = process.env.YT_API_KEY || process.env.VITE_YT_API_KEY;
-      result = await handleCollect(catalog, owner, req.body, { apiKey });
+      result =
+        req.body?.save !== undefined
+          ? await handleSaveSearched(catalog, owner, req.body)
+          : await handleCollect(catalog, owner, req.body, { apiKey });
     } else {
       res.setHeader("Allow", "GET, POST, DELETE");
       return res.status(405).json({ error: "Method not allowed" });

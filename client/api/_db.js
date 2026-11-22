@@ -6,6 +6,11 @@ import { MongoClient } from "mongodb";
 
 export const MIN_CODE_LENGTH = 8;
 
+// The saved list that holds videos the user found with Search and queued one by one.
+export const SEARCHES_LIST = "My Searches";
+export const isSearchesList = (name) =>
+  typeof name === "string" && name.trim().toLowerCase() === SEARCHES_LIST.toLowerCase();
+
 // Reused between invocations of a warm function instead of reconnecting each time.
 let clientPromise;
 

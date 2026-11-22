@@ -43,3 +43,12 @@ export const deleteCatalog = (syncCode, name) =>
 
 /** Collects one page (50) of YouTube results into the list `body.name`. */
 export const collectPage = (syncCode, body) => request(syncCode, { method: "POST", body });
+
+// Must match SEARCHES_LIST on the server.
+export const SEARCHES_LIST = "My Searches";
+export const isSearchesList = (name) =>
+  name.trim().toLowerCase() === SEARCHES_LIST.toLowerCase();
+
+/** Saves a video the user searched for and queued into the "My Searches" list. */
+export const saveSearchedVideo = (syncCode, video) =>
+  request(syncCode, { method: "POST", body: { save: video } });

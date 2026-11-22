@@ -8,6 +8,7 @@ import Library from "./Library";
 import useLibrary from "../hooks/useLibrary";
 import useLocalStorage from "../hooks/useLocalStorage";
 import { searchVideos, findNonEmbeddable, QuotaError } from "../api/youtube";
+import { saveSearchedVideo } from "../api/catalog";
 
 // Queue entries get their own id so the same video can appear more than once
 // and still have a stable React / drag-and-drop key.
@@ -70,6 +71,16 @@ function Home({ liveStatus }) {
       toast.success(`Added "${video.snippet.title}" to the queue`);
     },
     [setQueue, addToLibrary]
+  );
+
+  // From the Search tab: also remember the video in the "My Searches" saved list
+  // (needs sync; a failure must not get in the way of queueing).
+  const addFromSearch = useCallback(
+    (video) => {
+      addToQueue(video);
+      if (syncCode) saveSearchedVideo(syncCode, video).catch(() => {});
+    },
+    [addToQueue, syncCode]
   );
 
   const addAllToQueue = useCallback(
@@ -188,7 +199,7 @@ function Home({ liveStatus }) {
             videos={videos}
             queuedIds={queuedIds}
             youtubeOnlyIds={youtubeOnlyIds}
-            onAdd={addToQueue}
+            onAdd={addFromSearch}
             isLoading={isSearching}
             hasSearched={hasSearched}
           />

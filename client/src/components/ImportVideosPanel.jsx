@@ -3,7 +3,7 @@ import { ProgressBar } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { FaDownload, FaStop } from "react-icons/fa";
 import useLocalStorage from "../hooks/useLocalStorage";
-import { CatalogError, collectPage } from "../api/catalog";
+import { CatalogError, collectPage, isSearchesList, SEARCHES_LIST } from "../api/catalog";
 
 const MAX_OPTIONS = [100, 250, 500];
 // Each page of 50 results costs 100 YouTube quota units, so the scan is capped.
@@ -27,7 +27,9 @@ export default function ImportVideosPanel() {
   const cancelRef = useRef(false);
 
   const listName = customName ?? (channel.trim() || title.trim());
-  const canStart = Boolean(listName && (channel.trim() || title.trim())) && !busy;
+  const reservedName = isSearchesList(listName);
+  const canStart =
+    Boolean(listName && (channel.trim() || title.trim())) && !reservedName && !busy;
 
   if (!syncCode) {
     return (
@@ -119,6 +121,11 @@ export default function ImportVideosPanel() {
             onChange={(e) => setCustomName(e.target.value)}
             disabled={busy}
           />
+          {reservedName && (
+            <div className="form-text text-danger">
+              "{SEARCHES_LIST}" is reserved for videos you search and queue. Pick another name.
+            </div>
+          )}
         </div>
         <div className="col-5 col-sm-6">
           <label className="form-label small mb-1" htmlFor="imp-max">
