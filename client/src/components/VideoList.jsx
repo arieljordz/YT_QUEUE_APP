@@ -1,5 +1,6 @@
 import { memo, useState } from "react";
-import { FaPlus, FaTrash } from "react-icons/fa";
+import { FaTrash } from "react-icons/fa";
+import { MdPlaylistAdd } from "react-icons/md";
 
 function VideoList({
   videos,
@@ -63,42 +64,46 @@ function VideoList({
                 </div>
               )}
             </div>
-            <button
-              className="btn btn-success add-to-queue d-flex align-items-center justify-content-center gap-1 flex-shrink-0"
-              onClick={() => onAdd(video)}
-              aria-label={`Add ${title} to queue`}
-              title="Add to queue"
-            >
-              <FaPlus aria-hidden="true" />
-              <span className="d-none d-sm-inline">Queue</span>
-            </button>
-            {onRemove && (
+            <div className="d-flex gap-1 flex-shrink-0">
               <button
-                className={`btn add-to-queue d-flex align-items-center justify-content-center gap-1 flex-shrink-0 ${
-                  confirmId === video.id.videoId
-                    ? "btn-danger is-confirming"
-                    : "btn-outline-danger"
-                }`}
-                onClick={() => {
-                  if (confirmId === video.id.videoId) {
-                    setConfirmId(null);
-                    onRemove(video.id.videoId);
-                  } else {
-                    setConfirmId(video.id.videoId);
-                  }
-                }}
-                onBlur={() => setConfirmId(null)}
-                aria-label={`Remove ${title} from library`}
-                title={
-                  confirmId === video.id.videoId
-                    ? "Click again to remove"
-                    : "Remove from library"
-                }
+                className="btn btn-success add-to-queue d-flex align-items-center justify-content-center gap-1 flex-shrink-0"
+                onClick={() => onAdd(video)}
+                aria-label={`Add ${title} to queue`}
+                title="Add to queue"
               >
-                <FaTrash aria-hidden="true" />
-                {confirmId === video.id.videoId && <span>Sure?</span>}
+                <MdPlaylistAdd size={20} aria-hidden="true" />
+                <span className="d-none d-sm-inline">Queue</span>
               </button>
-            )}
+              {onRemove && (
+                <button
+                  className={`btn add-to-queue d-flex align-items-center justify-content-center gap-1 flex-shrink-0 ${
+                    confirmId === video.id.videoId
+                      ? "btn-danger is-confirming"
+                      : "btn-outline-danger"
+                  }`}
+                  onClick={() => {
+                    if (confirmId === video.id.videoId) {
+                      setConfirmId(null);
+                      onRemove(video.id.videoId);
+                    } else {
+                      setConfirmId(video.id.videoId);
+                    }
+                  }}
+                  onBlur={() => setConfirmId(null)}
+                  aria-label={`Remove ${title} from library`}
+                  title={
+                    confirmId === video.id.videoId
+                      ? "Click again to remove"
+                      : "Remove from library"
+                  }
+                >
+                  <FaTrash aria-hidden="true" />
+                  <span className={confirmId === video.id.videoId ? "" : "d-none d-sm-inline"}>
+                    {confirmId === video.id.videoId ? "Sure?" : "Remove"}
+                  </span>
+                </button>
+              )}
+            </div>
           </li>
         );
       })}

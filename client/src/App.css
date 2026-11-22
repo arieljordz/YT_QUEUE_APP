@@ -123,6 +123,13 @@
   cursor: grabbing;
 }
 
+/* The Queue and Remove buttons are the same size. */
+.add-to-queue {
+  width: 6.25rem;
+  height: 2.5rem;
+  padding: 0;
+}
+
 /* Phones: the queue button is icon-only, so keep it a comfortable tap target. */
 @media (max-width: 575.98px) {
   .add-to-queue {
