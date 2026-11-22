@@ -6,6 +6,8 @@ import useLocalStorage from "../hooks/useLocalStorage";
 import { CatalogError, collectPage } from "../api/catalog";
 
 const MAX_OPTIONS = [100, 250, 500];
+// Each page of 50 results costs 100 YouTube quota units, so the scan is capped.
+const MAX_PAGES = 10;
 
 /**
  * Menu > Import Videos: collect videos from a YouTube channel or search into a
@@ -15,7 +17,7 @@ export default function ImportVideosPanel() {
   const [syncCode] = useLocalStorage("syncCode", "");
 
   const [channel, setChannel] = useState("");
-  const [query, setQuery] = useState("");
+  const [title, setTitle] = useState("");
   const [customName, setCustomName] = useState(null); // null = follow channel / search text
   const [max, setMax] = useState(250);
   const [embeddableOnly, setEmbeddableOnly] = useState(true);
@@ -24,8 +26,8 @@ export default function ImportVideosPanel() {
   const [progress, setProgress] = useState({ saved: 0, target: 0 });
   const cancelRef = useRef(false);
 
-  const listName = customName ?? (channel.trim() || query.trim());
-  const canStart = Boolean(listName && (channel.trim() || query.trim())) && !busy;
+  const listName = customName ?? (channel.trim() || title.trim());
+  const canStart = Boolean(listName && (channel.trim() || title.trim())) && !busy;
 
   if (!syncCode) {
     return (
@@ -41,24 +43,25 @@ export default function ImportVideosPanel() {
     setBusy(true);
     setProgress({ saved: 0, target: max });
 
-    let offset = 0;
+    let pages = 0;
     let saved = 0;
     let pageToken;
     let channelId;
     try {
-      while (offset < max && !cancelRef.current) {
+      // Keep reading pages until enough videos matched, YouTube has no more, or the page cap.
+      while (saved < max && pages < MAX_PAGES && !cancelRef.current) {
         const page = await collectPage(syncCode, {
           name: listName,
           channel: channelId ? undefined : channel.trim(),
           channelId,
-          query: query.trim(),
+          title: title.trim(),
           pageToken,
-          offset,
+          offset: saved,
           any: !embeddableOnly,
         });
+        pages += 1;
         channelId = page.channelId ?? channelId;
         pageToken = page.nextPageToken;
-        offset += page.fetched;
         saved += page.added;
         setProgress({ saved, target: max });
         if (!pageToken || page.fetched === 0) break;
@@ -80,7 +83,7 @@ export default function ImportVideosPanel() {
       <div className="row g-2">
         <div className="col-sm-6">
           <label className="form-label small mb-1" htmlFor="imp-channel">
-            Channel
+            Channel <span className="text-muted">(optional)</span>
           </label>
           <input
             id="imp-channel"
@@ -92,15 +95,15 @@ export default function ImportVideosPanel() {
           />
         </div>
         <div className="col-sm-6">
-          <label className="form-label small mb-1" htmlFor="imp-query">
-            Search text <span className="text-muted">(optional with a channel)</span>
+          <label className="form-label small mb-1" htmlFor="imp-title">
+            Title <span className="text-muted">(optional)</span>
           </label>
           <input
-            id="imp-query"
+            id="imp-title"
             className="form-control"
-            placeholder="e.g. Taylor Swift"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            placeholder="e.g. Karaoke"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
             disabled={busy}
           />
         </div>
@@ -151,7 +154,10 @@ export default function ImportVideosPanel() {
         </label>
       </div>
       <div className="form-text">
-        Each 50 videos use 100 of YouTube's 10,000 free daily search units.
+        Fill in a channel, a title, or both. With a title, only videos whose own
+        title contains those words are saved. Each 50 videos checked use 100 of
+        YouTube's 10,000 free daily search units, and at most 500 are checked per
+        import.
       </div>
 
       <div className="d-flex gap-2 mt-3">

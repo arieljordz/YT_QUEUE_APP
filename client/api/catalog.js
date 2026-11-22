@@ -10,7 +10,9 @@
 //   GET    /api/catalog?name=X        -> { videos: [...] }
 //   DELETE /api/catalog?name=X        -> { deleted }
 //   POST   /api/catalog               -> collects ONE page (50) of YouTube
-//          { name, channel?, channelId?, query?, pageToken?, offset?, any? }
+//          { name, channel?, channelId?, title?, pageToken?, offset?, any? }
+//          channel = only videos of that channel; title = only videos whose title
+//          contains all the words of this text (at least one of the two is needed)
 //          -> { fetched, added, nextPageToken?, channelId?, channelTitle? }
 //     The browser calls POST repeatedly until it has enough videos, so no
 //     single request runs long.
@@ -27,6 +29,29 @@ const cleanName = (value) => {
   const name = text(value);
   return name && name.length <= MAX_NAME ? name : null;
 };
+
+const NAMED_ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+/** YouTube returns titles with HTML entities (&#39;, &amp;); turn them back into characters. */
+function decodeEntities(value) {
+  return value.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (match, code) => {
+    if (code[0] === "#") {
+      const num = code[1].toLowerCase() === "x" ? parseInt(code.slice(2), 16) : Number(code.slice(1));
+      return Number.isFinite(num) ? String.fromCodePoint(num) : match;
+    }
+    return NAMED_ENTITIES[code.toLowerCase()] ?? match;
+  });
+}
+
+/** True when the title contains every word of `wanted` (ignoring case). */
+export function titleMatches(title, wanted) {
+  const haystack = decodeEntities(title).toLowerCase();
+  return wanted
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((word) => haystack.includes(word));
+}
+
 const fail = (status, error) => ({ status, body: { error } });
 
 export async function handleList(catalog, owner, query) {
@@ -74,10 +99,10 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
   const name = cleanName(body?.name);
   if (!name) return fail(400, `Give the list a name (up to ${MAX_NAME} characters)`);
 
-  const query = text(body?.query);
+  const title = text(body?.title);
   const channel = text(body?.channel);
   let channelId = CHANNEL_ID.test(text(body?.channelId)) ? text(body.channelId) : "";
-  if (!query && !channel && !channelId) return fail(400, "Enter a channel or some search text");
+  if (!title && !channel && !channelId) return fail(400, "Enter a channel, a title, or both");
 
   const offset = Number.isInteger(body?.offset) && body.offset >= 0 ? body.offset : 0;
   if (offset >= MAX_VIDEOS) return fail(400, "That list is full");
@@ -107,7 +132,7 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
   }
 
   const params = { part: "snippet", type: "video", maxResults: "50", key: apiKey };
-  if (query) params.q = query;
+  if (title) params.q = title; // helps YouTube find them; the title check below is the real filter
   if (channelId) params.channelId = channelId;
   if (body?.any !== true) params.videoEmbeddable = "true";
   if (pageToken) params.pageToken = pageToken;
@@ -118,13 +143,15 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
 
   const items = result.data.items ?? [];
   const operations = [];
-  items.forEach((item, i) => {
+  items.forEach((item) => {
     const video = slimVideo(item);
     if (!video) return;
+    // Only videos whose own title contains the text (YouTube also matches descriptions).
+    if (title && !titleMatches(video.snippet.title, title)) return;
     operations.push({
       updateOne: {
         filter: { _id: `${owner}:${name}:${video.id.videoId}` },
-        update: { $set: { owner, catalog: name, video, order: offset + i } },
+        update: { $set: { owner, catalog: name, video, order: offset + operations.length } },
         upsert: true,
       },
     });
