@@ -1,5 +1,7 @@
 import { useState, useMemo, memo } from "react";
 import { Modal, Button } from "react-bootstrap";
+import { FaTrash } from "react-icons/fa";
+import { MdPlaylistAdd } from "react-icons/md";
 import VideoList from "./VideoList";
 
 // The list grows by this many rows each time the user scrolls near the bottom.
@@ -218,19 +220,21 @@ function Library({
           }}
         />
         <button
-          className="btn btn-success text-nowrap"
+          className="btn btn-success text-nowrap d-flex align-items-center gap-1"
           onClick={handleQueueAll}
           disabled={queueable.length === 0}
           title={filter.trim() ? "Add every matching video to the queue" : "Add the whole library to the queue"}
         >
-          + Queue all{queueable.length > 0 ? ` (${queueable.length})` : ""}
+          <MdPlaylistAdd size={20} aria-hidden="true" />
+          Queue all{queueable.length > 0 ? ` (${queueable.length})` : ""}
         </button>
         <button
-          className="btn btn-outline-danger text-nowrap"
+          className="btn btn-outline-danger text-nowrap d-flex align-items-center gap-1"
           onClick={() => setConfirmingDelete(true)}
           disabled={library.length === 0}
           title="Delete every saved video"
         >
+          <FaTrash aria-hidden="true" />
           Delete all
         </button>
       </div>
