@@ -130,6 +130,11 @@
     height: 2.5rem;
     padding: 0;
   }
+  /* The remove button grows to fit its "Sure?" text. */
+  .add-to-queue.is-confirming {
+    width: auto;
+    padding: 0 0.6rem;
+  }
 }
 
 /* Dark theme: the page text is light, so cards must be dark too (they default to white). */

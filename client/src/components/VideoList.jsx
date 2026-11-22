@@ -75,7 +75,9 @@ function VideoList({
             {onRemove && (
               <button
                 className={`btn add-to-queue d-flex align-items-center justify-content-center gap-1 flex-shrink-0 ${
-                  confirmId === video.id.videoId ? "btn-danger" : "btn-outline-danger"
+                  confirmId === video.id.videoId
+                    ? "btn-danger is-confirming"
+                    : "btn-outline-danger"
                 }`}
                 onClick={() => {
                   if (confirmId === video.id.videoId) {
@@ -94,9 +96,7 @@ function VideoList({
                 }
               >
                 <FaTrash aria-hidden="true" />
-                {confirmId === video.id.videoId && (
-                  <span className="d-none d-sm-inline">Sure?</span>
-                )}
+                {confirmId === video.id.videoId && <span>Sure?</span>}
               </button>
             )}
           </li>
