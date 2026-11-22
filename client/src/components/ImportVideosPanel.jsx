@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ProgressBar } from "react-bootstrap";
 import { toast } from "react-toastify";
-import { FaDownload, FaBookOpen, FaTrash, FaStop } from "react-icons/fa";
+import { FaDownload, FaBookOpen, FaCheck, FaTrash, FaStop } from "react-icons/fa";
 import useLocalStorage from "../hooks/useLocalStorage";
 import { mergeLibrary } from "../lib/library";
 import {
@@ -21,7 +21,8 @@ const MAX_OPTIONS = [100, 250, 500];
  */
 export default function ImportVideosPanel() {
   const [syncCode] = useLocalStorage("syncCode", "");
-  const [, setLibrary] = useLocalStorage("videoLibrary", []);
+  const [library, setLibrary] = useLocalStorage("videoLibrary", []);
+  const libraryIds = useMemo(() => new Set(library.map((v) => v.id.videoId)), [library]);
 
   const [channel, setChannel] = useState("");
   const [query, setQuery] = useState("");
@@ -106,8 +107,10 @@ export default function ImportVideosPanel() {
     setWorkingOn(name);
     try {
       const videos = await getCatalogVideos(syncCode, name);
-      setLibrary((prev) => mergeLibrary(prev, videos));
-      toast.success(`Added ${videos.length} videos from "${name}" to your library`);
+      // Only the videos that are not in the library yet.
+      const missing = videos.filter((v) => !libraryIds.has(v.id.videoId));
+      setLibrary((prev) => mergeLibrary(prev, missing));
+      toast.success(`Added ${missing.length} videos from "${name}" to your library`);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -247,35 +250,61 @@ export default function ImportVideosPanel() {
         <p className="text-muted mb-0">No lists yet. Collect one above.</p>
       ) : (
         <ul className="list-group">
-          {lists.map(({ name, count }) => (
-            <li
-              key={name}
-              className="list-group-item d-flex flex-wrap align-items-center gap-2"
-            >
-              <div className="flex-grow-1 min-w-0">
-                <div className="fw-semibold text-truncate">{name}</div>
-                <small className="text-muted">{count} videos</small>
-              </div>
-              <button
-                className="btn btn-sm btn-success d-flex align-items-center gap-1"
-                onClick={() => addToLibrary(name)}
-                disabled={workingOn !== null || busy}
+          {lists.map(({ name, count, ids }) => {
+            const inLibrary = ids.filter((id) => libraryIds.has(id)).length;
+            const missing = count - inLibrary;
+            return (
+              <li
+                key={name}
+                className="list-group-item d-flex flex-wrap align-items-center gap-2"
               >
-                <FaBookOpen /> {workingOn === name ? "Working…" : "Add to library"}
-              </button>
-              <button
-                className={`btn btn-sm d-flex align-items-center gap-1 ${
-                  confirmDelete === name ? "btn-danger" : "btn-outline-danger"
-                }`}
-                onClick={() => removeList(name)}
-                onBlur={() => setConfirmDelete(null)}
-                disabled={workingOn !== null || busy}
-                title="Delete this saved list (your library is not changed)"
-              >
-                <FaTrash /> {confirmDelete === name ? "Sure?" : ""}
-              </button>
-            </li>
-          ))}
+                <div className="flex-grow-1 min-w-0">
+                  <div className="fw-semibold text-truncate">{name}</div>
+                  <small className="text-muted">
+                    {count} videos
+                    {missing === 0
+                      ? " · all in your library"
+                      : inLibrary > 0
+                        ? ` · ${inLibrary} already in your library`
+                        : ""}
+                  </small>
+                </div>
+                {missing === 0 ? (
+                  <button
+                    className="btn btn-sm btn-outline-success d-flex align-items-center gap-1"
+                    disabled
+                    title="Every video of this list is already in your library"
+                  >
+                    <FaCheck /> Added
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-sm btn-success d-flex align-items-center gap-1"
+                    onClick={() => addToLibrary(name)}
+                    disabled={workingOn !== null || busy}
+                  >
+                    <FaBookOpen />{" "}
+                    {workingOn === name
+                      ? "Working…"
+                      : inLibrary > 0
+                        ? `Add ${missing} missing`
+                        : "Add to library"}
+                  </button>
+                )}
+                <button
+                  className={`btn btn-sm d-flex align-items-center gap-1 ${
+                    confirmDelete === name ? "btn-danger" : "btn-outline-danger"
+                  }`}
+                  onClick={() => removeList(name)}
+                  onBlur={() => setConfirmDelete(null)}
+                  disabled={workingOn !== null || busy}
+                  title="Delete this saved list (your library is not changed)"
+                >
+                  <FaTrash /> {confirmDelete === name ? "Sure?" : ""}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

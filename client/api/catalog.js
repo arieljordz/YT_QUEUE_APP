@@ -5,7 +5,8 @@
 //
 // Every request needs the sync code header; lists belong to that code only.
 //
-//   GET    /api/catalog               -> { catalogs: [{ name, count }] }
+//   GET    /api/catalog               -> { catalogs: [{ name, count, ids }] }
+//                                        (ids = the video ids in the list)
 //   GET    /api/catalog?name=X        -> { videos: [...] }
 //   DELETE /api/catalog?name=X        -> { deleted }
 //   POST   /api/catalog               -> collects ONE page (50) of YouTube
@@ -34,11 +35,17 @@ export async function handleList(catalog, owner, query) {
     const rows = await catalog
       .aggregate([
         { $match: { owner } },
-        { $group: { _id: "$catalog", count: { $sum: 1 } } },
+        {
+          $group: {
+            _id: "$catalog",
+            count: { $sum: 1 },
+            ids: { $push: "$video.id.videoId" },
+          },
+        },
         { $sort: { _id: 1 } },
       ])
       .toArray();
-    return { status: 200, body: { catalogs: rows.map((r) => ({ name: r._id, count: r.count })) } };
+    return { status: 200, body: { catalogs: rows.map((r) => ({ name: r._id, count: r.count, ids: r.ids ?? [] })) } };
   }
   const docs = await catalog
     .find({ owner, catalog: name })
