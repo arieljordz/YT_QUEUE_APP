@@ -9,7 +9,7 @@ import { decodeHtml } from "../lib/text";
 // works in another tab.
 function PlayerPage() {
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
-  const [isPaused] = useLocalStorage("isPaused", false);
+  const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
   const [isRepeat] = useLocalStorage("isRepeat", false);
   const [, setPlayedVideos] = useLocalStorage("playedVideos", []);
 
@@ -49,6 +49,8 @@ function PlayerPage() {
         onEnd={playNext}
         isPaused={isPaused}
         isRepeat={isRepeat}
+        onPlayerPause={() => setIsPaused(true)}
+        onPlayerPlay={() => setIsPaused(false)}
       />
       {!currentVideo && (
         <p className="text-center player-empty px-3">
