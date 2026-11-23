@@ -84,7 +84,7 @@ export default function AddLibraryPanel() {
 
   return (
     <ul className="list-group">
-      {lists.map(({ name, count, ids }) => {
+      {lists.map(({ name, count, ids, mine }) => {
         const inLibrary = ids.filter((id) => libraryIds.has(id)).length;
         const missing = count - inLibrary;
         return (
@@ -93,7 +93,17 @@ export default function AddLibraryPanel() {
             className="list-group-item d-flex flex-wrap align-items-center gap-2"
           >
             <div className="flex-grow-1 min-w-0">
-              <div className="fw-semibold text-break">{name}</div>
+              <div className="fw-semibold text-break">
+                {name}{" "}
+                {!mine && (
+                  <span
+                    className="badge text-bg-info fw-normal"
+                    title="Imported by another room and shared with everyone"
+                  >
+                    Shared
+                  </span>
+                )}
+              </div>
               <small className="text-muted">
                 {count} videos
                 {missing === 0
@@ -126,17 +136,19 @@ export default function AddLibraryPanel() {
                       : "Add to library"}
                 </button>
               )}
-              <button
-                className={`btn btn-sm d-flex align-items-center gap-1 ${
-                  confirmDelete === name ? "btn-danger" : "btn-outline-danger"
-                }`}
-                onClick={() => removeList(name)}
-                onBlur={() => setConfirmDelete(null)}
-                disabled={workingOn !== null}
-                title="Delete this saved list (your library is not changed)"
-              >
-                <FaTrash /> {confirmDelete === name ? "Sure?" : ""}
-              </button>
+              {mine && (
+                <button
+                  className={`btn btn-sm d-flex align-items-center gap-1 ${
+                    confirmDelete === name ? "btn-danger" : "btn-outline-danger"
+                  }`}
+                  onClick={() => removeList(name)}
+                  onBlur={() => setConfirmDelete(null)}
+                  disabled={workingOn !== null}
+                  title="Delete your part of this saved list (your library is not changed)"
+                >
+                  <FaTrash /> {confirmDelete === name ? "Sure?" : ""}
+                </button>
+              )}
             </div>
           </li>
         );

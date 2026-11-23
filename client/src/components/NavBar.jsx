@@ -97,6 +97,7 @@ const NavBar = ({ sync }) => {
         show={openModal === "sync"}
         onHide={closeModal}
         syncCode={sync.syncCode}
+        lastSyncCode={sync.lastSyncCode}
         onChangeCode={sync.setSyncCode}
         status={sync.status}
         onRetry={sync.retrySync}

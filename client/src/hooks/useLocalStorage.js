@@ -13,7 +13,7 @@ function readStorage(key, fallback) {
 // The browser's "storage" event only fires in OTHER tabs, so writes made by one
 // hook instance would never reach another instance in the same tab. This event
 // covers that case.
-const LOCAL_CHANGE_EVENT = "local-storage-change";
+export const LOCAL_CHANGE_EVENT = "local-storage-change";
 
 /** useState that is persisted to localStorage under `key`, shared across hooks and tabs. */
 export default function useLocalStorage(key, initialValue) {

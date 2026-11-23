@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import useLocalStorage from "./useLocalStorage";
 import { mergeLibrary } from "../lib/library";
+import { clearRoomData } from "../lib/roomData";
 
 const SYNC_DELAY_MS = 2000;
 
@@ -17,6 +18,17 @@ const SYNC_DELAY_MS = 2000;
 export default function useLibrary() {
   const [library, setLibrary] = useLocalStorage("videoLibrary", []);
   const [syncCode, setSyncCodeRaw] = useLocalStorage("syncCode", "");
+  // The room this device's data belongs to. It outlives "Turn off sync", so a
+  // different code can be recognised as a different room.
+  const [lastSyncCode, setLastSyncCode] = useLocalStorage("lastSyncCode", "");
+  const lastSyncCodeRef = useRef(lastSyncCode);
+  lastSyncCodeRef.current = lastSyncCode;
+  const syncCodeRef = useRef(syncCode);
+  syncCodeRef.current = syncCode;
+  // Devices that were already syncing before this was added: remember their room.
+  useEffect(() => {
+    if (syncCode && !lastSyncCode) setLastSyncCode(syncCode);
+  }, [syncCode, lastSyncCode, setLastSyncCode]);
   // The deletion epoch this device last saw (null = never synced with epochs).
   const [epoch, setEpoch] = useLocalStorage("libraryEpoch", null);
   const epochRef = useRef(epoch);
@@ -30,15 +42,25 @@ export default function useLibrary() {
   const pendingRef = useRef(pendingRemovals);
   pendingRef.current = pendingRemovals;
 
-  // A device that enters a sync code adds its own videos to the shared library.
+  // A device that enters the code of the room it already belongs to (or its first
+  // code) adds its own videos to the shared library. Entering a different room's
+  // code first empties this device's data, so one room's library, queue and
+  // flags are never copied into another.
   const setSyncCode = useCallback(
     (code) => {
+      if (code) {
+        const previous = lastSyncCodeRef.current;
+        if (previous && previous !== code) clearRoomData();
+        setLastSyncCode(code);
+      } else if (syncCodeRef.current) {
+        setLastSyncCode(syncCodeRef.current);
+      }
       setEpoch(code ? "join" : null);
       setRemovalSeq(0);
       setPendingRemovals([]);
       setSyncCodeRaw(code);
     },
-    [setEpoch, setRemovalSeq, setPendingRemovals, setSyncCodeRaw]
+    [setEpoch, setRemovalSeq, setPendingRemovals, setSyncCodeRaw, setLastSyncCode]
   );
   // "off" | "syncing" | "synced" | "unavailable" | "error"
   const [status, setStatus] = useState("off");
@@ -162,6 +184,7 @@ export default function useLibrary() {
     library,
     addToLibrary,
     syncCode,
+    lastSyncCode,
     setSyncCode,
     status,
     retrySync,

@@ -3,12 +3,16 @@
 // from YouTube (a channel, an artist, a search) and keeps in MongoDB, so they
 // can be added to the library later without searching again.
 //
-// Every request needs the sync code header; lists belong to that code only.
+// Every request needs a sync code. Imported lists are SHARED: every room sees
+// the lists imported by any room and can add them to its library. Only the room
+// that imported a list can delete its part of it. "My Searches" is private to
+// the room that saved it.
 //
-//   GET    /api/catalog               -> { catalogs: [{ name, count, ids }] }
-//                                        (ids = the video ids in the list)
+//   GET    /api/catalog               -> { catalogs: [{ name, count, ids, mine }] }
+//                                        (ids = the video ids in the list; mine =
+//                                         this room imported part of it)
 //   GET    /api/catalog?name=X        -> { videos: [...] }
-//   DELETE /api/catalog?name=X        -> { deleted }
+//   DELETE /api/catalog?name=X        -> { deleted }   (this room's part only)
 //   POST   /api/catalog { save: video } -> adds one video to the "My Searches" list
 //   POST   /api/catalog               -> collects ONE page (50) of YouTube
 //          { name, channel?, channelId?, title?, pageToken?, offset?, any? }
@@ -63,29 +67,49 @@ export function titleMatches(title, wanted) {
 const fail = (status, error) => ({ status, body: { error } });
 
 export async function handleList(catalog, owner, query) {
+  // Imported lists are visible to every room; "My Searches" only to its own room.
+  const visible = { $or: [{ catalog: { $ne: SEARCHES_LIST } }, { owner }] };
+
   const name = cleanName(query?.name);
   if (!name) {
     const rows = await catalog
       .aggregate([
-        { $match: { owner } },
+        { $match: visible },
         {
           $group: {
             _id: "$catalog",
-            count: { $sum: 1 },
-            ids: { $push: "$video.id.videoId" },
+            ids: { $addToSet: "$video.id.videoId" },
+            mine: { $max: { $cond: [{ $eq: ["$owner", owner] }, 1, 0] } },
           },
         },
         { $sort: { _id: 1 } },
       ])
       .toArray();
-    return { status: 200, body: { catalogs: rows.map((r) => ({ name: r._id, count: r.count, ids: r.ids ?? [] })) } };
+    return {
+      status: 200,
+      body: {
+        catalogs: rows.map((r) => ({
+          name: r._id,
+          count: r.ids.length,
+          ids: r.ids,
+          mine: r.mine === 1,
+        })),
+      },
+    };
   }
-  const docs = await catalog
-    .find({ owner, catalog: name })
-    .sort({ order: 1 })
-    .limit(MAX_VIDEOS)
-    .toArray();
-  return { status: 200, body: { videos: docs.map((d) => d.video) } };
+
+  const filter = name === SEARCHES_LIST ? { owner, catalog: name } : { catalog: name };
+  const docs = await catalog.find(filter).sort({ order: 1 }).limit(MAX_VIDEOS).toArray();
+  // Two rooms may have imported the same video into the same list.
+  const seen = new Set();
+  const videos = [];
+  for (const doc of docs) {
+    if (!seen.has(doc.video.id.videoId)) {
+      seen.add(doc.video.id.videoId);
+      videos.push(doc.video);
+    }
+  }
+  return { status: 200, body: { videos } };
 }
 
 export async function handleDelete(catalog, owner, query) {
@@ -208,6 +232,7 @@ export default async function handler(req, res) {
     const catalog = await getCatalog();
     if (!indexReady) {
       await catalog.createIndex({ owner: 1, catalog: 1, order: 1 });
+      await catalog.createIndex({ catalog: 1, order: 1 });
       indexReady = true;
     }
 

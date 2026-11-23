@@ -23,6 +23,7 @@ function App() {
       <NavBar
         sync={{
           syncCode: libraryApi.syncCode,
+          lastSyncCode: libraryApi.lastSyncCode,
           setSyncCode: libraryApi.setSyncCode,
           status: libraryApi.status,
           retrySync: libraryApi.retrySync,

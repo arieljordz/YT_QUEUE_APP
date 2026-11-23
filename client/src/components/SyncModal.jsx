@@ -24,6 +24,7 @@ export default function SyncModal({
   show,
   onHide,
   syncCode,
+  lastSyncCode,
   onChangeCode,
   status,
   onRetry,
@@ -31,6 +32,8 @@ export default function SyncModal({
 }) {
   const [draft, setDraft] = useState("");
   const tooShort = draft.trim().length < MIN_CODE;
+  // A different code than this device used before means a different room.
+  const switchesRoom = !tooShort && Boolean(lastSyncCode) && draft.trim() !== lastSyncCode;
 
   const turnOn = (e) => {
     e.preventDefault();
@@ -81,6 +84,13 @@ export default function SyncModal({
                 Turn on sync
               </button>
             </div>
+            {switchesRoom && (
+              <div className="alert alert-warning py-2 small mt-2 mb-0">
+                This is a different room than the one this device used before. The
+                library and queue stored on this device will be cleared and replaced
+                by that room's.
+              </div>
+            )}
             <div className="form-text">
               Use the same code on every device. Anyone with the code can see and add to
               your library, so keep it private.
