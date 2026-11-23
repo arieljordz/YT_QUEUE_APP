@@ -9,6 +9,7 @@ import {
   FaStepForward,
   FaRedo,
   FaRedoAlt,
+  FaRandom,
 } from "react-icons/fa";
 
 // Entries saved before queueIds existed fall back to a videoId+index key.
@@ -154,6 +155,7 @@ function Queue({
   onMove,
   onRemove,
   onClear,
+  onShuffle,
   playedCount,
   onRequeuePlayed,
 }) {
@@ -201,6 +203,14 @@ function Queue({
           🎵 Queue <span className="badge bg-secondary">{queue.length}</span>
         </h5>
         <div className="d-flex gap-2 flex-wrap">
+          <button
+            className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
+            onClick={onShuffle}
+            disabled={upNext.length < 2}
+            title="Mix up the songs that are coming next"
+          >
+            <FaRandom aria-hidden="true" /> Shuffle
+          </button>
           <button
             className="btn btn-sm btn-outline-warning d-flex align-items-center gap-1"
             onClick={onRequeuePlayed}

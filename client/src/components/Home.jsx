@@ -15,6 +15,28 @@ const newQueueId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const toQueueItem = (video) => ({ ...video, queueId: newQueueId() });
 
+const queueKey = (video) => video.queueId ?? video.id.videoId;
+
+/** Fisher-Yates shuffle of a copy of the list. */
+function shuffled(list) {
+  const copy = [...list];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+/** The songs of `current` that were in `snapshot`, in the snapshot's order, then any newer ones. */
+function restoreOrder(snapshot, current) {
+  const byKey = new Map(current.map((video) => [queueKey(video), video]));
+  const snapshotKeys = new Set(snapshot.map(queueKey));
+  return [
+    ...snapshot.filter((video) => byKey.has(queueKey(video))).map((video) => byKey.get(queueKey(video))),
+    ...current.filter((video) => !snapshotKeys.has(queueKey(video))),
+  ];
+}
+
 function Home({ libraryApi }) {
   const [videos, setVideos] = useState([]);
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
@@ -105,15 +127,67 @@ function Home({ libraryApi }) {
     [setQueue]
   );
 
+  // A notice with an Undo button, for changes that are easy to regret.
+  const showUndo = useCallback((message, undo) => {
+    toast(
+      ({ closeToast }) => (
+        <div className="d-flex align-items-center justify-content-between gap-3">
+          <span>{message}</span>
+          <button
+            className="btn btn-sm btn-light"
+            onClick={() => {
+              undo();
+              closeToast();
+            }}
+          >
+            Undo
+          </button>
+        </div>
+      ),
+      { autoClose: 6000 }
+    );
+  }, []);
+
   const handleRemove = useCallback(
-    (index) => setQueue((prev) => prev.filter((_, i) => i !== index)),
-    [setQueue]
+    (index) => {
+      const removed = queue[index];
+      if (!removed) return;
+      setQueue((prev) => prev.filter((_, i) => i !== index));
+      showUndo("Removed from the queue", () =>
+        setQueue((prev) => {
+          if (prev.some((video) => queueKey(video) === queueKey(removed))) return prev;
+          // Back where it was (never in front of the song that is playing).
+          const at = prev.length === 0 ? 0 : Math.min(Math.max(index, 1), prev.length);
+          return [...prev.slice(0, at), removed, ...prev.slice(at)];
+        })
+      );
+    },
+    [queue, setQueue, showUndo]
   );
 
   const handleClear = useCallback(() => {
+    const cleared = queue;
     setQueue([]);
     setIsPaused(false);
-  }, [setQueue, setIsPaused]);
+    if (cleared.length > 0) {
+      showUndo(`Cleared ${cleared.length} songs`, () =>
+        setQueue((prev) => {
+          const clearedKeys = new Set(cleared.map(queueKey));
+          return [...cleared, ...prev.filter((video) => !clearedKeys.has(queueKey(video)))];
+        })
+      );
+    }
+  }, [queue, setQueue, setIsPaused, showUndo]);
+
+  // Mixes up what is coming next; the song that is playing stays first.
+  const handleShuffle = useCallback(() => {
+    if (queue.length < 3) return;
+    const before = queue;
+    setQueue((prev) => (prev.length < 3 ? prev : [prev[0], ...shuffled(prev.slice(1))]));
+    showUndo(`Shuffled ${queue.length - 1} songs`, () =>
+      setQueue((prev) => restoreOrder(before, prev))
+    );
+  }, [queue, setQueue, showUndo]);
 
   const handleSkip = useCallback(() => {
     const finished = queue[0];
@@ -228,6 +302,7 @@ function Home({ libraryApi }) {
           onMove={handleMove}
           onRemove={handleRemove}
           onClear={handleClear}
+          onShuffle={handleShuffle}
           playedCount={playedVideos.length}
           onRequeuePlayed={handleRequeuePlayed}
         />
