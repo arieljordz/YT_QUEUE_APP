@@ -1,11 +1,12 @@
 import { memo, useState } from "react";
 import { FaTrash, FaStar, FaRegStar } from "react-icons/fa";
 import { MdPlaylistAdd } from "react-icons/md";
+import { describeVideo } from "../lib/format";
 
 function VideoList({
   videos,
   queuedIds,
-  youtubeOnlyIds,
+  details,
   onAdd,
   onRemove,
   favoriteSet,
@@ -36,6 +37,9 @@ function VideoList({
       {videos.map((video) => {
         const { thumbnails, title, channelTitle } = video.snippet;
         const inQueue = queuedIds.has(video.id.videoId);
+        const detail = details?.get(video.id.videoId);
+        const meta = describeVideo(detail);
+        const youtubeOnly = detail?.embeddable === false;
         return (
           <li
             key={video.id.videoId}
@@ -51,11 +55,15 @@ function VideoList({
               <div className="fw-semibold text-truncate-2" title={title}>
                 {title}
               </div>
-              {channelTitle && <small className="text-muted">{channelTitle}</small>}
-              {(inQueue || youtubeOnlyIds?.has(video.id.videoId)) && (
+              {(channelTitle || meta) && (
+                <small className="text-muted d-block">
+                  {[channelTitle, meta].filter(Boolean).join(" · ")}
+                </small>
+              )}
+              {(inQueue || youtubeOnly) && (
                 <div className="d-flex flex-wrap gap-1">
                   {inQueue && <span className="badge bg-secondary">In queue</span>}
-                  {youtubeOnlyIds?.has(video.id.videoId) && (
+                  {youtubeOnly && (
                     <span
                       className="badge bg-warning text-dark"
                       title="The owner disabled embedding, so it can't play in the player tab."

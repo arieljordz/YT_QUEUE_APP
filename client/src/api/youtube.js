@@ -22,26 +22,42 @@ export async function searchVideos(query, signal) {
   return data.items ?? [];
 }
 
+/** "PT1H2M5S" -> 3725. Returns null for live streams and anything unreadable. */
+function parseIsoDuration(value) {
+  const match = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(value ?? "");
+  if (!match) return null;
+  const [, d = 0, h = 0, m = 0, sec = 0] = match;
+  const total = Number(d) * 86400 + Number(h) * 3600 + Number(m) * 60 + Number(sec);
+  return total > 0 ? total : null;
+}
+
 /**
- * Returns the ids (out of `ids`, max 50) whose owner disabled embedding, so they
- * can only be watched on youtube.com. Costs 1 quota unit; resolves to an empty
- * list if the lookup fails, because this is only a hint for the UI.
+ * Looks up up to 50 videos at once and returns a Map: id -> { embeddable,
+ * seconds, views }. Costs 1 quota unit. Resolves to an empty Map if the lookup
+ * fails, because this only adds hints to the search results.
  */
-export async function findNonEmbeddable(ids, signal) {
-  if (ids.length === 0) return [];
+export async function getVideoDetails(ids, signal) {
+  const details = new Map();
+  if (ids.length === 0) return details;
   try {
     const params = new URLSearchParams({
-      part: "status",
+      part: "status,contentDetails,statistics",
       id: ids.slice(0, 50).join(","),
       key: API_KEY,
     });
     const res = await fetch(`${VIDEOS_URL}?${params}`, { signal });
-    if (!res.ok) return [];
+    if (!res.ok) return details;
     const data = await res.json();
-    return (data.items ?? [])
-      .filter((item) => item.status?.embeddable === false)
-      .map((item) => item.id);
+    for (const item of data.items ?? []) {
+      const views = item.statistics?.viewCount;
+      details.set(item.id, {
+        embeddable: item.status?.embeddable !== false,
+        seconds: parseIsoDuration(item.contentDetails?.duration),
+        views: views === undefined ? null : Number(views),
+      });
+    }
   } catch {
-    return [];
+    // Keep what was read so far (nothing).
   }
+  return details;
 }

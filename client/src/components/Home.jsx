@@ -6,7 +6,7 @@ import VideoList from "./VideoList";
 import Queue from "./Queue";
 import Library from "./Library";
 import useLocalStorage from "../hooks/useLocalStorage";
-import { searchVideos, findNonEmbeddable, QuotaError } from "../api/youtube";
+import { searchVideos, getVideoDetails, QuotaError } from "../api/youtube";
 import { saveSearchedVideo } from "../api/catalog";
 
 // Queue entries get their own id so the same video can appear more than once
@@ -45,7 +45,7 @@ function Home({ libraryApi }) {
   const [playedVideos, setPlayedVideos] = useLocalStorage("playedVideos", []);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [youtubeOnlyIds, setYoutubeOnlyIds] = useState(() => new Set());
+  const [details, setDetails] = useState(() => new Map());
   const [tab, setTab] = useState("library");
   const { library, addToLibrary, syncCode, clearLibrary, removeFromLibrary } = libraryApi;
   const searchAbortRef = useRef(null);
@@ -62,13 +62,13 @@ function Home({ libraryApi }) {
       const results = await searchVideos(query, controller.signal);
       setVideos(results);
       setHasSearched(true);
-      // Flag videos that cannot play in the embedded player (best effort).
-      const blocked = await findNonEmbeddable(
+      // Length, views and whether it can play in the player tab (best effort).
+      const fresh = await getVideoDetails(
         results.map((v) => v.id.videoId),
         controller.signal
       );
       if (searchAbortRef.current === controller) {
-        setYoutubeOnlyIds((prev) => new Set([...prev, ...blocked]));
+        setDetails((prev) => new Map([...prev, ...fresh]));
       }
     } catch (err) {
       if (err.name === "AbortError") return;
@@ -270,7 +270,7 @@ function Home({ libraryApi }) {
           <VideoList
             videos={videos}
             queuedIds={queuedIds}
-            youtubeOnlyIds={youtubeOnlyIds}
+            details={details}
             onAdd={addFromSearch}
             isLoading={isSearching}
             hasSearched={hasSearched}

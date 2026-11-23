@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { toast } from "react-toastify";
 import SearchBar from "./SearchBar";
 import VideoList from "./VideoList";
-import { searchVideos, findNonEmbeddable, QuotaError } from "../api/youtube";
+import { searchVideos, getVideoDetails, QuotaError } from "../api/youtube";
 import { addGuestSong, getGuestState } from "../api/guest";
 
 const POLL_MS = 4000;
@@ -20,7 +20,7 @@ export default function GuestApp({ token, onLeave }) {
   const [videos, setVideos] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [youtubeOnlyIds, setYoutubeOnlyIds] = useState(() => new Set());
+  const [details, setDetails] = useState(() => new Map());
   const [state, setState] = useState({ queue: [], isPaused: false });
   const [invalid, setInvalid] = useState(false);
   const searchAbortRef = useRef(null);
@@ -62,12 +62,12 @@ export default function GuestApp({ token, onLeave }) {
       const results = await searchVideos(query, controller.signal);
       setVideos(results);
       setHasSearched(true);
-      const blocked = await findNonEmbeddable(
+      const fresh = await getVideoDetails(
         results.map((v) => v.id.videoId),
         controller.signal
       );
       if (searchAbortRef.current === controller) {
-        setYoutubeOnlyIds((prev) => new Set([...prev, ...blocked]));
+        setDetails((prev) => new Map([...prev, ...fresh]));
       }
     } catch (err) {
       if (err.name === "AbortError") return;
@@ -143,7 +143,7 @@ export default function GuestApp({ token, onLeave }) {
             <VideoList
               videos={videos}
               queuedIds={queuedIds}
-              youtubeOnlyIds={youtubeOnlyIds}
+              details={details}
               onAdd={handleAdd}
               isLoading={isSearching}
               hasSearched={hasSearched}
