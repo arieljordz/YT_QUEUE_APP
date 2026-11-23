@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Dropdown } from "react-bootstrap";
 import { useLocation } from "react-router-dom";
-import { FaBars, FaSync, FaDownload, FaBookOpen, FaFlag, FaCoffee } from "react-icons/fa";
+import { FaBars, FaSync, FaQrcode, FaDownload, FaBookOpen, FaFlag, FaCoffee } from "react-icons/fa";
 import SyncModal from "./SyncModal";
+import InviteGuestsModal from "./InviteGuestsModal";
 import ImportVideosModal from "./ImportVideosModal";
 import AddLibraryModal from "./AddLibraryModal";
 import FeatureFlagsModal from "./FeatureFlagsModal";
@@ -13,7 +14,7 @@ const NavBar = ({ sync }) => {
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem("theme") === "dark"
   );
-  // Which settings window is open: null | "sync" | "import" | "library" | "flags" | "support".
+  // Which settings window is open: null | "sync" | "invite" | "import" | "library" | "flags" | "support".
   const [openModal, setOpenModal] = useState(null);
 
   useEffect(() => {
@@ -67,6 +68,13 @@ const NavBar = ({ sync }) => {
               <Dropdown.Divider className="m-0" />
               <Dropdown.Item
                 className="small d-flex align-items-center gap-2"
+                onClick={() => setOpenModal("invite")}
+              >
+                <FaQrcode aria-hidden="true" /> Invite guests
+              </Dropdown.Item>
+              <Dropdown.Divider className="m-0" />
+              <Dropdown.Item
+                className="small d-flex align-items-center gap-2"
                 onClick={() => setOpenModal("import")}
               >
                 <FaDownload aria-hidden="true" /> Import Videos
@@ -106,6 +114,11 @@ const NavBar = ({ sync }) => {
         status={sync.status}
         onRetry={sync.retrySync}
         liveStatus={sync.liveStatus}
+      />
+      <InviteGuestsModal
+        show={openModal === "invite"}
+        onHide={closeModal}
+        syncCode={sync.syncCode}
       />
       <ImportVideosModal show={openModal === "import"} onHide={closeModal} />
       <AddLibraryModal show={openModal === "library"} onHide={closeModal} />
