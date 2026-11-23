@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Dropdown } from "react-bootstrap";
+import { useLocation } from "react-router-dom";
 import { FaBars, FaSync, FaDownload, FaBookOpen, FaFlag, FaCoffee } from "react-icons/fa";
 import SyncModal from "./SyncModal";
 import ImportVideosModal from "./ImportVideosModal";
@@ -24,6 +25,9 @@ const NavBar = ({ sync }) => {
 
   const toggleTheme = useCallback(() => setDarkMode((dark) => !dark), []);
   const closeModal = useCallback(() => setOpenModal(null), []);
+
+  // The player page is all video: no bar there. (The theme above is still applied.)
+  if (useLocation().pathname === "/player") return null;
 
   return (
     <>

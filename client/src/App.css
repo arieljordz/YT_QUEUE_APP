@@ -4,6 +4,8 @@
 .player-page {
   position: relative;
   padding: 0;
+  /* There is no navbar on the player page, so the video can use the full height. */
+  --navbar-height: 0px;
 }
 
 .video-container {
