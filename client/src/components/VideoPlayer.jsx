@@ -117,7 +117,9 @@ const VideoPlayer = ({ video, nextVideo, onEnd, isPaused, isRepeat }) => {
     [onEnd]
   );
 
+  const [playing, setPlaying] = useState(false);
   const handleStateChange = useCallback((e) => {
+    setPlaying(e.data === 1);
     // -1 unstarted / 5 cued: the next video was loaded but not started.
     if ((e.data === -1 || e.data === 5) && !isPausedRef.current) e.target.playVideo();
   }, []);
@@ -136,22 +138,40 @@ const VideoPlayer = ({ video, nextVideo, onEnd, isPaused, isRepeat }) => {
   }, [queueId]);
   const nextLabel = nextVideo ? decodeHtml(nextVideo.snippet.title) : null;
 
-  // One click on this page gives it the user activation the browser needs to
-  // let later videos autoplay while the tab is in the background.
-  const [activated, setActivated] = useState(false);
-  const handleActivate = useCallback(() => {
-    setActivated(true);
-    if (!isPausedRef.current) playerRef.current?.playVideo?.();
+  // Continuous playback always works the same way: the first click or key press
+  // anywhere on this page gives it the user activation the browser needs to let
+  // later videos start by themselves (even in a background tab). If the browser
+  // blocked the very first video, that same click starts it.
+  useEffect(() => {
+    const nudge = () => {
+      if (isPausedRef.current) return;
+      const player = playerRef.current;
+      const state = player?.getPlayerState?.();
+      if (state !== 1 && state !== 3) player?.playVideo?.();
+    };
+    document.addEventListener("pointerdown", nudge);
+    document.addEventListener("keydown", nudge);
+    return () => {
+      document.removeEventListener("pointerdown", nudge);
+      document.removeEventListener("keydown", nudge);
+    };
   }, []);
+
+  // Only when the browser really blocked playback: say how to start it.
+  const [needsTap, setNeedsTap] = useState(false);
+  useEffect(() => {
+    if (playing || !videoId || isPaused) {
+      setNeedsTap(false);
+      return;
+    }
+    const timer = setTimeout(() => setNeedsTap(true), 3000);
+    return () => clearTimeout(timer);
+  }, [playing, videoId, isPaused]);
 
   return (
     <div className="video-wrapper">
       <div className="video-container">
-        {!activated && (
-          <button className="btn btn-primary activate-overlay" onClick={handleActivate}>
-            ▶ Click once to enable continuous playback
-          </button>
-        )}
+        {needsTap && <div className="tap-hint">Click anywhere to start playback</div>}
         {endingSoon && !isRepeat && (
           <div className="next-up-banner" role="status">
             <span className="next-up-label">{nextLabel ? "Next" : "Last song"}</span>

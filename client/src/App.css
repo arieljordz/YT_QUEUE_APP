@@ -39,14 +39,19 @@
   pointer-events: none;
 }
 
-/* Floats over the video so it does not take up space above it. */
-.activate-overlay {
+/* Shown only if the browser blocked autoplay; any click starts the video. */
+.tap-hint {
   position: absolute;
   top: 0.75rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
   max-width: 90%;
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.5rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.72);
+  pointer-events: none;
 }
 
 .video-container iframe:fullscreen {
@@ -202,21 +207,4 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* Player page: the "Keep screen on" switch fades in when the pointer moves. */
-.keep-awake-toggle {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  z-index: 3;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s;
-}
-
-.keep-awake-toggle.is-visible,
-.keep-awake-toggle:focus-visible {
-  opacity: 1;
-  pointer-events: auto;
 }

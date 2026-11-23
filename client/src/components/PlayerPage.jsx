@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
-import { FaLightbulb, FaRegLightbulb } from "react-icons/fa";
+import { useCallback, useEffect } from "react";
 import VideoPlayer from "./VideoPlayer";
 import useLocalStorage from "../hooks/useLocalStorage";
-import useWakeLock, { wakeLockSupported } from "../hooks/useWakeLock";
+import useWakeLock from "../hooks/useWakeLock";
 import { decodeHtml } from "../lib/text";
 
 // Player tab: shares the queue with the search tab through localStorage and is
@@ -17,27 +16,8 @@ function PlayerPage() {
   const currentVideo = queue[0] ?? null;
   const nextVideo = queue[1] ?? null;
 
-  // Keep the screen on while a song is playing (an option, on by default).
-  const [keepAwake, setKeepAwake] = useLocalStorage("keepAwake", true);
-  useWakeLock(keepAwake && Boolean(currentVideo) && !isPaused);
-
-  // The small switch only shows for a few seconds after the pointer moves.
-  const [controlsVisible, setControlsVisible] = useState(false);
-  useEffect(() => {
-    let timer;
-    const reveal = () => {
-      setControlsVisible(true);
-      clearTimeout(timer);
-      timer = setTimeout(() => setControlsVisible(false), 3000);
-    };
-    window.addEventListener("pointermove", reveal);
-    window.addEventListener("keydown", reveal);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("pointermove", reveal);
-      window.removeEventListener("keydown", reveal);
-    };
-  }, []);
+  // The screen stays on while a song is playing.
+  useWakeLock(Boolean(currentVideo) && !isPaused);
 
   // Name the browser tab after what is playing (titles may contain HTML entities).
   const title = currentVideo?.snippet.title;
@@ -70,19 +50,6 @@ function PlayerPage() {
         isPaused={isPaused}
         isRepeat={isRepeat}
       />
-      {wakeLockSupported() && (
-        <button
-          className={`keep-awake-toggle btn btn-sm ${keepAwake ? "btn-warning" : "btn-outline-light"} ${
-            controlsVisible ? "is-visible" : ""
-          }`}
-          onClick={() => setKeepAwake((on) => !on)}
-          aria-pressed={keepAwake}
-          title={keepAwake ? "Screen stays on while playing (click to turn off)" : "Let the screen sleep (click to keep it on)"}
-        >
-          {keepAwake ? <FaLightbulb aria-hidden="true" /> : <FaRegLightbulb aria-hidden="true" />}{" "}
-          Keep screen on
-        </button>
-      )}
       {!currentVideo && (
         <p className="text-center player-empty px-3">
           Queue is empty. Add a video from the search tab and it will start here.
