@@ -1,10 +1,11 @@
 import { useState, useMemo, memo } from "react";
 import { Modal, Button } from "react-bootstrap";
-import { FaTrash } from "react-icons/fa";
+import { FaTrash, FaStar, FaHistory, FaList } from "react-icons/fa";
 import { MdPlaylistAdd } from "react-icons/md";
 import VideoList from "./VideoList";
 import useLocalStorage from "../hooks/useLocalStorage";
 import useFeatureFlags from "../hooks/useFeatureFlags";
+import { useFavorites } from "../hooks/useExtras";
 
 // The list grows by this many rows each time the user scrolls near the bottom.
 const PAGE_SIZE = 100;
@@ -84,23 +85,33 @@ function Library({
   syncCode,
 }) {
   const { flags } = useFeatureFlags();
+  const { favoriteSet, toggleFavorite } = useFavorites();
+  const [recent] = useLocalStorage("recentlyPlayed", []);
+  const [view, setView] = useState("all"); // "all" | "favorites" | "recent"
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useLocalStorage("librarySort", "az"); // "az" | "newest"
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmingQueueAll, setConfirmingQueueAll] = useState(false);
 
-  // Sorted (A-Z by title, or newest additions first), narrowed by the filter box.
+  // The list for the chosen view, narrowed by the filter box. "Recently played"
+  // keeps its own order (newest first); the others are sorted A-Z or newest first.
+  const favorites = useMemo(
+    () => library.filter((v) => favoriteSet.has(v.id.videoId)),
+    [library, favoriteSet]
+  );
   const shown = useMemo(() => {
+    const base = view === "recent" ? recent : view === "favorites" ? favorites : library;
     const needle = filter.trim().toLowerCase();
-    const matches = library.filter(
+    const matches = base.filter(
       (v) =>
         !needle ||
         v.snippet.title.toLowerCase().includes(needle) ||
         v.snippet.channelTitle?.toLowerCase().includes(needle)
     );
+    if (view === "recent") return matches;
     return sort === "newest" ? matches.reverse() : matches.sort(byTitle);
-  }, [library, filter, sort]);
+  }, [view, recent, favorites, library, filter, sort]);
 
   const visible = useMemo(() => shown.slice(0, visibleCount), [shown, visibleCount]);
   // Load the next page of rows when the user scrolls close to the bottom.
@@ -126,8 +137,32 @@ function Library({
     onAddAll(queueable);
   };
 
+  const views = [
+    ["all", "All", library.length, <FaList key="all" aria-hidden="true" />],
+    ["favorites", "Favorites", favorites.length, <FaStar key="fav" aria-hidden="true" />],
+    ["recent", "Recently played", recent.length, <FaHistory key="rec" aria-hidden="true" />],
+  ];
+
   return (
     <div>
+      <div className="btn-group btn-group-sm mb-2 flex-wrap" role="group" aria-label="Library view">
+        {views.map(([key, label, count, icon]) => (
+          <button
+            key={key}
+            className={`btn d-flex align-items-center gap-1 ${
+              view === key ? "btn-primary" : "btn-outline-primary"
+            }`}
+            onClick={() => {
+              setView(key);
+              setVisibleCount(PAGE_SIZE);
+            }}
+            aria-pressed={view === key}
+          >
+            {icon} {label} ({count})
+          </button>
+        ))}
+      </div>
+
       <div className="d-flex flex-wrap gap-2">
         <input
           type="search"
@@ -144,6 +179,7 @@ function Library({
         <select
           className="form-select w-auto"
           aria-label="Sort library"
+          disabled={view === "recent"}
           value={sort}
           onChange={(e) => {
             setSort(e.target.value);
@@ -207,13 +243,21 @@ function Library({
         videos={visible}
         queuedIds={queuedIds}
         onAdd={onAdd}
-        onRemove={flags.removeButton ? onRemove : undefined}
+        onRemove={flags.removeButton && view !== "recent" ? onRemove : undefined}
+        favoriteSet={favoriteSet}
+        onToggleFavorite={toggleFavorite}
         isLoading={false}
         hasSearched
         emptyText={
-          library.length === 0
-            ? "Videos you add to the queue are saved here automatically."
-            : "No saved videos match that filter."
+          view === "recent"
+            ? "Songs you play will show up here, newest first."
+            : view === "favorites"
+              ? filter.trim()
+                ? "No favorites match that filter."
+                : "Tap the star on a video to keep it here."
+              : library.length === 0
+                ? "Videos you add to the queue are saved here automatically."
+                : "No saved videos match that filter."
         }
       />
       </div>

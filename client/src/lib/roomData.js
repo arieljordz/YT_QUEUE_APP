@@ -9,6 +9,8 @@ const ROOM_DATA = {
   isPaused: false,
   featureFlags: {},
   featureFlagsLocked: false,
+  favoriteIds: [],
+  recentlyPlayed: [],
 };
 
 /**

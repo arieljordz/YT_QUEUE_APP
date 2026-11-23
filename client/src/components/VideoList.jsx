@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { FaTrash } from "react-icons/fa";
+import { FaTrash, FaStar, FaRegStar } from "react-icons/fa";
 import { MdPlaylistAdd } from "react-icons/md";
 
 function VideoList({
@@ -8,6 +8,8 @@ function VideoList({
   youtubeOnlyIds,
   onAdd,
   onRemove,
+  favoriteSet,
+  onToggleFavorite,
   isLoading,
   hasSearched,
   emptyText = "No results found.",
@@ -64,6 +66,25 @@ function VideoList({
                 </div>
               )}
             </div>
+            {onToggleFavorite && (
+              <button
+                className="btn btn-link p-1 flex-shrink-0 favorite-star"
+                onClick={() => onToggleFavorite(video.id.videoId)}
+                aria-pressed={favoriteSet?.has(video.id.videoId)}
+                aria-label={
+                  favoriteSet?.has(video.id.videoId)
+                    ? `Remove ${title} from favorites`
+                    : `Add ${title} to favorites`
+                }
+                title={favoriteSet?.has(video.id.videoId) ? "Favorite" : "Add to favorites"}
+              >
+                {favoriteSet?.has(video.id.videoId) ? (
+                  <FaStar className="text-warning" size={18} aria-hidden="true" />
+                ) : (
+                  <FaRegStar className="text-secondary" size={18} aria-hidden="true" />
+                )}
+              </button>
+            )}
             <div className="d-flex gap-1 flex-shrink-0">
               <button
                 className="btn btn-sm btn-success row-action d-flex align-items-center justify-content-center gap-1 flex-shrink-0"

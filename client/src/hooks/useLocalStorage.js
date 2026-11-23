@@ -46,7 +46,12 @@ export default function useLocalStorage(key, initialValue) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      const raw = JSON.stringify(value);
+      // Nothing to write (for example on mount, when the state was just read from
+      // storage). Announcing it anyway made other hooks reload and drop a change
+      // they had not applied yet.
+      if (localStorage.getItem(key) === raw) return;
+      localStorage.setItem(key, raw);
       window.dispatchEvent(new CustomEvent(LOCAL_CHANGE_EVENT, { detail: key }));
     } catch {
       // Quota exceeded / private mode: keep working in memory.

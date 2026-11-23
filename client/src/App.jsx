@@ -7,6 +7,7 @@ import NavBar from "./components/NavBar";
 import useRemoteSync from "./hooks/useRemoteSync";
 import useLibrary from "./hooks/useLibrary";
 import { useFeatureFlagsSync } from "./hooks/useFeatureFlags";
+import { useExtrasSync } from "./hooks/useExtras";
 import useLocalStorage from "./hooks/useLocalStorage";
 import GuestApp from "./components/GuestApp";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -49,6 +50,8 @@ function App() {
   const libraryApi = useLibrary();
   // Keeps the feature flags identical on every device that uses the same sync code.
   useFeatureFlagsSync();
+  // Keeps favorites and recently played identical on every device on the same sync code.
+  useExtrasSync();
 
   // A guest only gets the search-and-queue view.
   if (guestCode && !libraryApi.syncCode) {

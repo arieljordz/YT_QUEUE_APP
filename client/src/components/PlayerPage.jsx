@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import VideoPlayer from "./VideoPlayer";
 import useLocalStorage from "../hooks/useLocalStorage";
 import useWakeLock from "../hooks/useWakeLock";
+import { useRecordPlayed } from "../hooks/useExtras";
 import { decodeHtml } from "../lib/text";
 
 // Player tab: shares the queue with the search tab through localStorage and is
@@ -18,6 +19,15 @@ function PlayerPage() {
 
   // The screen stays on while a song is playing.
   useWakeLock(Boolean(currentVideo) && !isPaused);
+
+  // Remember each song that starts playing, for "Recently played" in the Library.
+  const recordPlayed = useRecordPlayed();
+  const currentQueueId = currentVideo?.queueId;
+  useEffect(() => {
+    if (currentVideo && !isPaused) recordPlayed(currentVideo);
+    // Once per song: only a new queue entry (or leaving pause) records it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQueueId, isPaused]);
 
   // Name the browser tab after what is playing (titles may contain HTML entities).
   const title = currentVideo?.snippet.title;
