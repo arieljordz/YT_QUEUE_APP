@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Dropdown } from "react-bootstrap";
-import { FaCog, FaDownload, FaBookOpen, FaFlag, FaCoffee } from "react-icons/fa";
+import { FaBars, FaDownload, FaBookOpen, FaFlag, FaCoffee } from "react-icons/fa";
 import ImportVideosModal from "./ImportVideosModal";
 import AddLibraryModal from "./AddLibraryModal";
 import FeatureFlagsModal from "./FeatureFlagsModal";
@@ -38,10 +38,13 @@ const NavBar = () => {
             <Dropdown.Toggle
               as="span"
               id="dropdown-gear"
+              role="button"
+              aria-label="Menu"
+              title="Menu"
               className="d-flex align-items-center"
               style={{ cursor: "pointer" }}
             >
-              <FaCog size={16} color={darkMode ? "#000" : "#fff"} />
+              <FaBars size={18} aria-hidden="true" color={darkMode ? "#000" : "#fff"} />
             </Dropdown.Toggle>
 
             <Dropdown.Menu className="py-1">
