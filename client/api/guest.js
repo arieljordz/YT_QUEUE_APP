@@ -9,6 +9,7 @@
 //   { action: "revoke" }  -> { token: null }
 // Guest (header x-guest-code), POST:
 //   { action: "state" }               -> { queue, isPaused, rev }
+//   { action: "library" }             -> { library }   (read only)
 //   { action: "add", video }          -> { added, reason? }
 import { randomBytes } from "node:crypto";
 import { getRooms, readSyncCode, roomIdFor, slimQueueItem } from "./_db.js";
@@ -38,7 +39,7 @@ export async function handleOwner(rooms, roomId, body) {
   return fail(400, "Unknown action");
 }
 
-/** Guest side: read the queue or add one song. */
+/** Guest side: read the queue or the library, or add one song to the queue. */
 export async function handleGuest(rooms, token, body) {
   if (!TOKEN_PATTERN.test(token)) return fail(404, "This invite is not valid any more");
   const doc = await rooms.findOne(
@@ -53,6 +54,14 @@ export async function handleGuest(rooms, token, body) {
       status: 200,
       body: { queue, isPaused: doc.isPaused === true, rev: doc.rev ?? 0 },
     };
+  }
+
+  if (body?.action === "library") {
+    const withLibrary = await rooms.findOne(
+      { _id: doc._id },
+      { projection: { library: 1 } }
+    );
+    return { status: 200, body: { library: withLibrary?.library ?? [] } };
   }
 
   if (body?.action === "add") {

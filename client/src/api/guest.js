@@ -28,6 +28,8 @@ export const revokeInvite = (syncCode) =>
 // --- guest (needs the invite token) ---
 export const getGuestState = (token) =>
   post({ "x-guest-code": token }, { action: "state" });
+export const getGuestLibrary = (token) =>
+  post({ "x-guest-code": token }, { action: "library" }).then((d) => d.library);
 export const addGuestSong = (token, video) =>
   post({ "x-guest-code": token }, { action: "add", video });
 

@@ -3,20 +3,116 @@ import { toast } from "react-toastify";
 import SearchBar from "./SearchBar";
 import VideoList from "./VideoList";
 import { searchVideos, getVideoDetails, QuotaError } from "../api/youtube";
-import { addGuestSong, getGuestState } from "../api/guest";
+import { addGuestSong, getGuestLibrary, getGuestState } from "../api/guest";
+import { byTitle } from "../lib/sort";
 
 const POLL_MS = 4000;
+const PAGE_SIZE = 100; // library rows shown first; more load as you scroll
 const thumbOf = (video) => {
   const { thumbnails } = video.snippet;
   return (thumbnails.medium ?? thumbnails.default).url;
 };
+
+/** The host's library, read only: look for a song and add it to the queue. */
+function GuestLibrary({ token, queuedIds, onAdd, onInvalid }) {
+  const [library, setLibrary] = useState(null); // null = loading
+  const [filter, setFilter] = useState("");
+  const [sort, setSort] = useState("az"); // "az" | "newest"
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Fresh copy every time the tab is opened.
+  useEffect(() => {
+    let cancelled = false;
+    getGuestLibrary(token)
+      .then((list) => !cancelled && setLibrary(list))
+      .catch((err) => {
+        if (cancelled) return;
+        setLibrary([]);
+        if (err.status === 404) onInvalid();
+        else toast.error(err.message, { toastId: "guest-library-error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, onInvalid]);
+
+  const shown = useMemo(() => {
+    const needle = filter.trim().toLowerCase();
+    const matches = (library ?? []).filter(
+      (v) =>
+        !needle ||
+        v.snippet.title.toLowerCase().includes(needle) ||
+        v.snippet.channelTitle?.toLowerCase().includes(needle)
+    );
+    return sort === "newest" ? matches.reverse() : matches.sort(byTitle);
+  }, [library, filter, sort]);
+
+  const handleScroll = (e) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 400) {
+      setVisibleCount((count) => (count < shown.length ? count + PAGE_SIZE : count));
+    }
+  };
+
+  if (library === null) return <p className="text-muted text-center my-4">Loading the library…</p>;
+
+  return (
+    <div>
+      <div className="d-flex flex-wrap gap-2">
+        <input
+          type="search"
+          className="form-control flex-grow-1 w-auto"
+          style={{ flexBasis: "12rem" }}
+          placeholder={`Filter ${library.length} songs...`}
+          aria-label="Filter library"
+          value={filter}
+          onChange={(e) => {
+            setFilter(e.target.value);
+            setVisibleCount(PAGE_SIZE);
+          }}
+        />
+        <select
+          className="form-select w-auto"
+          aria-label="Sort library"
+          value={sort}
+          onChange={(e) => {
+            setSort(e.target.value);
+            setVisibleCount(PAGE_SIZE);
+          }}
+        >
+          <option value="az">A–Z</option>
+          <option value="newest">Newest first</option>
+        </select>
+      </div>
+      <div className="library-scroll mt-2" onScroll={handleScroll}>
+        <VideoList
+          videos={shown.slice(0, visibleCount)}
+          queuedIds={queuedIds}
+          onAdd={onAdd}
+          isLoading={false}
+          hasSearched
+          emptyText={
+            library.length === 0
+              ? "The host's library is empty. Try the Search tab."
+              : "No songs match that filter."
+          }
+        />
+      </div>
+      {shown.length > visibleCount && (
+        <p className="text-muted small text-center mt-2">
+          Showing {visibleCount} of {shown.length}. Scroll down to load more.
+        </p>
+      )}
+    </div>
+  );
+}
 
 /**
  * What a guest sees after opening an invite link: search for songs and add
  * them to the owner's queue, and watch the queue. Nothing else is possible.
  */
 export default function GuestApp({ token, onLeave }) {
-  const [tab, setTab] = useState("search");
+  const [tab, setTab] = useState("library");
   const [videos, setVideos] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -99,6 +195,8 @@ export default function GuestApp({ token, onLeave }) {
     [token]
   );
 
+  const markInvalid = useCallback(() => setInvalid(true), []);
+
   const queuedIds = useMemo(
     () => new Set(state.queue.map((v) => v.id.videoId)),
     [state.queue]
@@ -123,8 +221,9 @@ export default function GuestApp({ token, onLeave }) {
 
         <ul className="nav nav-tabs mb-3">
           {[
-            ["search", "🔍 Search"],
+            ["library", "📚 Library"],
             ["queue", `🎵 Queue (${state.queue.length})`],
+            ["search", "🔍 Search"],
           ].map(([key, label]) => (
             <li className="nav-item" key={key}>
               <button
@@ -136,6 +235,15 @@ export default function GuestApp({ token, onLeave }) {
             </li>
           ))}
         </ul>
+
+        {tab === "library" && (
+          <GuestLibrary
+            token={token}
+            queuedIds={queuedIds}
+            onAdd={handleAdd}
+            onInvalid={markInvalid}
+          />
+        )}
 
         {tab === "search" && (
           <>

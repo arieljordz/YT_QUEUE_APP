@@ -5,20 +5,11 @@ import { MdPlaylistAdd } from "react-icons/md";
 import VideoList from "./VideoList";
 import useLocalStorage from "../hooks/useLocalStorage";
 import useFeatureFlags from "../hooks/useFeatureFlags";
+import { byTitle } from "../lib/sort";
 import { useFavorites } from "../hooks/useExtras";
 
 // The list grows by this many rows each time the user scrolls near the bottom.
 const PAGE_SIZE = 100;
-
-// YouTube titles come with HTML entities (&#39; &amp;); decode the common ones for sorting.
-const sortKey = (title) =>
-  title.replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
-const byTitle = (a, b) =>
-  sortKey(a.snippet.title).localeCompare(sortKey(b.snippet.title), undefined, {
-    sensitivity: "base",
-    numeric: true,
-    ignorePunctuation: true,
-  });
 
 const newDeleteCode = () => String(Math.floor(1000 + Math.random() * 9000));
 
