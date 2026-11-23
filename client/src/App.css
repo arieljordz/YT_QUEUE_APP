@@ -171,3 +171,52 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+
+/* Player page: "Next: ..." banner during the last seconds of a song. */
+.next-up-banner {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 3.5rem; /* above YouTube's own control bar */
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: calc(100% - 1.5rem);
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.5rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.72);
+  pointer-events: none;
+}
+
+.next-up-label {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #ffc107;
+}
+
+.next-up-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Player page: the "Keep screen on" switch fades in when the pointer moves. */
+.keep-awake-toggle {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 3;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.keep-awake-toggle.is-visible,
+.keep-awake-toggle:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}

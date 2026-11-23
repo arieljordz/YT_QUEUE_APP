@@ -1,7 +1,10 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import YouTube from "react-youtube";
+import { decodeHtml } from "../lib/text";
 
 const PLAYER_OPTS = { width: "100%", playerVars: { autoplay: 1 } };
+// The "Next:" banner shows during the last seconds of a song.
+const NEXT_BANNER_SECONDS = 15;
 const FULLSCREEN_EVENTS = ["fullscreenchange", "webkitfullscreenchange"];
 
 function requestFullscreen(element) {
@@ -10,7 +13,7 @@ function requestFullscreen(element) {
   Promise.resolve(request?.call(element)).catch(() => {});
 }
 
-const VideoPlayer = ({ video, onEnd, isPaused, isRepeat }) => {
+const VideoPlayer = ({ video, nextVideo, onEnd, isPaused, isRepeat }) => {
   const playerRef = useRef(null);
   const isPausedRef = useRef(isPaused);
   isPausedRef.current = isPaused;
@@ -119,6 +122,20 @@ const VideoPlayer = ({ video, onEnd, isPaused, isRepeat }) => {
     if ((e.data === -1 || e.data === 5) && !isPausedRef.current) e.target.playVideo();
   }, []);
 
+  // Show "Next: ..." while the current song is about to finish.
+  const [endingSoon, setEndingSoon] = useState(false);
+  useEffect(() => {
+    setEndingSoon(false);
+    const timer = setInterval(() => {
+      const player = playerRef.current;
+      const duration = player?.getDuration?.() ?? 0;
+      const remaining = duration - (player?.getCurrentTime?.() ?? 0);
+      setEndingSoon(duration > 0 && remaining > 0 && remaining <= NEXT_BANNER_SECONDS);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [queueId]);
+  const nextLabel = nextVideo ? decodeHtml(nextVideo.snippet.title) : null;
+
   // One click on this page gives it the user activation the browser needs to
   // let later videos autoplay while the tab is in the background.
   const [activated, setActivated] = useState(false);
@@ -134,6 +151,12 @@ const VideoPlayer = ({ video, onEnd, isPaused, isRepeat }) => {
           <button className="btn btn-primary activate-overlay" onClick={handleActivate}>
             ▶ Click once to enable continuous playback
           </button>
+        )}
+        {endingSoon && !isRepeat && (
+          <div className="next-up-banner" role="status">
+            <span className="next-up-label">{nextLabel ? "Next" : "Last song"}</span>
+            {nextLabel && <span className="next-up-title">{nextLabel}</span>}
+          </div>
         )}
         <YouTube
           videoId={videoId}
