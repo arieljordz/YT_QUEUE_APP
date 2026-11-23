@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import SearchBar from "./SearchBar";
 import AppTabs from "./AppTabs";
+import useOnlineStatus from "../hooks/useOnlineStatus";
 import { TAB_ICONS } from "../lib/tabIcons";
 import VideoList from "./VideoList";
 import Queue from "./Queue";
@@ -48,6 +49,7 @@ function Home({ libraryApi }) {
   const [hasSearched, setHasSearched] = useState(false);
   const [details, setDetails] = useState(() => new Map());
   const [tab, setTab] = useState("library");
+  const online = useOnlineStatus();
   const { library, addToLibrary, syncCode, clearLibrary, removeFromLibrary } = libraryApi;
   const searchAbortRef = useRef(null);
 
@@ -236,6 +238,12 @@ function Home({ libraryApi }) {
 
   return (
     <div className="container-xl py-4">
+      {!online && (
+        <div className="alert alert-warning py-2 small" role="status">
+          You are offline. Your library and queue are still here; searching, importing
+          and playing videos need a connection.
+        </div>
+      )}
       <AppTabs
         active={tab}
         onSelect={setTab}

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Dropdown } from "react-bootstrap";
 import { useLocation } from "react-router-dom";
+import { MdInstallMobile } from "react-icons/md";
+import useInstallPrompt from "../hooks/useInstallPrompt";
 import { FaBars, FaSync, FaQrcode, FaDownload, FaBookOpen, FaFlag, FaCoffee } from "react-icons/fa";
 import SyncModal from "./SyncModal";
 import InviteGuestsModal from "./InviteGuestsModal";
@@ -23,6 +25,8 @@ const NavBar = ({ sync }) => {
     document.documentElement.setAttribute("data-bs-theme", darkMode ? "dark" : "light");
     localStorage.setItem("theme", darkMode ? "dark" : "light");
   }, [darkMode]);
+
+  const { canInstall, install } = useInstallPrompt();
 
   const toggleTheme = useCallback(() => setDarkMode((dark) => !dark), []);
   const closeModal = useCallback(() => setOpenModal(null), []);
@@ -93,6 +97,18 @@ const NavBar = ({ sync }) => {
               >
                 <FaFlag aria-hidden="true" /> Feature Flags
               </Dropdown.Item>
+              <Dropdown.Divider className="m-0" />
+              {canInstall && (
+                <>
+                  <Dropdown.Divider className="m-0" />
+                  <Dropdown.Item
+                    className="small d-flex align-items-center gap-2"
+                    onClick={install}
+                  >
+                    <MdInstallMobile aria-hidden="true" /> Install app
+                  </Dropdown.Item>
+                </>
+              )}
               <Dropdown.Divider className="m-0" />
               <Dropdown.Item
                 className="small d-flex align-items-center gap-2"
