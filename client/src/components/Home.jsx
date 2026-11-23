@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
-import { FaExternalLinkAlt } from "react-icons/fa";
 import SearchBar from "./SearchBar";
+import AppTabs from "./AppTabs";
+import { TAB_ICONS } from "../lib/tabIcons";
 import VideoList from "./VideoList";
 import Queue from "./Queue";
 import Library from "./Library";
@@ -235,34 +236,22 @@ function Home({ libraryApi }) {
 
   return (
     <div className="container-xl py-4">
-      <ul className="nav nav-tabs mb-3">
-        {[
-          ["library", `📚 Library (${library.length})`],
-          ["queue", `🎵 Queue (${queue.length})`],
-          ["search", "🔍 Search"],
-        ].map(([key, label]) => (
-          <li className="nav-item" key={key}>
-            <button
-              className={`nav-link ${tab === key ? "active" : ""}`}
-              onClick={() => setTab(key)}
-            >
-              {label}
-            </button>
-          </li>
-        ))}
-        {/* Not a page of its own: it opens the player in a new browser tab. */}
-        <li className="nav-item">
-          <a
-            className="nav-link d-flex align-items-center gap-1"
-            href="/player"
-            target="_blank"
-            rel="noopener"
-            title="Open the player in a new browser tab, so videos keep playing while you search"
-          >
-            📺 Player <FaExternalLinkAlt size={11} aria-hidden="true" />
-          </a>
-        </li>
-      </ul>
+      <AppTabs
+        active={tab}
+        onSelect={setTab}
+        tabs={[
+          { key: "library", label: "Library", icon: TAB_ICONS.library, count: library.length },
+          { key: "queue", label: "Queue", icon: TAB_ICONS.queue, count: queue.length },
+          { key: "search", label: "Search", icon: TAB_ICONS.search },
+          {
+            key: "player",
+            label: "Player",
+            icon: TAB_ICONS.player,
+            href: "/player",
+            title: "Open the player in a new browser tab, so videos keep playing while you search",
+          },
+        ]}
+      />
 
       {tab === "search" && (
         <>

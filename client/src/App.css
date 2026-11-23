@@ -208,3 +208,53 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Main tabs: an icon, a label and (for some) a count. */
+.app-tabs .nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.app-tabs .tab-icon {
+  display: inline-flex;
+  font-size: 1.25rem;
+}
+
+.app-tabs .tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.app-tabs .tab-count {
+  font-size: 0.7rem;
+}
+
+/* Phones: all tabs share one row; icon above label, like a bottom bar. */
+@media (max-width: 575.98px) {
+  .app-tabs .nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .app-tabs .nav-link {
+    position: relative;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    padding: 0.4rem 0.15rem;
+    font-size: 0.75rem;
+  }
+
+  /* The count sits on the corner of the icon instead of taking a line. */
+  .app-tabs .tab-count {
+    position: absolute;
+    top: 0.1rem;
+    left: calc(50% + 0.5rem);
+    padding: 0.15rem 0.35rem;
+    font-size: 0.6rem;
+  }
+}

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { toast } from "react-toastify";
 import SearchBar from "./SearchBar";
+import AppTabs from "./AppTabs";
+import { TAB_ICONS } from "../lib/tabIcons";
 import VideoList from "./VideoList";
 import { searchVideos, getVideoDetails, QuotaError } from "../api/youtube";
 import { addGuestSong, getGuestLibrary, getGuestState } from "../api/guest";
@@ -219,22 +221,15 @@ export default function GuestApp({ token, onLeave }) {
           </div>
         )}
 
-        <ul className="nav nav-tabs mb-3">
-          {[
-            ["library", "📚 Library"],
-            ["queue", `🎵 Queue (${state.queue.length})`],
-            ["search", "🔍 Search"],
-          ].map(([key, label]) => (
-            <li className="nav-item" key={key}>
-              <button
-                className={`nav-link ${tab === key ? "active" : ""}`}
-                onClick={() => setTab(key)}
-              >
-                {label}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <AppTabs
+          active={tab}
+          onSelect={setTab}
+          tabs={[
+            { key: "library", label: "Library", icon: TAB_ICONS.library },
+            { key: "queue", label: "Queue", icon: TAB_ICONS.queue, count: state.queue.length },
+            { key: "search", label: "Search", icon: TAB_ICONS.search },
+          ]}
+        />
 
         {tab === "library" && (
           <GuestLibrary
