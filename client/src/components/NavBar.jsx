@@ -1,17 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { Dropdown } from "react-bootstrap";
-import { FaBars, FaDownload, FaBookOpen, FaFlag, FaCoffee } from "react-icons/fa";
+import { FaBars, FaSync, FaDownload, FaBookOpen, FaFlag, FaCoffee } from "react-icons/fa";
+import SyncModal from "./SyncModal";
 import ImportVideosModal from "./ImportVideosModal";
 import AddLibraryModal from "./AddLibraryModal";
 import FeatureFlagsModal from "./FeatureFlagsModal";
 import SupportModal from "./SupportModal";
 
-const NavBar = () => {
+const NavBar = ({ sync }) => {
   // Read the saved theme up front so the first paint is already correct.
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem("theme") === "dark"
   );
-  // Which settings window is open: null | "import" | "library" | "flags" | "support".
+  // Which settings window is open: null | "sync" | "import" | "library" | "flags" | "support".
   const [openModal, setOpenModal] = useState(null);
 
   useEffect(() => {
@@ -50,6 +51,18 @@ const NavBar = () => {
             <Dropdown.Menu className="py-1">
               <Dropdown.Item
                 className="small d-flex align-items-center gap-2"
+                onClick={() => setOpenModal("sync")}
+              >
+                <FaSync aria-hidden="true" /> Sync
+                <span
+                  className={`badge ms-auto ${sync.syncCode ? "text-bg-success" : "text-bg-secondary"}`}
+                >
+                  {sync.syncCode ? "On" : "Off"}
+                </span>
+              </Dropdown.Item>
+              <Dropdown.Divider className="m-0" />
+              <Dropdown.Item
+                className="small d-flex align-items-center gap-2"
                 onClick={() => setOpenModal("import")}
               >
                 <FaDownload aria-hidden="true" /> Import Videos
@@ -80,6 +93,15 @@ const NavBar = () => {
         </div>
       </nav>
 
+      <SyncModal
+        show={openModal === "sync"}
+        onHide={closeModal}
+        syncCode={sync.syncCode}
+        onChangeCode={sync.setSyncCode}
+        status={sync.status}
+        onRetry={sync.retrySync}
+        liveStatus={sync.liveStatus}
+      />
       <ImportVideosModal show={openModal === "import"} onHide={closeModal} />
       <AddLibraryModal show={openModal === "library"} onHide={closeModal} />
       <FeatureFlagsModal

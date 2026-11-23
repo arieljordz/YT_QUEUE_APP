@@ -5,7 +5,6 @@ import SearchBar from "./SearchBar";
 import VideoList from "./VideoList";
 import Queue from "./Queue";
 import Library from "./Library";
-import useLibrary from "../hooks/useLibrary";
 import useLocalStorage from "../hooks/useLocalStorage";
 import { searchVideos, findNonEmbeddable, QuotaError } from "../api/youtube";
 import { saveSearchedVideo } from "../api/catalog";
@@ -16,7 +15,7 @@ const newQueueId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const toQueueItem = (video) => ({ ...video, queueId: newQueueId() });
 
-function Home({ liveStatus }) {
+function Home({ libraryApi }) {
   const [videos, setVideos] = useState([]);
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
@@ -26,8 +25,7 @@ function Home({ liveStatus }) {
   const [hasSearched, setHasSearched] = useState(false);
   const [youtubeOnlyIds, setYoutubeOnlyIds] = useState(() => new Set());
   const [tab, setTab] = useState("library");
-  const { library, addToLibrary, syncCode, setSyncCode, status, retrySync, clearLibrary, removeFromLibrary } =
-    useLibrary();
+  const { library, addToLibrary, syncCode, clearLibrary, removeFromLibrary } = libraryApi;
   const searchAbortRef = useRef(null);
 
   useEffect(() => () => searchAbortRef.current?.abort(), []);
@@ -215,10 +213,6 @@ function Home({ liveStatus }) {
           onRemove={removeFromLibrary}
           queuedIds={queuedIds}
           syncCode={syncCode}
-          onChangeCode={setSyncCode}
-          status={status}
-          onRetry={retrySync}
-          liveStatus={liveStatus}
         />
       )}
 
