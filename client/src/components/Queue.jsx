@@ -199,9 +199,6 @@ function Queue({
   return (
     <section>
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h5 className="mb-0">
-          🎵 Queue <span className="badge bg-secondary">{queue.length}</span>
-        </h5>
         <div className="d-flex gap-2 flex-wrap">
           <button
             className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
