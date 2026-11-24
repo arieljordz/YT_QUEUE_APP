@@ -193,7 +193,7 @@ export default function ImportVideosPanel() {
       )}
 
       <div className="form-text mt-3">
-        Saved lists are added to your library from the gear menu, under Add Library.
+        Saved lists are added to your library from the Add Library tab.
       </div>
     </div>
   );

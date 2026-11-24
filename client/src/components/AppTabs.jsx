@@ -3,19 +3,27 @@ import { MdOpenInNew } from "react-icons/md";
 
 /**
  * The tab bar of the home page.
- * tabs: [{ key, label, icon, count?, href?, title? }]. A tab with `href` is a
- * link that opens in a new browser tab (the player); the others switch `active`.
- * On a phone the tabs share one row, each with its icon above a short label.
+ * tabs: [{ key, label, shortLabel?, icon, count?, href?, title? }]. A tab with
+ * `href` is a link that opens in a new browser tab (the player); the others
+ * switch `active`. On a phone the tabs share one row, each with its icon above
+ * a label (`shortLabel` there, when given). Also used by Settings.
  */
-function AppTabs({ tabs, active, onSelect }) {
+function AppTabs({ tabs, active, onSelect, className = "", ariaLabel }) {
   return (
-    <ul className="nav app-tabs flex-nowrap mb-3">
-      {tabs.map(({ key, label, icon, count, href, title }) => {
+    <ul className={`nav app-tabs flex-nowrap mb-3 ${className}`} aria-label={ariaLabel}>
+      {tabs.map(({ key, label, shortLabel, icon, count, href, title }) => {
         const content = (
           <>
             <span className="tab-icon">{icon}</span>
             <span className="tab-label">
-              {label}
+              {shortLabel ? (
+                <>
+                  <span className="d-none d-sm-inline">{label}</span>
+                  <span className="d-sm-none">{shortLabel}</span>
+                </>
+              ) : (
+                label
+              )}
               {href && <MdOpenInNew className="tab-external" size={13} aria-hidden="true" />}
             </span>
             {count !== undefined && (
@@ -34,7 +42,7 @@ function AppTabs({ tabs, active, onSelect }) {
                 className={`nav-link ${active === key ? "active" : ""}`}
                 onClick={() => onSelect(key)}
                 aria-current={active === key ? "page" : undefined}
-                title={title}
+                title={title ?? (shortLabel ? label : undefined)}
               >
                 {content}
               </button>

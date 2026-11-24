@@ -79,7 +79,7 @@ export default function AddLibraryPanel() {
   if (lists.length === 0) {
     return (
       <p className="text-muted mb-0">
-        No saved lists yet. Collect one with Import Videos in the gear menu.
+        No saved lists yet. Collect one in the Import Videos tab.
       </p>
     );
   }

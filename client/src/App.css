@@ -696,3 +696,14 @@
   min-height: 50vh;
   min-height: 50dvh;
 }
+
+/* Settings tabs: the main tab style, sharing the full width evenly. */
+.settings-tabs .nav-item {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.settings-tabs .nav-link {
+  width: 100%;
+  padding-left: 0.4rem;
+  padding-right: 0.4rem;
+}

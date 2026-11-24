@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Modal, Button, Tab, Tabs } from "react-bootstrap";
+import { Modal, Button } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { FaCog } from "react-icons/fa";
+import { MdFileDownload, MdLibraryAdd, MdToggleOn, MdLock } from "react-icons/md";
+import AppTabs from "./AppTabs";
 import useAdmin from "../hooks/useAdmin";
 import { logoutAdmin } from "../api/admin";
 import AdminSignIn from "./AdminSignIn";
@@ -15,6 +17,14 @@ import FeatureFlagsPanel from "./FeatureFlagsPanel";
  * admin out again, because this app often runs on a shared device (a TV).
  * The server checks the admin sign-in on every one of these requests too.
  */
+// The Settings tabs: full names on wide screens, short ones under the icon on phones.
+const TABS = [
+  { key: "import", label: "Import Videos", shortLabel: "Import", icon: <MdFileDownload aria-hidden="true" /> },
+  { key: "library", label: "Add Library", shortLabel: "Library", icon: <MdLibraryAdd aria-hidden="true" /> },
+  { key: "flags", label: "Feature Flags", shortLabel: "Flags", icon: <MdToggleOn aria-hidden="true" /> },
+  { key: "password", label: "Admin Password", shortLabel: "Password", icon: <MdLock aria-hidden="true" /> },
+];
+
 function SettingsBody({ onClose }) {
   const admin = useAdmin();
   const [signedIn, setSignedIn] = useState(false);
@@ -50,28 +60,21 @@ function SettingsBody({ onClose }) {
   };
 
   return (
-    <Tabs activeKey={tab} onSelect={(k) => setTab(k)} className="mb-3" fill>
-      <Tab eventKey="import" title="Import Videos">
-        {tab === "import" && <ImportVideosPanel />}
-      </Tab>
-      <Tab eventKey="library" title="Add Library">
-        {tab === "library" && <AddLibraryPanel />}
-      </Tab>
-      <Tab eventKey="flags" title="Feature Flags">
-        {tab === "flags" && <FeatureFlagsPanel onAdminRequired={expired} />}
-      </Tab>
-      <Tab eventKey="password" title="Admin Password">
-        {tab === "password" && (
-          <AdminSignIn
-            mode="change"
-            onDone={() => {
-              toast.success("Admin password changed. It now works in every room.");
-              setTab("import");
-            }}
-          />
-        )}
-      </Tab>
-    </Tabs>
+    <>
+      <AppTabs tabs={TABS} active={tab} onSelect={setTab} className="settings-tabs" ariaLabel="Settings sections" />
+      {tab === "import" && <ImportVideosPanel />}
+      {tab === "library" && <AddLibraryPanel />}
+      {tab === "flags" && <FeatureFlagsPanel onAdminRequired={expired} />}
+      {tab === "password" && (
+        <AdminSignIn
+          mode="change"
+          onDone={() => {
+            toast.success("Admin password changed. It now works in every room.");
+            setTab("import");
+          }}
+        />
+      )}
+    </>
   );
 }
 
