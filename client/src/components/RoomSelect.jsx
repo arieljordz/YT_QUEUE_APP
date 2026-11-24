@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { FaLock, FaPencilAlt, FaPlus, FaYoutube } from "react-icons/fa";
+import { FaLock, FaPencilAlt, FaPlus } from "react-icons/fa";
+import AppLogo from "./AppLogo";
 import { listRooms } from "../api/rooms";
 import { MAX_ROOMS } from "../lib/avatars";
 import Avatar from "./RoomAvatar";
@@ -67,7 +68,7 @@ export default function RoomSelect({ onSelect, notice }) {
   return (
     <main className="room-screen">
       <header className="room-brand">
-        <FaYoutube size={36} color="#e50914" aria-hidden="true" />
+        <AppLogo size={48} />
         <span>YT Queue</span>
       </header>
       <h1 className="room-heading">{managing ? "Manage Rooms" : "Who's Watching?"}</h1>

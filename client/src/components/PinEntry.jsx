@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { FaEye, FaEyeSlash, FaYoutube } from "react-icons/fa";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
+import AppLogo from "./AppLogo";
 import { enterRoom } from "../api/rooms";
 import Avatar from "./RoomAvatar";
 
@@ -66,7 +67,7 @@ export default function PinEntry({ room, onBack, onEntered, onMissing }) {
   return (
     <main className="room-screen">
       <header className="room-brand">
-        <FaYoutube size={36} color="#e50914" aria-hidden="true" />
+        <AppLogo size={48} />
         <span>YT Queue</span>
       </header>
       <form className="pin-panel" onSubmit={submit}>

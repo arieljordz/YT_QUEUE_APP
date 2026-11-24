@@ -7,6 +7,7 @@ import { FaBars, FaDoorOpen, FaQrcode, FaPalette, FaCog, FaCoffee } from "react-
 import { InviteModal, AppearanceModal, LeaveRoomModal } from "./MenuModals";
 import SettingsModal from "./SettingsModal";
 import SupportModal from "./SupportModal";
+import AppLogo from "./AppLogo";
 
 // The user menu. Everyone gets these five; Settings asks for the admin password.
 const ITEMS = [
@@ -39,7 +40,9 @@ const NavBar = ({ sync }) => {
         data-bs-theme={darkMode ? "light" : "dark"}
         className={`navbar navbar-expand-lg ${darkMode ? "bg-light" : "bg-dark"} px-3 py-1`}
       >
-        <span className="navbar-brand py-0 fs-6">🎬 YouTube Queueing App</span>
+        <span className="navbar-brand py-0 fs-6 d-flex align-items-center gap-2">
+          <AppLogo size={22} /> YT Queue
+        </span>
 
         <div className="ms-auto d-flex align-items-center gap-2">
           {sync.roomName && <span className="badge text-bg-secondary">{sync.roomName}</span>}
