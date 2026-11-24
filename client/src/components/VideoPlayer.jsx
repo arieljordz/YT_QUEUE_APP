@@ -40,6 +40,7 @@ const VideoPlayer = ({
   isRepeat,
   onPlayerPause,
   onPlayerPlay,
+  onEmbedBlocked,
 }) => {
   const queueId = video?.queueId;
   const videoId = video?.id.videoId;
@@ -56,6 +57,8 @@ const VideoPlayer = ({
   pauseCallbackRef.current = onPlayerPause;
   const playCallbackRef = useRef(onPlayerPlay);
   playCallbackRef.current = onPlayerPlay;
+  const blockedCallbackRef = useRef(onEmbedBlocked);
+  blockedCallbackRef.current = onEmbedBlocked;
   const wantsFullscreenRef = useRef(localStorage.getItem("isFullscreen") === "true");
 
   // The iframe is created once, with the song that is first in the queue. Every
@@ -194,6 +197,11 @@ const VideoPlayer = ({
   const handleEndRef = useRef(handleEnd);
   handleEndRef.current = handleEnd;
 
+  // YouTube error 101 / 150: the owner does not allow this video outside youtube.com.
+  const handleError = useCallback((e) => {
+    if (e.data === 101 || e.data === 150) blockedCallbackRef.current?.(loadedIdRef.current);
+  }, []);
+
   const [playing, setPlaying] = useState(false);
   const handleStateChange = useCallback(
     (e) => {
@@ -299,6 +307,7 @@ const VideoPlayer = ({
           onReady={onReady}
           onEnd={handleEnd}
           onStateChange={handleStateChange}
+          onError={handleError}
         />
       </div>
     </div>

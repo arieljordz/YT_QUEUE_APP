@@ -73,6 +73,7 @@ function Library({
   onClearLibrary,
   onRemove,
   queuedIds,
+  youtubeOnlyIds,
   syncCode,
 }) {
   const { flags } = useFeatureFlags();
@@ -233,6 +234,7 @@ function Library({
       <VideoList
         videos={visible}
         queuedIds={queuedIds}
+        youtubeOnlyIds={youtubeOnlyIds}
         onAdd={onAdd}
         onRemove={flags.removeButton && view !== "recent" ? onRemove : undefined}
         favoriteSet={favoriteSet}

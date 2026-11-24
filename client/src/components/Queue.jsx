@@ -1,5 +1,6 @@
 import { memo, useCallback, useState } from "react";
 import { Modal, Button } from "react-bootstrap";
+import YoutubeOnlyBadge from "./YoutubeOnlyBadge";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import {
   FaTrash,
@@ -26,6 +27,7 @@ const NowPlaying = memo(function NowPlaying({
   onTogglePause,
   onToggleRepeat,
   onSkip,
+  youtubeOnly,
 }) {
   return (
     <div className="card mb-3 border-primary">
@@ -39,6 +41,7 @@ const NowPlaying = memo(function NowPlaying({
           <div className="fw-semibold text-truncate-2" title={video.snippet.title}>
             {video.snippet.title}
           </div>
+          {youtubeOnly && <YoutubeOnlyBadge />}
         </div>
         <div className="d-flex gap-1 queue-actions">
           <button
@@ -77,7 +80,7 @@ const NowPlaying = memo(function NowPlaying({
 });
 
 // `index` is the absolute queue position (so >= 1 for upcoming items).
-const UpNextItem = memo(function UpNextItem({ video, index, onPlay, onRemove }) {
+const UpNextItem = memo(function UpNextItem({ video, index, onPlay, onRemove, youtubeOnly }) {
   return (
     <Draggable draggableId={getItemId(video, index)} index={index - 1}>
       {(provided) => (
@@ -96,9 +99,12 @@ const UpNextItem = memo(function UpNextItem({ video, index, onPlay, onRemove }) 
           </span>
           <span className="text-muted small queue-position">{index}</span>
           <img src={thumbOf(video)} alt="" className="queue-thumb rounded" />
-          <span className="up-next-title min-w-0 text-truncate-2" title={video.snippet.title}>
-            {video.snippet.title}
-          </span>
+          <div className="up-next-title min-w-0">
+            <span className="text-truncate-2 d-block" title={video.snippet.title}>
+              {video.snippet.title}
+            </span>
+            {youtubeOnly && <YoutubeOnlyBadge />}
+          </div>
           <div className="d-flex gap-1 flex-shrink-0">
             <button
               className="btn btn-sm btn-primary row-action d-flex align-items-center justify-content-center gap-1"
@@ -155,6 +161,7 @@ function Queue({
   onMove,
   onRemove,
   onClear,
+  youtubeOnlyIds,
   onShuffle,
   playedCount,
   onRequeuePlayed,
@@ -237,6 +244,7 @@ function Queue({
           onTogglePause={onTogglePause}
           onToggleRepeat={onToggleRepeat}
           onSkip={onSkip}
+          youtubeOnly={youtubeOnlyIds?.has(current.id.videoId)}
         />
       )}
 
@@ -258,6 +266,7 @@ function Queue({
                       index={i + 1}
                       onPlay={onPlay}
                       onRemove={handleRequestRemove}
+                      youtubeOnly={youtubeOnlyIds?.has(video.id.videoId)}
                     />
                   ))}
                   {provided.placeholder}

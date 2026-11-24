@@ -3,6 +3,7 @@ import VideoPlayer from "./VideoPlayer";
 import useLocalStorage from "../hooks/useLocalStorage";
 import useWakeLock from "../hooks/useWakeLock";
 import { useRecordPlayed } from "../hooks/useExtras";
+import { useEmbeddableCache } from "../hooks/useEmbeddable";
 import { decodeHtml } from "../lib/text";
 
 // Player tab: shares the queue with the search tab through localStorage and is
@@ -22,6 +23,7 @@ function PlayerPage() {
 
   // Remember each song that starts playing, for "Recently played" in the Library.
   const recordPlayed = useRecordPlayed();
+  const { record: recordEmbeddable } = useEmbeddableCache();
   const currentQueueId = currentVideo?.queueId;
   useEffect(() => {
     if (currentVideo && !isPaused) recordPlayed(currentVideo);
@@ -61,6 +63,7 @@ function PlayerPage() {
         isRepeat={isRepeat}
         onPlayerPause={() => setIsPaused(true)}
         onPlayerPlay={() => setIsPaused(false)}
+        onEmbedBlocked={(id) => recordEmbeddable([[id, false]])}
       />
       {!currentVideo && (
         <p className="text-center player-empty px-3">

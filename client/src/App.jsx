@@ -8,6 +8,7 @@ import useRemoteSync from "./hooks/useRemoteSync";
 import useLibrary from "./hooks/useLibrary";
 import { useFeatureFlagsSync } from "./hooks/useFeatureFlags";
 import { useExtrasSync } from "./hooks/useExtras";
+import { useEmbeddableLookup } from "./hooks/useEmbeddable";
 import useLocalStorage from "./hooks/useLocalStorage";
 import GuestApp from "./components/GuestApp";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -52,6 +53,8 @@ function App() {
   useFeatureFlagsSync();
   // Keeps favorites and recently played identical on every device on the same sync code.
   useExtrasSync();
+  // Finds out which saved and queued videos can only be watched on YouTube.
+  useEmbeddableLookup();
 
   // A guest only gets the search-and-queue view.
   if (guestCode && !libraryApi.syncCode) {

@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import SearchBar from "./SearchBar";
 import AppTabs from "./AppTabs";
 import useOnlineStatus from "../hooks/useOnlineStatus";
+import { useEmbeddableCache } from "../hooks/useEmbeddable";
 import { TAB_ICONS } from "../lib/tabIcons";
 import VideoList from "./VideoList";
 import Queue from "./Queue";
@@ -50,6 +51,7 @@ function Home({ libraryApi }) {
   const [details, setDetails] = useState(() => new Map());
   const [tab, setTab] = useState("library");
   const online = useOnlineStatus();
+  const { record: recordEmbeddable, youtubeOnlyIds } = useEmbeddableCache();
   const { library, addToLibrary, syncCode, clearLibrary, removeFromLibrary } = libraryApi;
   const searchAbortRef = useRef(null);
 
@@ -72,6 +74,7 @@ function Home({ libraryApi }) {
       );
       if (searchAbortRef.current === controller) {
         setDetails((prev) => new Map([...prev, ...fresh]));
+        recordEmbeddable([...fresh].map(([id, detail]) => [id, detail.embeddable]));
       }
     } catch (err) {
       if (err.name === "AbortError") return;
@@ -85,7 +88,7 @@ function Home({ libraryApi }) {
       // An aborted search was replaced by a newer one that owns the spinner.
       if (searchAbortRef.current === controller) setIsSearching(false);
     }
-  }, []);
+  }, [recordEmbeddable]);
 
   const addToQueue = useCallback(
     (video) => {
@@ -283,6 +286,7 @@ function Home({ libraryApi }) {
           onClearLibrary={handleClearLibrary}
           onRemove={removeFromLibrary}
           queuedIds={queuedIds}
+          youtubeOnlyIds={youtubeOnlyIds}
           syncCode={syncCode}
         />
       )}
@@ -299,6 +303,7 @@ function Home({ libraryApi }) {
           onMove={handleMove}
           onRemove={handleRemove}
           onClear={handleClear}
+          youtubeOnlyIds={youtubeOnlyIds}
           onShuffle={handleShuffle}
           playedCount={playedVideos.length}
           onRequeuePlayed={handleRequeuePlayed}

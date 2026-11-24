@@ -2,11 +2,13 @@ import { memo, useState } from "react";
 import { FaTrash, FaStar, FaRegStar } from "react-icons/fa";
 import { MdPlaylistAdd } from "react-icons/md";
 import { describeVideo } from "../lib/format";
+import YoutubeOnlyBadge from "./YoutubeOnlyBadge";
 
 function VideoList({
   videos,
   queuedIds,
   details,
+  youtubeOnlyIds,
   onAdd,
   onRemove,
   favoriteSet,
@@ -39,7 +41,7 @@ function VideoList({
         const inQueue = queuedIds.has(video.id.videoId);
         const detail = details?.get(video.id.videoId);
         const meta = describeVideo(detail);
-        const youtubeOnly = detail?.embeddable === false;
+        const youtubeOnly = detail?.embeddable === false || Boolean(youtubeOnlyIds?.has(video.id.videoId));
         return (
           <li
             key={video.id.videoId}
@@ -63,14 +65,7 @@ function VideoList({
               {(inQueue || youtubeOnly) && (
                 <div className="d-flex flex-wrap gap-1">
                   {inQueue && <span className="badge bg-secondary">In queue</span>}
-                  {youtubeOnly && (
-                    <span
-                      className="badge bg-warning text-dark"
-                      title="The owner disabled embedding, so it can't play in the player tab."
-                    >
-                      YouTube only
-                    </span>
-                  )}
+                  {youtubeOnly && <YoutubeOnlyBadge />}
                 </div>
               )}
             </div>
