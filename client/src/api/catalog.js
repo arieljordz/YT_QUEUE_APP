@@ -7,10 +7,9 @@ export class CatalogError extends Error {
   }
 }
 
-async function request(syncCode, { method = "GET", query, body } = {}) {
+async function request({ method = "GET", query, body } = {}) {
   const url = query ? `/api/catalog?${new URLSearchParams(query)}` : "/api/catalog";
-  const headers = { "x-sync-code": syncCode };
-  if (body) headers["Content-Type"] = "application/json";
+  const headers = body ? { "Content-Type": "application/json" } : {};
 
   const response = await fetch(url, {
     method,
@@ -33,16 +32,16 @@ async function request(syncCode, { method = "GET", query, body } = {}) {
   return data;
 }
 
-export const listCatalogs = (syncCode) => request(syncCode).then((d) => d.catalogs);
+export const listCatalogs = () => request().then((d) => d.catalogs);
 
-export const getCatalogVideos = (syncCode, name) =>
-  request(syncCode, { query: { name } }).then((d) => d.videos);
+export const getCatalogVideos = (name) =>
+  request({ query: { name } }).then((d) => d.videos);
 
-export const deleteCatalog = (syncCode, name) =>
-  request(syncCode, { method: "DELETE", query: { name } });
+export const deleteCatalog = (name) =>
+  request({ method: "DELETE", query: { name } });
 
 /** Collects one page (50) of YouTube results into the list `body.name`. */
-export const collectPage = (syncCode, body) => request(syncCode, { method: "POST", body });
+export const collectPage = (body) => request({ method: "POST", body });
 
 // Must match SEARCHES_LIST on the server.
 export const SEARCHES_LIST = "My Searches";
@@ -50,5 +49,5 @@ export const isSearchesList = (name) =>
   name.trim().toLowerCase() === SEARCHES_LIST.toLowerCase();
 
 /** Saves a video the user searched for and queued into the "My Searches" list. */
-export const saveSearchedVideo = (syncCode, video) =>
-  request(syncCode, { method: "POST", body: { save: video } });
+export const saveSearchedVideo = (video) =>
+  request({ method: "POST", body: { save: video } });

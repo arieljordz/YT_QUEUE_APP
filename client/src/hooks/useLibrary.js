@@ -104,7 +104,7 @@ export default function useLibrary() {
       try {
         const response = await fetch("/api/library", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-sync-code": syncCode },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             library: sentLibrary,
             epoch: epochRef.current,
@@ -142,7 +142,7 @@ export default function useLibrary() {
         if (err.name !== "AbortError") setStatus("error");
       }
     },
-    [syncCode, setLibrary, setEpoch, setRemovalSeq, setPendingRemovals]
+    [setLibrary, setEpoch, setRemovalSeq, setPendingRemovals]
   );
 
   // Sync when a code is set, and shortly after the library changes.
@@ -172,7 +172,7 @@ export default function useLibrary() {
       try {
         const response = await fetch("/api/library", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-sync-code": syncCode },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ clear: true }),
         });
         if (!response.ok) return false;

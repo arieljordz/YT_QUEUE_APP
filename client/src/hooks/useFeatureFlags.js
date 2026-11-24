@@ -13,10 +13,10 @@ export const FEATURE_FLAGS = {
 
 const REFRESH_MS = 30000;
 
-async function postFlags(syncCode, body) {
+async function postFlags(body) {
   const response = await fetch("/api/flags", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-sync-code": syncCode },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   const isJson = response.headers.get("content-type")?.includes("application/json");
@@ -50,7 +50,7 @@ export default function useFeatureFlags() {
         setStored((prev) => ({ ...prev, [name]: enabled }));
         return;
       }
-      const data = await postFlags(syncCode, { flags: { [name]: enabled } });
+      const data = await postFlags({ flags: { [name]: enabled } });
       setStored(data.flags);
     },
     [syncCode, setStored]
@@ -74,7 +74,7 @@ export function useFeatureFlagsSync() {
 
     const load = async () => {
       try {
-        const data = await postFlags(syncCode, {});
+        const data = await postFlags({});
         if (cancelled) return;
         setStored(data.flags);
       } catch {

@@ -22,12 +22,12 @@ export default function AddLibraryPanel() {
 
   const refreshLists = useCallback(async () => {
     try {
-      setLists(await listCatalogs(syncCode));
+      setLists(await listCatalogs());
     } catch (err) {
       setLists([]);
       toast.error(err.message, { toastId: "catalog-list-error" });
     }
-  }, [syncCode]);
+  }, []);
 
   useEffect(() => {
     if (syncCode) refreshLists();
@@ -45,7 +45,7 @@ export default function AddLibraryPanel() {
   const addToLibrary = async (name) => {
     setWorkingOn(name);
     try {
-      const videos = await getCatalogVideos(syncCode, name);
+      const videos = await getCatalogVideos(name);
       // Only the videos that are not in the library yet.
       const missing = videos.filter((v) => !libraryIds.has(v.id.videoId));
       setLibrary((prev) => mergeLibrary(prev, missing));
@@ -64,7 +64,7 @@ export default function AddLibraryPanel() {
     }
     setWorkingOn(name);
     try {
-      await deleteCatalog(syncCode, name);
+      await deleteCatalog(name);
       toast.success(`Deleted the list "${name}"`);
       setConfirmDelete(null);
       await refreshLists();

@@ -27,7 +27,7 @@ export function useExtrasSync() {
 
     const load = async (body = {}) => {
       try {
-        const data = await postExtras(syncCode, body);
+        const data = await postExtras(body);
         if (cancelled) return;
         setFavoriteIds(data.favorites);
         setHistory(data.history);
@@ -60,7 +60,7 @@ export function useFavorites() {
         adding ? [...prev, videoId] : prev.filter((id) => id !== videoId)
       );
       if (syncCode) {
-        postExtras(syncCode, {
+        postExtras({
           favorites: adding ? { add: [videoId] } : { remove: [videoId] },
         }).catch(() => {});
       }
@@ -83,7 +83,7 @@ export function useRecordPlayed() {
       setHistory((prev) =>
         [slim, ...prev.filter((v) => v.id.videoId !== slim.id.videoId)].slice(0, MAX_HISTORY)
       );
-      if (syncCode) postExtras(syncCode, { played: slim }).catch(() => {});
+      if (syncCode) postExtras({ played: slim }).catch(() => {});
     },
     [setHistory, syncCode]
   );

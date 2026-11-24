@@ -104,7 +104,7 @@ function Home({ libraryApi }) {
   const addFromSearch = useCallback(
     (video) => {
       addToQueue(video);
-      if (syncCode) saveSearchedVideo(syncCode, video).catch(() => {});
+      if (syncCode) saveSearchedVideo(video).catch(() => {});
     },
     [addToQueue, syncCode]
   );

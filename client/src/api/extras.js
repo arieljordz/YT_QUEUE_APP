@@ -1,9 +1,9 @@
 // Client for /api/extras: favorites and recently played, shared by every device
 // that uses the same sync code.
-export async function postExtras(syncCode, body) {
+export async function postExtras(body) {
   const response = await fetch("/api/extras", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-sync-code": syncCode },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   const isJson = response.headers.get("content-type")?.includes("application/json");

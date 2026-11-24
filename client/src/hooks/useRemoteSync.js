@@ -21,10 +21,10 @@ function serialize(queue, isPaused, played, isRepeat) {
   });
 }
 
-async function callQueueApi(syncCode, body, signal) {
+async function callQueueApi(body, signal) {
   const response = await fetch("/api/queue", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-sync-code": syncCode },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     signal,
   });
@@ -96,7 +96,7 @@ export default function useRemoteSync() {
       const { queue, isPaused, played, isRepeat } = stateRef.current;
       const json = serialize(queue, isPaused, played, isRepeat);
       if (json === syncedJsonRef.current) return;
-      const { rev } = await callQueueApi(syncCode, { push: JSON.parse(json) }, controller.signal);
+      const { rev } = await callQueueApi({ push: JSON.parse(json) }, controller.signal);
       revRef.current = rev;
       syncedJsonRef.current = json;
     };
@@ -106,7 +106,7 @@ export default function useRemoteSync() {
       // Do not overwrite local changes that have not been saved yet.
       if (!busyRef.current) {
         try {
-          const result = await callQueueApi(syncCode, { rev: revRef.current }, controller.signal);
+          const result = await callQueueApi({ rev: revRef.current }, controller.signal);
           if (cancelled) return;
           if (!result.exists) {
             // Nothing saved yet for this code: seed it with this device's state.

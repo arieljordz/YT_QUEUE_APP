@@ -52,7 +52,7 @@ export default function ImportVideosPanel() {
     try {
       // Keep reading pages until enough videos matched, YouTube has no more, or the page cap.
       while (saved < max && pages < MAX_PAGES && !cancelRef.current) {
-        const page = await collectPage(syncCode, {
+        const page = await collectPage({
           name: listName,
           channel: channelId ? undefined : channel.trim(),
           channelId,

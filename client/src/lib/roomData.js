@@ -8,7 +8,6 @@ const ROOM_DATA = {
   playedVideos: [],
   isPaused: false,
   featureFlags: {},
-  featureFlagsLocked: false,
   favoriteIds: [],
   recentlyPlayed: [],
 };
