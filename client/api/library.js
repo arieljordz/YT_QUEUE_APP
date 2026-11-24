@@ -1,7 +1,7 @@
 // Vercel serverless function: the saved video library for one sync code, stored
 // in MongoDB. The client sends its library; the server merges it with the
 // stored one (union by video id) and returns the result.
-import { readFlags } from "./flags.js";
+import { getAppFlags } from "./flags.js";
 import { requireRoom } from "./_session.js";
 import {
   getCatalog,
@@ -48,14 +48,13 @@ const MAX_REMOVED_PER_REQUEST = 500;
  *
  * The response always holds the full library the device should end up with.
  */
-export async function handleLibrary(rooms, roomId, body, catalog) {
+export async function handleLibrary(rooms, roomId, body, catalog, flags) {
   const doc = await rooms.findOne(
     { _id: roomId },
-    { projection: { library: 1, libraryEpoch: 1, removals: 1, removalSeq: 1, flags: 1 } }
+    { projection: { library: 1, libraryEpoch: 1, removals: 1, removalSeq: 1 } }
   );
   const serverEpoch = doc?.libraryEpoch ?? 0;
   const serverSeq = doc?.removalSeq ?? 0;
-  const flags = readFlags(doc);
 
   // { clear: true } empties the stored library for every device.
   if (body?.clear === true) {
@@ -144,7 +143,8 @@ export default async function handler(req, res) {
       await getRooms(),
       roomId,
       req.body,
-      await getCatalog()
+      await getCatalog(),
+      await getAppFlags()
     );
     return res.status(result.status).json(result.body);
   } catch (error) {

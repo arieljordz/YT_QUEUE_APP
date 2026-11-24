@@ -73,10 +73,8 @@ export const publicRoom = (d) => ({
   name: d.name,
   avatar: d.avatar,
   description: d.description ?? "",
+  // A room without a PIN cannot be entered until the admin sets one.
   hasPin: Boolean(d.pinAuth),
-  // A room without a PIN can be claimed (given a PIN) from the room screen,
-  // unless it holds migrated data: then the migration script must set its PIN.
-  claimable: !d.pinAuth && !d.migratedFrom,
 });
 
 /**
@@ -114,7 +112,7 @@ export async function listRooms(rooms, presence) {
   const docs = await rooms
     .find(
       { slot: { $exists: true } },
-      { projection: { name: 1, avatar: 1, slot: 1, description: 1, pinAuth: 1, migratedFrom: 1 } }
+      { projection: { name: 1, avatar: 1, slot: 1, description: 1, pinAuth: 1 } }
     )
     .toArray();
   const online = presence ? await countOnline(presence) : {};
@@ -150,46 +148,43 @@ async function addFail(attempts, key, current, max, now) {
   return locks;
 }
 
-/** The IP lock alone (used where no room is involved, e.g. creating a room). */
-export async function ipLocked(attempts, ip, now = Date.now()) {
-  const att = await readAttempt(attempts, `ip:${ip || "unknown"}`);
-  return att.lockedUntil > now ? lockedResponse(att.lockedUntil - now) : null;
-}
-
-/** Counts a failure against the IP only (e.g. trying a PIN another room uses). */
-export async function addIpFail(attempts, ip, { now = Date.now(), delay = defaultDelay } = {}) {
-  await delay(FAIL_DELAY_MS);
-  const key = `ip:${ip || "unknown"}`;
-  await addFail(attempts, key, await readAttempt(attempts, key), MAX_IP_FAILS, now);
-}
-
 /**
- * Checks a PIN against a room with the wrong-attempt limits. Returns null when
- * it matches, otherwise the { status, body } to answer with.
+ * Checks a secret with the wrong-attempt limits: `key` is the thing being
+ * guessed (a room, the admin password), counted together with the caller's IP.
+ * Returns null when `matches` is true, otherwise the { status, body } to answer with.
  */
-export async function verifyPin({ attempts }, room, pin, ip, opts = {}) {
+export async function verifySecret({ attempts }, { key, matches, ip, wrong }, opts = {}) {
   const now = opts.now ?? Date.now();
   const delay = opts.delay ?? defaultDelay;
-  const roomKey = `room:${room._id}`;
   const ipKey = `ip:${ip || "unknown"}`;
-  const [roomAtt, ipAtt] = [await readAttempt(attempts, roomKey), await readAttempt(attempts, ipKey)];
-  const lockedUntil = Math.max(roomAtt.lockedUntil, ipAtt.lockedUntil);
+  const [keyAtt, ipAtt] = [await readAttempt(attempts, key), await readAttempt(attempts, ipKey)];
+  const lockedUntil = Math.max(keyAtt.lockedUntil, ipAtt.lockedUntil);
   if (lockedUntil > now) return lockedResponse(lockedUntil - now);
 
-  if (!isValidPin(pin) || !pinMatches(pin, room.pinAuth)) {
+  if (!matches()) {
     await delay(FAIL_DELAY_MS);
-    const roomLocked = await addFail(attempts, roomKey, roomAtt, MAX_ROOM_FAILS, now);
+    const keyLocked = await addFail(attempts, key, keyAtt, MAX_ROOM_FAILS, now);
     await addFail(attempts, ipKey, ipAtt, MAX_IP_FAILS, now);
-    if (roomLocked) return lockedResponse(LOCK_MS);
-    return {
-      status: 401,
-      body: { error: "Wrong PIN. Try again.", attemptsLeft: MAX_ROOM_FAILS - (roomAtt.fails + 1) },
-    };
+    if (keyLocked) return lockedResponse(LOCK_MS);
+    return { status: 401, body: { error: wrong, attemptsLeft: MAX_ROOM_FAILS - (keyAtt.fails + 1) } };
   }
 
-  await attempts.updateOne({ _id: roomKey }, { $set: { fails: 0, lockedUntil: 0 } }, { upsert: true });
+  await attempts.updateOne({ _id: key }, { $set: { fails: 0, lockedUntil: 0 } }, { upsert: true });
   return null;
 }
+
+/** Checks a room's PIN with the wrong-attempt limits (see verifySecret). */
+export const verifyPin = (cols, room, pin, ip, opts = {}) =>
+  verifySecret(
+    cols,
+    {
+      key: `room:${room._id}`,
+      matches: () => isValidPin(pin) && pinMatches(pin, room.pinAuth),
+      ip,
+      wrong: "Wrong PIN. Try again.",
+    },
+    opts
+  );
 
 export const missingRoom = { status: 404, body: { error: "This room no longer exists", missing: true } };
 
@@ -240,14 +235,14 @@ export function readCookie(req, name = COOKIE_NAME) {
   if (typeof header !== "string") return null;
   for (const part of header.split(";")) {
     const i = part.indexOf("=");
-    if (i > 0 && part.slice(0, i).trim() === name) return part.slice(i + 1).trim();
+    if (i > 0 && part.slice(0, i).trim() === name) return part.slice(i + 1).trim() || null;
   }
   return null;
 }
 
-export function sessionCookie(token, maxAgeSec = SESSION_TTL_MS / 1000) {
+export function sessionCookie(token, maxAgeSec = SESSION_TTL_MS / 1000, name = COOKIE_NAME) {
   const secure = process.env.NODE_ENV === "development" ? "" : "; Secure";
-  return `${COOKIE_NAME}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSec}${secure}`;
+  return `${name}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSec}${secure}`;
 }
 
 export const clientIp = (req) =>

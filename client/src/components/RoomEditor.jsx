@@ -4,10 +4,8 @@ import { createRoom, deleteRoom, updateRoom } from "../api/rooms";
 import { AVATARS } from "../lib/avatars";
 import Avatar from "./RoomAvatar";
 
-const TITLES = { create: "Add Room", edit: "Edit Room", claim: "Set up room" };
-
 /** A 4-digit PIN field. Only digits are kept. */
-function PinField({ id, label, value, onChange, hint, autoFocus }) {
+function PinField({ id, label, value, onChange, hint }) {
   return (
     <div className="mb-3">
       <label htmlFor={id} className="form-label small mb-1">{label}</label>
@@ -20,7 +18,6 @@ function PinField({ id, label, value, onChange, hint, autoFocus }) {
         maxLength={4}
         placeholder="••••"
         value={value}
-        autoFocus={autoFocus}
         onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 4))}
       />
       {hint && <div className="form-text room-muted">{hint}</div>}
@@ -29,24 +26,22 @@ function PinField({ id, label, value, onChange, hint, autoFocus }) {
 }
 
 /**
- * Create, edit, set up (claim) or delete a room. Changes to an existing room
- * need its current PIN; the server checks it. The PIN is never kept after the
- * request.
+ * Create, edit or delete a room (admin only: the server checks the admin
+ * sign-in). mode: "create" | "edit". onAdminRequired() is called when the
+ * admin sign-in expired.
  */
-export default function RoomEditor({ mode, room, onClose, onDone, onMissing }) {
+export default function RoomEditor({ mode, room, onClose, onDone, onMissing, onAdminRequired }) {
   const [name, setName] = useState(room?.name ?? "");
   const [avatar, setAvatar] = useState(room?.avatar ?? "avatar-1");
   const [description, setDescription] = useState(room?.description ?? "");
-  const [pin, setPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const needsCurrent = mode === "edit" && room?.hasPin;
-  const blockedNoPin = mode === "edit" && !room?.hasPin && !room?.claimable;
-  const newPinRequired = mode !== "edit" || !room?.hasPin;
+  // A new room, or one that never got a PIN, must be given one.
+  const pinRequired = mode === "create" || !room?.hasPin;
 
   async function run(request, onOk) {
     setBusy(true);
@@ -54,9 +49,9 @@ export default function RoomEditor({ mode, room, onClose, onDone, onMissing }) {
     try {
       const result = await request();
       if (result.ok) return onOk(result.data);
+      if (result.data.adminRequired) return onAdminRequired();
       if (result.data.missing) return onMissing();
       setError(result.data.error ?? "Something went wrong. Try again.");
-      if (result.status === 401 || result.status === 429) setPin("");
     } catch {
       setError("Could not reach the server. Try again.");
     } finally {
@@ -67,34 +62,27 @@ export default function RoomEditor({ mode, room, onClose, onDone, onMissing }) {
   function save(event) {
     event.preventDefault();
     if (busy) return;
-    if (needsCurrent && pin.length !== 4) return setError("Enter the room's current PIN.");
-    if (newPinRequired && newPin.length !== 4) return setError("Choose a 4-digit PIN.");
+    if (pinRequired && newPin.length !== 4) return setError("Choose a 4-digit PIN.");
     if (newPin && newPin.length !== 4) return setError("The new PIN must be 4 digits.");
-    if (newPin !== confirmPin) return setError("The two new PINs don't match.");
+    if (newPin !== confirmPin) return setError("The two PINs don't match.");
 
     const fields = { name, avatar, description, ...(newPin ? { newPin } : {}) };
     if (mode === "create") {
-      return run(() => createRoom(fields), (data) => onDone({ entered: true, room: data.room }));
+      return run(() => createRoom(fields), (data) => onDone(`${data.room.name} was added.`));
     }
     return run(
-      () => updateRoom(room.id, { ...fields, pin: needsCurrent ? pin : undefined }),
+      () => updateRoom(room.id, fields),
       (data) =>
-        onDone({
-          entered: Boolean(data.entered),
-          room: data.room,
-          message: data.signedOut
+        onDone(
+          data.signedOut
             ? `PIN changed. Every device in ${data.room.name} was signed out.`
-            : `${data.room.name} saved.`,
-        })
+            : `${data.room.name} saved.`
+        )
     );
   }
 
   function remove() {
-    if (needsCurrent && pin.length !== 4) return setError("Enter the room's current PIN to delete it.");
-    return run(
-      () => deleteRoom(room.id, needsCurrent ? pin : undefined),
-      () => onDone({ message: `${room.name} was deleted.` })
-    );
+    return run(() => deleteRoom(room.id), () => onDone(`${room.name} was deleted.`));
   }
 
   return (
@@ -102,28 +90,17 @@ export default function RoomEditor({ mode, room, onClose, onDone, onMissing }) {
       <form onSubmit={save}>
         <Modal.Header closeButton closeVariant="white">
           <Modal.Title as="h2" className="fs-5">
-            {TITLES[mode]}
-            {mode !== "create" && room ? `: ${room.name}` : ""}
+            {mode === "create" ? "Add Room" : `Edit Room: ${room.name}`}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {blockedNoPin && (
-            <p className="room-notice">
-              This room holds migrated data and has no PIN yet. Set its PIN with the migration script.
-            </p>
-          )}
           {confirmDelete ? (
-            <>
-              <p>
-                Delete <strong>{room.name}</strong>? Its queue, library, favorites, history and guest
-                invites are removed for everyone. This can&apos;t be undone.
-              </p>
-              {needsCurrent && (
-                <PinField id="room-del-pin" label="Current PIN" value={pin} onChange={setPin} autoFocus />
-              )}
-            </>
+            <p>
+              Delete <strong>{room.name}</strong>? Its queue, library, favorites and history are
+              removed for everyone. This can&apos;t be undone.
+            </p>
           ) : (
-            <fieldset disabled={busy || blockedNoPin}>
+            <fieldset disabled={busy}>
               <div className="d-flex justify-content-center mb-3">
                 <span className="room-editor-preview">
                   <Avatar avatar={avatar} />
@@ -171,17 +148,18 @@ export default function RoomEditor({ mode, room, onClose, onDone, onMissing }) {
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
-              {needsCurrent && (
-                <PinField id="room-cur-pin" label="Current PIN (required to save)" value={pin} onChange={setPin} />
-              )}
               <PinField
                 id="room-new-pin"
-                label={newPinRequired ? "PIN" : "New PIN"}
+                label={pinRequired ? "PIN" : "New PIN"}
                 value={newPin}
                 onChange={setNewPin}
-                hint={newPinRequired ? "4 digits, different from every other room." : "Leave blank to keep the current PIN."}
+                hint={
+                  pinRequired
+                    ? "4 digits, different from every other room."
+                    : "Leave blank to keep the current PIN. A new PIN signs everyone out of this room."
+                }
               />
-              {(newPinRequired || newPin) && (
+              {(pinRequired || newPin) && (
                 <PinField id="room-confirm-pin" label="Repeat the PIN" value={confirmPin} onChange={setConfirmPin} />
               )}
             </fieldset>
@@ -189,13 +167,21 @@ export default function RoomEditor({ mode, room, onClose, onDone, onMissing }) {
           {error && <p className="room-notice mb-0" role="alert">{error}</p>}
         </Modal.Body>
         <Modal.Footer className="justify-content-between">
-          {mode === "edit" && !blockedNoPin ? (
+          {mode === "edit" ? (
             confirmDelete ? (
               <button type="button" className="btn btn-danger" disabled={busy} onClick={remove}>
                 {busy ? "Deleting…" : "Delete for good"}
               </button>
             ) : (
-              <button type="button" className="btn btn-outline-danger" disabled={busy} onClick={() => { setError(""); setConfirmDelete(true); }}>
+              <button
+                type="button"
+                className="btn btn-outline-danger"
+                disabled={busy}
+                onClick={() => {
+                  setError("");
+                  setConfirmDelete(true);
+                }}
+              >
                 Delete room
               </button>
             )
@@ -207,13 +193,20 @@ export default function RoomEditor({ mode, room, onClose, onDone, onMissing }) {
               type="button"
               className="btn btn-outline-light"
               disabled={busy}
-              onClick={confirmDelete ? () => { setError(""); setConfirmDelete(false); } : onClose}
+              onClick={
+                confirmDelete
+                  ? () => {
+                      setError("");
+                      setConfirmDelete(false);
+                    }
+                  : onClose
+              }
             >
               {confirmDelete ? "Back" : "Cancel"}
             </button>
-            {!confirmDelete && !blockedNoPin && (
+            {!confirmDelete && (
               <button type="submit" className="btn btn-danger" disabled={busy}>
-                {busy ? "Saving…" : mode === "edit" ? "Save" : mode === "create" ? "Create & enter" : "Set PIN & enter"}
+                {busy ? "Saving…" : mode === "create" ? "Add room" : "Save"}
               </button>
             )}
           </div>

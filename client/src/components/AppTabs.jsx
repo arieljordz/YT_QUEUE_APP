@@ -2,7 +2,7 @@ import { memo } from "react";
 import { MdOpenInNew } from "react-icons/md";
 
 /**
- * The tab bar of the home page and the guest page.
+ * The tab bar of the home page.
  * tabs: [{ key, label, icon, count?, href?, title? }]. A tab with `href` is a
  * link that opens in a new browser tab (the player); the others switch `active`.
  * On a phone the tabs share one row, each with its icon above a short label.

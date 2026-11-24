@@ -22,13 +22,13 @@
 //          -> { fetched, added, nextPageToken?, channelId?, channelTitle? }
 //     The browser calls POST repeatedly until it has enough videos, so no
 //     single request runs long.
-import { readFlags } from "./flags.js";
+import { getAppFlags } from "./flags.js";
+import { requireAdmin } from "./_admin.js";
 import { requireRoom } from "./_session.js";
 import {
   SEARCHES_LIST,
   decodeEntities,
   getCatalog,
-  getRooms,
   isSearchesList,
   slimVideo,
 } from "./_db.js";
@@ -104,7 +104,7 @@ export async function handleList(catalog, owner, query) {
 }
 
 export async function handleDelete(catalog, owner, query, flags) {
-  // Deleting a saved list needs its feature flag (see flags.js) to be on for the room.
+  // Deleting a saved list needs its feature flag (see flags.js) to be on.
   if (!flags?.deleteListButton) return fail(403, "Deleting saved lists is turned off");
   const name = cleanName(query?.name);
   if (!name) return fail(400, "Missing list name");
@@ -227,11 +227,17 @@ export default async function handler(req, res) {
       indexReady = true;
     }
 
+    // Saving a searched video is part of normal use. Everything else (listing,
+    // importing and deleting lists) is in Settings and needs the admin sign-in.
+    const saving = req.method === "POST" && req.body?.save !== undefined;
+    if (!saving && !(await requireAdmin(req))) {
+      return res.status(401).json({ error: "Sign in as admin first.", adminRequired: true });
+    }
+
     let result;
     if (req.method === "GET") result = await handleList(catalog, owner, req.query);
     else if (req.method === "DELETE") {
-      const room = await (await getRooms()).findOne({ _id: owner }, { projection: { flags: 1 } });
-      result = await handleDelete(catalog, owner, req.query, readFlags(room));
+      result = await handleDelete(catalog, owner, req.query, await getAppFlags());
     }
     else if (req.method === "POST") {
       const apiKey = process.env.YT_API_KEY || process.env.VITE_YT_API_KEY;

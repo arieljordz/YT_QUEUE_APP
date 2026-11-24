@@ -1,22 +1,8 @@
 // Room management: create, edit (name, avatar, description, PIN) and delete.
-// Every change to an existing room needs that room's current PIN, checked with
-// the same wrong-attempt limits as entering it. A room that has no PIN yet (and
-// no migrated data) can be claimed by giving it one.
+// Only the admin can do any of it: the endpoint checks the admin session
+// (see _admin.js) before calling these. Room PINs only let people into a room.
 import { SEARCHES_LIST } from "./_db.js";
-import {
-  AVATARS,
-  ROOM_COUNT,
-  addIpFail,
-  createSession,
-  hashPin,
-  ipLocked,
-  isValidPin,
-  missingRoom,
-  newRoomDoc,
-  pinMatches,
-  publicRoom,
-  verifyPin,
-} from "./_session.js";
+import { AVATARS, ROOM_COUNT, hashPin, isValidPin, missingRoom, newRoomDoc, pinMatches, publicRoom } from "./_session.js";
 
 export const MAX_NAME = 30;
 export const MAX_DESCRIPTION = 80;
@@ -52,26 +38,18 @@ async function pinInUse(rooms, pin, exceptId) {
   return others.some((room) => pinMatches(pin, room.pinAuth));
 }
 
-// A PIN another room uses counts as a failed attempt for the IP, so this check
-// cannot be used to find other rooms' PINs faster than guessing them.
-async function pinTaken(attempts, ip, opts) {
-  await addIpFail(attempts, ip, opts);
-  return { status: 409, body: { error: "Another room already uses this PIN. Choose a different one." } };
-}
+const pinTaken = { status: 409, body: { error: "Another room already uses this PIN. Choose a different one." } };
+const full = { status: 409, body: { error: `There can be up to ${ROOM_COUNT} rooms. Delete one first.` } };
 
-/** Creates a room in the first free slot and enters it. */
-export async function createRoom({ rooms, sessions, attempts }, input, opts = {}) {
-  const locked = await ipLocked(attempts, input.ip, opts.now);
-  if (locked) return locked;
+/** Creates a room in the first free slot. */
+export async function createRoom({ rooms }, input) {
   const { fields, error } = cleanFields(input, true);
   if (error) return bad(error);
   if (!isValidPin(input.newPin)) return bad("Choose a 4-digit PIN");
 
   const existing = await rooms.find({ slot: { $exists: true } }, { projection: { slot: 1 } }).toArray();
-  if (existing.length >= ROOM_COUNT) {
-    return { status: 409, body: { error: `There can be up to ${ROOM_COUNT} rooms. Delete one first.` } };
-  }
-  if (await pinInUse(rooms, input.newPin)) return pinTaken(attempts, input.ip, opts);
+  if (existing.length >= ROOM_COUNT) return full;
+  if (await pinInUse(rooms, input.newPin)) return pinTaken;
 
   const used = new Set(existing.map((r) => r.slot));
   for (let slot = 1; slot <= ROOM_COUNT; slot++) {
@@ -83,79 +61,48 @@ export async function createRoom({ rooms, sessions, attempts }, input, opts = {}
       if (e?.code === 11000) continue; // another request took this slot just now
       throw e;
     }
-    const token = await createSession(sessions, doc._id, opts.now);
-    return { status: 201, body: { room: publicRoom(doc) }, token };
+    return { status: 201, body: { room: publicRoom(doc) } };
   }
-  return { status: 409, body: { error: `There can be up to ${ROOM_COUNT} rooms. Delete one first.` } };
+  return full;
 }
 
-/** Loads a room and checks the caller may change it. Returns { room } or { result }. */
-async function authorize({ rooms, attempts }, { roomId, pin, ip }, opts) {
-  if (typeof roomId !== "string") return { result: bad("Unknown room") };
-  const room = await rooms.findOne({ _id: roomId, slot: { $exists: true } });
-  if (!room) return { result: missingRoom };
-  if (room.pinAuth) {
-    const failed = await verifyPin({ attempts }, room, pin, ip, opts);
-    return failed ? { result: failed } : { room };
-  }
-  if (room.migratedFrom) {
-    return {
-      result: { status: 403, body: { error: "This room's PIN must be set with the migration script." } },
-    };
-  }
-  const locked = await ipLocked(attempts, ip, opts.now);
-  return locked ? { result: locked } : { room };
+async function findRoom(rooms, roomId) {
+  if (typeof roomId !== "string") return null;
+  return rooms.findOne({ _id: roomId, slot: { $exists: true } });
 }
 
-/**
- * Edits a room. Setting a PIN on a room without one claims it and enters it.
- * Changing an existing PIN signs every device out of that room.
- */
-export async function updateRoom(cols, input, opts = {}) {
-  const { rooms, sessions, attempts } = cols;
-  const { room, result } = await authorize(cols, input, opts);
-  if (result) return result;
+/** Edits a room. A new PIN signs every device out of that room. */
+export async function updateRoom({ rooms, sessions, presence }, input) {
+  const room = await findRoom(rooms, input.roomId);
+  if (!room) return missingRoom;
   const { fields, error } = cleanFields(input, false);
   if (error) return bad(error);
 
-  const claiming = !room.pinAuth;
+  const hadPin = Boolean(room.pinAuth);
   const changingPin = input.newPin !== undefined && input.newPin !== "";
-  if (claiming && !changingPin) return bad("Choose a 4-digit PIN for this room");
+  if (!hadPin && !changingPin) return bad("Choose a 4-digit PIN for this room");
   if (changingPin) {
     if (!isValidPin(input.newPin)) return bad("The new PIN must be 4 digits");
-    if (await pinInUse(rooms, input.newPin, room._id)) return pinTaken(attempts, input.ip, opts);
+    if (await pinInUse(rooms, input.newPin, room._id)) return pinTaken;
     fields.pinAuth = hashPin(input.newPin);
   }
-
-  const updated = { ...room, ...fields, updatedAt: new Date() };
-  // The filter repeats the PIN hash that was checked, so two edits racing each
-  // other cannot both apply.
-  const write = await rooms.updateOne(
-    { _id: room._id, pinAuth: room.pinAuth },
-    { $set: { ...fields, updatedAt: updated.updatedAt } }
-  );
-  if (write.matchedCount === 0) {
-    return { status: 409, body: { error: "This room was just changed. Reload and try again." } };
-  }
-  if (claiming) {
-    const token = await createSession(sessions, room._id, opts.now);
-    return { status: 200, body: { room: publicRoom(updated), entered: true }, token };
-  }
+  fields.updatedAt = new Date();
+  await rooms.updateOne({ _id: room._id }, { $set: fields });
+  const signedOut = changingPin && hadPin;
   if (changingPin) {
     await sessions.deleteMany({ roomId: room._id });
-    if (cols.presence) await cols.presence.deleteMany({ roomId: room._id });
+    if (presence) await presence.deleteMany({ roomId: room._id });
   }
-  return { status: 200, body: { room: publicRoom(updated), signedOut: changingPin } };
+  return { status: 200, body: { room: publicRoom({ ...room, ...fields }), signedOut } };
 }
 
 /** Deletes a room, its sessions and its own searches. Shared imported lists stay. */
-export async function deleteRoom(cols, input, catalog, opts = {}) {
-  const { rooms, sessions, attempts } = cols;
-  const { room, result } = await authorize(cols, input, opts);
-  if (result) return result;
+export async function deleteRoom({ rooms, sessions, attempts, presence }, input, catalog) {
+  const room = await findRoom(rooms, input.roomId);
+  if (!room) return missingRoom;
   await rooms.deleteOne({ _id: room._id });
   await sessions.deleteMany({ roomId: room._id });
-  if (cols.presence) await cols.presence.deleteMany({ roomId: room._id });
+  if (presence) await presence.deleteMany({ roomId: room._id });
   await attempts.deleteOne({ _id: `room:${room._id}` });
   await catalog.deleteMany({ owner: room._id, catalog: SEARCHES_LIST });
   return { status: 200, body: { ok: true } };

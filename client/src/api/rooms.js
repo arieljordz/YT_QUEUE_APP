@@ -21,8 +21,8 @@ export const enterRoom = (roomId, pin) => post({ action: "enter", roomId, pin })
 export const currentRoom = () => post({ action: "me" });
 export const leaveRoomSession = () => post({ action: "leave" }).catch(() => {});
 
-// Room management. `pin` is the room's current PIN (checked on the server with
-// the same wrong-attempt limits); `newPin` sets or changes it.
+// Room management (admin only: the server checks the admin sign-in cookie).
+// `newPin` sets or changes a room's PIN.
 export const createRoom = (fields) => post({ action: "create", ...fields });
 export const updateRoom = (roomId, fields) => post({ action: "update", roomId, ...fields });
-export const deleteRoom = (roomId, pin) => post({ action: "delete", roomId, pin });
+export const deleteRoom = (roomId) => post({ action: "delete", roomId });

@@ -1,7 +1,9 @@
 import { Modal, Button } from "react-bootstrap";
 import { FaCoffee } from "react-icons/fa";
+import { MdInstallMobile } from "react-icons/md";
 
-export default function SupportModal({ show, onHide }) {
+/** Support info. Also offers "Install app" when the browser allows it. */
+export default function SupportModal({ show, onHide, canInstall, onInstall }) {
   return (
     <Modal show={show} onHide={onHide} centered backdrop="static" keyboard={false}>
       <Modal.Header closeButton>
@@ -19,7 +21,12 @@ export default function SupportModal({ show, onHide }) {
           <div className="text-uppercase">............WINH2J</div>
         </div>
       </Modal.Body>
-      <Modal.Footer>
+      <Modal.Footer className={canInstall ? "justify-content-between" : undefined}>
+        {canInstall && (
+          <Button variant="outline-primary" onClick={onInstall} className="d-flex align-items-center gap-2">
+            <MdInstallMobile aria-hidden="true" /> Install app
+          </Button>
+        )}
         <Button variant="secondary" onClick={onHide}>
           Close
         </Button>

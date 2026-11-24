@@ -1,43 +1,66 @@
-/* global Buffer */
-// Vercel serverless function: feature flags shared by every device that uses
-// the same sync code. The library API enforces them, so hiding a button is not
-// the only protection.
+// Vercel serverless function: the app's feature flags. They are app-wide (the
+// same in every room) and stored in app_settings ({ _id: "flags" }). The other
+// endpoints enforce them too (library, catalog), so hiding a button is not the
+// only protection.
 //
-// Changing a flag needs a password. The first time, the password sent is saved
-// (hashed) as the room's password; after that it must match.
+// Anyone can read them; changing one needs the admin sign-in (see admin.js).
 //
-//   POST {}                         -> { flags, locked }
-//   POST { flags: {...}, password } -> { flags, locked: true }   (403 on a wrong password)
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { getRooms } from "./_db.js";
-import { requireRoom } from "./_session.js";
+//   POST {}                -> { flags }
+//   POST { flags: {...} }  -> { flags }   (401 { adminRequired } when not signed in as admin)
+import { getDb, getRooms } from "./_db.js";
+import { requireAdmin } from "./_admin.js";
 
 export const DEFAULT_FLAGS = {
+  lightMode: true,
+  darkMode: true,
   removeButton: false,
   deleteAllButton: false,
   deleteListButton: false,
 };
-const MIN_PASSWORD = 6;
-const MAX_PASSWORD = 100;
+const FLAGS_ID = "flags";
 
-/** The flags stored on a room document, with defaults for anything missing. */
-export const readFlags = (doc) => ({ ...DEFAULT_FLAGS, ...(doc?.flags ?? {}) });
+/** Stored values over the defaults; unknown keys are dropped. */
+const withDefaults = (values) =>
+  Object.fromEntries(
+    Object.entries(DEFAULT_FLAGS).map(([name, def]) => [
+      name,
+      typeof values?.[name] === "boolean" ? values[name] : def,
+    ])
+  );
 
-const hashPassword = (password, salt) => scryptSync(password, salt, 32);
+/**
+ * The app-wide flags. The first read seeds them from the flags rooms used to
+ * have (lowest room first), so switching to app-wide flags changes nothing.
+ */
+export async function readAppFlags(settings, rooms) {
+  const doc = await settings.findOne({ _id: FLAGS_ID });
+  if (doc) return withDefaults(doc.values);
+  const legacy = await rooms
+    .find({ slot: { $exists: true }, flags: { $exists: true } }, { projection: { flags: 1, slot: 1 } })
+    .toArray();
+  legacy.sort((a, b) => a.slot - b.slot);
+  const values = withDefaults(legacy[0]?.flags);
+  await settings.updateOne(
+    { _id: FLAGS_ID },
+    { $setOnInsert: { values, updatedAt: new Date() } },
+    { upsert: true }
+  );
+  return withDefaults((await settings.findOne({ _id: FLAGS_ID }))?.values ?? values);
+}
 
-function passwordMatches(password, auth) {
-  const expected = Buffer.from(auth.hash, "hex");
-  const actual = hashPassword(password, Buffer.from(auth.salt, "hex"));
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
+/** The flags for the other endpoints. */
+export async function getAppFlags() {
+  return readAppFlags((await getDb()).collection("app_settings"), await getRooms());
 }
 
 /** Core logic, separated from the HTTP layer so it can be tested with any collection. */
-export async function handleFlags(rooms, roomId, body) {
-  const doc = await rooms.findOne({ _id: roomId }, { projection: { flags: 1, flagsAuth: 1 } });
-  const flags = readFlags(doc);
-  const locked = Boolean(doc?.flagsAuth);
-  if (body?.flags === undefined) return { status: 200, body: { flags, locked } };
+export async function handleFlags({ settings, rooms }, body, isAdmin) {
+  const flags = await readAppFlags(settings, rooms);
+  if (body?.flags === undefined) return { status: 200, body: { flags } };
 
+  if (!isAdmin) {
+    return { status: 401, body: { error: "Sign in as admin to change feature flags.", adminRequired: true } };
+  }
   const changes = body.flags;
   const names = changes && typeof changes === "object" ? Object.keys(changes) : [];
   if (
@@ -46,30 +69,12 @@ export async function handleFlags(rooms, roomId, body) {
   ) {
     return { status: 400, body: { error: "Invalid flags" } };
   }
-  const password = body.password;
-  if (typeof password !== "string" || password.length < MIN_PASSWORD || password.length > MAX_PASSWORD) {
-    return {
-      status: 400,
-      body: { error: `Enter a password of at least ${MIN_PASSWORD} characters` },
-    };
+  const values = { ...flags, ...changes };
+  if (!values.lightMode && !values.darkMode) {
+    return { status: 400, body: { error: "Keep at least one theme (light or dark) turned on." } };
   }
-
-  const update = { flags: { ...flags, ...changes } };
-  if (locked) {
-    if (!passwordMatches(password, doc.flagsAuth)) {
-      await new Promise((resolve) => setTimeout(resolve, 600)); // slows down guessing
-      return { status: 403, body: { error: "Wrong password" } };
-    }
-  } else {
-    const salt = randomBytes(16);
-    update.flagsAuth = {
-      salt: salt.toString("hex"),
-      hash: hashPassword(password, salt).toString("hex"),
-    };
-  }
-
-  await rooms.updateOne({ _id: roomId }, { $set: update }, { upsert: true });
-  return { status: 200, body: { flags: update.flags, locked: true } };
+  await settings.updateOne({ _id: FLAGS_ID }, { $set: { values, updatedAt: new Date() } }, { upsert: true });
+  return { status: 200, body: { flags: values } };
 }
 
 export default async function handler(req, res) {
@@ -77,10 +82,11 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
+  res.setHeader("Cache-Control", "no-store");
   try {
-    const roomId = await requireRoom(req);
-    if (!roomId) return res.status(401).json({ error: "Not in a room" });
-    const result = await handleFlags(await getRooms(), roomId, req.body);
+    const isAdmin = req.body?.flags !== undefined && (await requireAdmin(req));
+    const cols = { settings: (await getDb()).collection("app_settings"), rooms: await getRooms() };
+    const result = await handleFlags(cols, req.body, isAdmin);
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("flags request failed", error);

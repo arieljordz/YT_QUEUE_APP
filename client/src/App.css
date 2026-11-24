@@ -330,3 +330,12 @@
   .room-card, .pin-panel, .pin-shake, .room-online-dot { animation: none; }
   .room-card .room-avatar { transition: none; }
 }
+
+/* ---- Admin sign-in (Manage Rooms) ---- */
+.admin-panel { width: 100%; max-width: 24rem; background: #181818; border: 1px solid #333; border-radius: 8px; padding: 1.25rem; animation: room-in 0.3s ease-out both; }
+.admin-panel .form-control { background: #333; color: #fff; border-color: #555; }
+.admin-panel .form-control:focus { border-color: #fff; box-shadow: none; }
+.admin-panel .text-danger { color: #ff8a80 !important; }
+.admin-muted { color: #8c8c8c; }
+.room-screen .admin-muted { color: #8c8c8c; }
+.invite-qr { background: #fff; padding: 0.75rem; border-radius: 8px; width: fit-content; }

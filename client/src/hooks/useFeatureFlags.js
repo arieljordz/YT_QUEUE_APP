@@ -1,8 +1,11 @@
 import { useCallback, useEffect } from "react";
 import useLocalStorage from "./useLocalStorage";
 
-// Every flag and its default. The delete buttons are hidden until switched on.
+// Every flag and its default (same as DEFAULT_FLAGS in api/flags.js). Both
+// themes are on; the delete buttons are hidden until switched on.
 export const FEATURE_FLAGS = {
+  lightMode: true,
+  darkMode: true,
   removeButton: false,
   deleteAllButton: false,
   deleteListButton: false,
@@ -22,36 +25,38 @@ async function postFlags(syncCode, body) {
     throw new Error("Shared flags only work on the deployed site.");
   }
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error ?? "Could not save the flag.");
+  if (!response.ok) {
+    const error = new Error(data.error ?? "Could not save the flag.");
+    error.adminRequired = Boolean(data.adminRequired);
+    throw error;
+  }
   return data;
 }
 
 /**
- * Feature flags. Without a sync code they are saved in this browser only. With
- * one, the server holds them (so every device agrees and the server refuses
- * the deletes while they are off), and changing one needs the flags password.
+ * Feature flags, the same for the whole app. In a room the server holds them
+ * (so every device agrees and the server refuses the deletes while they are
+ * off), and changing one needs the admin sign-in.
  */
 export default function useFeatureFlags() {
   const [syncCode] = useLocalStorage("syncCode", "");
   const [stored, setStored] = useLocalStorage("featureFlags", {});
-  const [locked, setLocked] = useLocalStorage("featureFlagsLocked", false);
   const flags = { ...FEATURE_FLAGS, ...stored };
 
-  /** Rejects with an Error whose message can be shown to the user. */
+  /** Rejects with an Error whose message can be shown (and .adminRequired). */
   const setFlag = useCallback(
-    async (name, enabled, password) => {
+    async (name, enabled) => {
       if (!syncCode) {
         setStored((prev) => ({ ...prev, [name]: enabled }));
         return;
       }
-      const data = await postFlags(syncCode, { flags: { [name]: enabled }, password });
+      const data = await postFlags(syncCode, { flags: { [name]: enabled } });
       setStored(data.flags);
-      setLocked(data.locked);
     },
-    [syncCode, setStored, setLocked]
+    [syncCode, setStored]
   );
 
-  return { flags, setFlag, locked, synced: Boolean(syncCode) };
+  return { flags, setFlag, synced: Boolean(syncCode) };
 }
 
 /**
@@ -62,7 +67,6 @@ export default function useFeatureFlags() {
 export function useFeatureFlagsSync() {
   const [syncCode] = useLocalStorage("syncCode", "");
   const [, setStored] = useLocalStorage("featureFlags", {});
-  const [, setLocked] = useLocalStorage("featureFlagsLocked", false);
 
   useEffect(() => {
     if (!syncCode) return;
@@ -73,7 +77,6 @@ export function useFeatureFlagsSync() {
         const data = await postFlags(syncCode, {});
         if (cancelled) return;
         setStored(data.flags);
-        setLocked(data.locked);
       } catch {
         // Offline or not deployed: keep the last known flags.
       }
@@ -86,5 +89,5 @@ export function useFeatureFlagsSync() {
       clearInterval(timer);
       window.removeEventListener("focus", load);
     };
-  }, [syncCode, setStored, setLocked]);
+  }, [syncCode, setStored]);
 }

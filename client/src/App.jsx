@@ -9,8 +9,6 @@ import useLibrary from "./hooks/useLibrary";
 import { useFeatureFlagsSync } from "./hooks/useFeatureFlags";
 import { useExtrasSync } from "./hooks/useExtras";
 import { useEmbeddableLookup } from "./hooks/useEmbeddable";
-import useLocalStorage from "./hooks/useLocalStorage";
-import GuestApp from "./components/GuestApp";
 import RoomSelect from "./components/RoomSelect";
 import PinEntry from "./components/PinEntry";
 import { currentRoom, leaveRoomSession } from "./api/rooms";
@@ -37,36 +35,22 @@ const ROOM_ID = /^[0-9a-f]{24}$/;
   }
 })();
 
-const INVITE_TOKEN = /^[\w-]{12,64}$/;
-
-/**
- * Opening an invite link (/?join=TOKEN) makes this browser a guest of that
- * room. The token is saved and removed from the address bar. A browser that
- * already has a sync code of its own (the host) ignores it.
- */
-function captureInvite() {
+// Guest invite links (/?join=...) were retired: drop a saved guest token and
+// the parameter, so old links just open the room screen.
+(function dropGuestInvite() {
+  try {
+    localStorage.removeItem("guestCode");
+  } catch {
+    // storage unavailable
+  }
   const params = new URLSearchParams(window.location.search);
-  const token = params.get("join");
-  if (token === null) return;
+  if (!params.has("join")) return;
   params.delete("join");
   const rest = params.toString();
   window.history.replaceState({}, "", window.location.pathname + (rest ? `?${rest}` : ""));
-
-  let hasOwnRoom = false;
-  try {
-    hasOwnRoom = Boolean(JSON.parse(localStorage.getItem("syncCode") ?? '""'));
-  } catch {
-    // unreadable value: treat as no room
-  }
-  if (INVITE_TOKEN.test(token) && !hasOwnRoom) {
-    localStorage.setItem("guestCode", JSON.stringify(token));
-  }
-}
+})();
 
 function App() {
-  // Runs once, before the saved guest code is read below.
-  useState(captureInvite);
-  const [guestCode, setGuestCode] = useLocalStorage("guestCode", "");
   // Keeps the queue identical on every device that uses the same sync code.
   useRemoteSync();
   // The saved library (and its sync with the server), shared by the page and the menu.
@@ -123,16 +107,6 @@ function App() {
     [setRoomId]
   );
 
-  // A guest only gets the search-and-queue view.
-  if (guestCode && !libraryApi.syncCode) {
-    return (
-      <>
-        <GuestApp token={guestCode} onLeave={() => setGuestCode("")} />
-        <ToastContainer position="top-right" autoClose={2000} />
-      </>
-    );
-  }
-
   if (!roomId) {
     return (
       <>
@@ -149,7 +123,6 @@ function App() {
         ) : (
           <RoomSelect
             notice={notice}
-            onEntered={enteredRoom}
             onSelect={(room) => {
               setNotice("");
               setPickedRoom(room);
