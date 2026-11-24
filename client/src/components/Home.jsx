@@ -9,6 +9,9 @@ import { TAB_ICONS } from "../lib/tabIcons";
 import VideoList from "./VideoList";
 import Queue from "./Queue";
 import Library from "./Library";
+import PlayerPage from "./PlayerPage";
+import PlayerBoundary from "./PlayerBoundary";
+import { isInstalledApp } from "../lib/display";
 import useLocalStorage from "../hooks/useLocalStorage";
 import { searchVideos, getVideoDetails, QuotaError } from "../api/youtube";
 import { saveSearchedVideo } from "../api/catalog";
@@ -41,7 +44,7 @@ function restoreOrder(snapshot, current) {
   ];
 }
 
-function Home({ libraryApi }) {
+function Home({ libraryApi, roomName, onSignedOut }) {
   const [videos, setVideos] = useState([]);
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
@@ -52,6 +55,15 @@ function Home({ libraryApi }) {
   const [lastQuery, setLastQuery] = useState("");
   const [details, setDetails] = useState(() => new Map());
   const [tab, setTab] = useState("library");
+  // In the installed app the player is a tab of its own (a separate window
+  // can't be reached with Back). Once opened it stays loaded, hidden, so the
+  // music keeps playing while the other tabs are used.
+  const [playerInApp] = useState(isInstalledApp);
+  const [playerOpened, setPlayerOpened] = useState(false);
+  const selectTab = useCallback((key) => {
+    if (key === "player") setPlayerOpened(true);
+    setTab(key);
+  }, []);
   const online = useOnlineStatus();
   const { record: recordEmbeddable, youtubeOnlyIds } = useEmbeddableCache();
   const { library, addToLibrary, syncCode, clearLibrary, removeFromLibrary } = libraryApi;
@@ -252,7 +264,7 @@ function Home({ libraryApi }) {
       )}
       <AppTabs
         active={tab}
-        onSelect={setTab}
+        onSelect={selectTab}
         tabs={[
           { key: "library", label: "Library", icon: TAB_ICONS.library, count: library.length },
           { key: "queue", label: "Queue", icon: TAB_ICONS.queue, count: queue.length },
@@ -261,11 +273,23 @@ function Home({ libraryApi }) {
             key: "player",
             label: "Player",
             icon: TAB_ICONS.player,
-            href: "/player",
-            title: "Open the player in a new browser tab, so videos keep playing while you search",
+            ...(playerInApp
+              ? { title: "Watch here; it keeps playing while you use the other tabs" }
+              : {
+                  href: "/player",
+                  title: "Open the player in a new browser tab, so videos keep playing while you search",
+                }),
           },
         ]}
       />
+
+      {playerInApp && playerOpened && (
+        <div className={`inapp-player${tab === "player" ? "" : " is-hidden"}`} aria-hidden={tab !== "player"}>
+          <PlayerBoundary>
+            <PlayerPage roomName={roomName} onSignedOut={onSignedOut} />
+          </PlayerBoundary>
+        </div>
+      )}
 
       {tab === "search" && (
         <>

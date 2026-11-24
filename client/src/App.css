@@ -668,3 +668,31 @@
 .player-notice-btn:hover {
   background: #f6121d;
 }
+
+/* The player as a tab of the installed app (see Home). */
+.inapp-player {
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+}
+/* Kept playing while another tab is open: moved off screen, not removed. It
+   keeps a normal size because YouTube won't play in a tiny player. */
+.inapp-player.is-hidden {
+  position: fixed;
+  top: 0;
+  left: -200vw;
+  width: 100vw;
+  pointer-events: none;
+}
+.inapp-player .video-container iframe {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  /* Room for the bar and the tabs above it. */
+  max-height: calc(100dvh - 9rem);
+}
+.inapp-player .player-notice,
+.inapp-player .player-checking {
+  min-height: 50vh;
+  min-height: 50dvh;
+}

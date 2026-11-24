@@ -71,7 +71,12 @@ const VideoPlayer = ({
   /** Run a player command and remember when, so its echo is not mistaken for the user. */
   const command = useCallback((run) => {
     lastCommandRef.current = Date.now();
-    run(playerRef.current);
+    try {
+      run(playerRef.current);
+    } catch {
+      // The YouTube player was destroyed or replaced (its iframe is gone); the
+      // new one applies the current state itself when it is ready.
+    }
   }, []);
 
   const onReady = useCallback(

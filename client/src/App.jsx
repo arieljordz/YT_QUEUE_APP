@@ -150,7 +150,10 @@ function App() {
       />
       <ToastContainer position="top-right" autoClose={2000} />
       <Routes>
-        <Route path="/" element={<Home libraryApi={libraryApi} />} />
+        <Route
+          path="/"
+          element={<Home libraryApi={libraryApi} roomName={roomName} onSignedOut={checkSession} />}
+        />
         <Route
           path="/player"
           element={<PlayerGate roomId={roomId} roomName={roomName} onSignedOut={checkSession} />}
