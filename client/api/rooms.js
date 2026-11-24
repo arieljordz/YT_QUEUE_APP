@@ -3,7 +3,14 @@
 //   POST { action: "enter", roomId, pin } -> sets the HttpOnly session cookie
 //   POST { action: "me" }              -> { room } for the current session, or 401
 //   POST { action: "leave" }           -> ends the session and clears the cookie
+//   POST { action: "create", name, avatar, description?, newPin }       -> creates and enters a room
+//   POST { action: "update", roomId, pin, name?, avatar?, description?, newPin? }
+//   POST { action: "delete", roomId, pin }
+// (pin = the room's current PIN; not needed for a room that has none yet)
+import { getCatalog } from "./_db.js";
+import { createRoom, deleteRoom, updateRoom } from "./_manage.js";
 import {
+  publicRoom,
   clientIp,
   enterRoom,
   getSessionCollections,
@@ -38,12 +45,35 @@ export default async function handler(req, res) {
       return res.status(result.status).json(result.body);
     }
 
+    const manage = { create: createRoom, update: updateRoom, delete: deleteRoom }[action];
+    if (manage) {
+      // One room per slot, enforced by the database when two creates race.
+      await cols.rooms.createIndex(
+        { slot: 1 },
+        { unique: true, partialFilterExpression: { slot: { $exists: true } } }
+      );
+      const b = req.body;
+      const input = {
+        roomId: b.roomId,
+        pin: b.pin,
+        name: b.name,
+        avatar: b.avatar,
+        description: b.description,
+        newPin: b.newPin,
+        ip: clientIp(req),
+      };
+      const result =
+        action === "delete" ? await deleteRoom(cols, input, await getCatalog()) : await manage(cols, input);
+      if (result.token) res.setHeader("Set-Cookie", sessionCookie(result.token));
+      return res.status(result.status).json(result.body);
+    }
+
     const token = readCookie(req);
     if (action === "me") {
       const roomId = await resolveSession(cols, token);
       if (!roomId) return res.status(401).json({ error: "No session" });
       const room = await cols.rooms.findOne({ _id: roomId });
-      return res.status(200).json({ room: { id: room._id, name: room.name, avatar: room.avatar } });
+      return res.status(200).json({ room: publicRoom(room) });
     }
     if (action === "leave") {
       await leaveSession(cols, token);

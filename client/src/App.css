@@ -288,3 +288,29 @@
 .pin-toggle { background: none; border: 0; color: #8c8c8c; font-size: 1.2rem; padding: 0.4rem; }
 .pin-actions { display: flex; gap: 0.8rem; margin-top: 0.8rem; flex-wrap: wrap; justify-content: center; }
 @media (max-width: 420px) { .pin-box { width: 2.7rem; height: 3.3rem; } .room-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---- Room management (phase 2) ---- */
+.room-info { color: #b9f6ca; background: rgba(46, 204, 113, 0.12); border-radius: 6px; padding: 0.5rem 0.9rem; text-align: center; max-width: 28rem; }
+.room-avatar-wrap { position: relative; display: block; width: 100%; }
+.room-edit-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); border-radius: 8px; color: #fff; font-size: 1.8rem; }
+.room-badge { position: absolute; left: 50%; bottom: 0.4rem; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 0.3rem; background: rgba(0, 0, 0, 0.7); color: #ddd; font-size: 0.7rem; padding: 0.1rem 0.5rem; border-radius: 999px; white-space: nowrap; }
+.room-desc { font-size: 0.8rem; color: #6d6d6d; text-align: center; line-height: 1.2; max-width: 100%; overflow-wrap: anywhere; }
+.room-add { background: transparent; border: 2px solid #555; color: #8c8c8c; }
+.room-add svg { width: 35%; height: 35%; }
+.room-card:hover .room-add { color: #fff; border-color: #fff; box-shadow: none; }
+.room-manage-btn { margin-top: 2.5rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.5rem 1.4rem; border-radius: 0; }
+.room-manage-btn.btn-outline-secondary { color: #8c8c8c; border-color: #8c8c8c; }
+.room-manage-btn.btn-outline-secondary:hover { color: #fff; border-color: #fff; background: transparent; }
+.room-modal .modal-content { background: #181818; color: #fff; border: 1px solid #333; }
+.room-modal .modal-header, .room-modal .modal-footer { border-color: #333; }
+.room-modal .form-control { background: #333; color: #fff; border-color: #555; }
+.room-modal .form-control:focus { border-color: #fff; box-shadow: none; }
+.room-modal .form-control::placeholder { color: #777; }
+.room-modal fieldset:disabled { opacity: 0.6; }
+.room-pin-field { max-width: 8rem; letter-spacing: 0.4em; font-size: 1.2rem; }
+.room-editor-preview .room-avatar { width: 88px; }
+.room-avatar-picker { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.4rem; }
+.room-avatar-option { background: none; border: 0; padding: 0; border-radius: 8px; opacity: 0.55; }
+.room-avatar-option.selected, .room-avatar-option:hover, .room-avatar-option:focus-visible { opacity: 1; outline: none; }
+.room-avatar-option.selected .room-avatar { box-shadow: 0 0 0 3px #fff; }
+@media (max-width: 420px) { .room-avatar-picker { grid-template-columns: repeat(4, 1fr); } }

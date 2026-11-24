@@ -20,3 +20,9 @@ export async function listRooms() {
 export const enterRoom = (roomId, pin) => post({ action: "enter", roomId, pin });
 export const currentRoom = () => post({ action: "me" });
 export const leaveRoomSession = () => post({ action: "leave" }).catch(() => {});
+
+// Room management. `pin` is the room's current PIN (checked on the server with
+// the same wrong-attempt limits); `newPin` sets or changes it.
+export const createRoom = (fields) => post({ action: "create", ...fields });
+export const updateRoom = (roomId, fields) => post({ action: "update", roomId, ...fields });
+export const deleteRoom = (roomId, pin) => post({ action: "delete", roomId, pin });

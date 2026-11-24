@@ -91,7 +91,7 @@ function App() {
       const result = await currentRoom();
       if (result.status === 401) {
         setRoomId("");
-        setNotice("Your session ended. Choose a room and enter its PIN again.");
+        setNotice("You were signed out of the room (its PIN changed, or it was deleted). Choose a room to continue.");
       } else if (result.ok) {
         setRoomName(result.data.room.name);
       }
@@ -113,6 +113,16 @@ function App() {
     setRoomId("");
   }, [setRoomId]);
 
+  const enteredRoom = useCallback(
+    (room) => {
+      setNotice("");
+      setRoomName(room.name);
+      setRoomId(room.id);
+      setPickedRoom(null);
+    },
+    [setRoomId]
+  );
+
   // A guest only gets the search-and-queue view.
   if (guestCode && !libraryApi.syncCode) {
     return (
@@ -130,12 +140,7 @@ function App() {
           <PinEntry
             room={pickedRoom}
             onBack={() => setPickedRoom(null)}
-            onEntered={(room) => {
-              setNotice("");
-              setRoomName(room.name);
-              setRoomId(room.id);
-              setPickedRoom(null);
-            }}
+            onEntered={enteredRoom}
             onMissing={() => {
               setPickedRoom(null);
               setNotice("That room no longer exists. Choose another room.");
@@ -144,6 +149,7 @@ function App() {
         ) : (
           <RoomSelect
             notice={notice}
+            onEntered={enteredRoom}
             onSelect={(room) => {
               setNotice("");
               setPickedRoom(room);
