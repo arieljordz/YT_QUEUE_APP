@@ -26,8 +26,11 @@ export default function RoomSelect({ onSelect, onEntered, notice }) {
     }
   }, []);
 
+  // Refresh every 20s while the screen is visible, so connected counts stay current.
   useEffect(() => {
     load();
+    const timer = setInterval(() => document.visibilityState === "visible" && load(), 20000);
+    return () => clearInterval(timer);
   }, [load]);
 
   function pick(room) {
@@ -59,11 +62,12 @@ export default function RoomSelect({ onSelect, onEntered, notice }) {
       {error && <p className="room-notice" role="alert">{error}</p>}
       {!rooms && !error && <p className="room-muted">Loading rooms…</p>}
       <div className={`room-grid${managing ? " managing" : ""}`}>
-        {rooms?.map((room) => (
+        {rooms?.map((room, index) => (
           <button
             key={room.id}
             type="button"
             className="room-card"
+            style={{ animationDelay: `${index * 60}ms` }}
             onClick={() => pick(room)}
             aria-label={managing ? `Edit ${room.name}` : room.name}
           >
@@ -82,6 +86,12 @@ export default function RoomSelect({ onSelect, onEntered, notice }) {
             </span>
             <span className="room-name">{room.name}</span>
             {room.description && <span className="room-desc">{room.description}</span>}
+            {!managing && room.online > 0 && (
+              <span className="room-online">
+                <span className="room-online-dot" aria-hidden="true" />
+                {room.online} {room.online === 1 ? "device" : "devices"} connected
+              </span>
+            )}
           </button>
         ))}
         {managing && canAdd && (

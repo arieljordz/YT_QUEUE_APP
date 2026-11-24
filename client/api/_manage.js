@@ -141,7 +141,10 @@ export async function updateRoom(cols, input, opts = {}) {
     const token = await createSession(sessions, room._id, opts.now);
     return { status: 200, body: { room: publicRoom(updated), entered: true }, token };
   }
-  if (changingPin) await sessions.deleteMany({ roomId: room._id });
+  if (changingPin) {
+    await sessions.deleteMany({ roomId: room._id });
+    if (cols.presence) await cols.presence.deleteMany({ roomId: room._id });
+  }
   return { status: 200, body: { room: publicRoom(updated), signedOut: changingPin } };
 }
 
@@ -152,6 +155,7 @@ export async function deleteRoom(cols, input, catalog, opts = {}) {
   if (result) return result;
   await rooms.deleteOne({ _id: room._id });
   await sessions.deleteMany({ roomId: room._id });
+  if (cols.presence) await cols.presence.deleteMany({ roomId: room._id });
   await attempts.deleteOne({ _id: `room:${room._id}` });
   await catalog.deleteMany({ owner: room._id, catalog: SEARCHES_LIST });
   return { status: 200, body: { ok: true } };

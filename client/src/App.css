@@ -314,3 +314,19 @@
 .room-avatar-option.selected, .room-avatar-option:hover, .room-avatar-option:focus-visible { opacity: 1; outline: none; }
 .room-avatar-option.selected .room-avatar { box-shadow: 0 0 0 3px #fff; }
 @media (max-width: 420px) { .room-avatar-picker { grid-template-columns: repeat(4, 1fr); } }
+
+/* ---- Room screen polish (phase 3) ---- */
+.room-card { animation: room-in 0.35s ease-out both; transition: color 0.15s; }
+.room-card .room-avatar { transition: transform 0.18s ease, box-shadow 0.18s ease; }
+.room-card:hover .room-avatar, .room-card:focus-visible .room-avatar { transform: scale(1.05); }
+.room-online { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: #9be7a8; }
+.room-online-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #2ecc71; box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.6); animation: room-pulse 2s infinite; }
+.pin-panel { animation: room-in 0.3s ease-out both; }
+.pin-shake { animation: pin-shake 0.4s ease; }
+@keyframes room-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes room-pulse { 70% { box-shadow: 0 0 0 6px rgba(46, 204, 113, 0); } 100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); } }
+@keyframes pin-shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+@media (prefers-reduced-motion: reduce) {
+  .room-card, .pin-panel, .pin-shake, .room-online-dot { animation: none; }
+  .room-card .room-avatar { transition: none; }
+}

@@ -16,6 +16,9 @@ export const MAX_ROOM_FAILS = 5;
 export const MAX_IP_FAILS = 25;
 export const LOCK_MS = 15 * 60 * 1000;
 export const FAIL_DELAY_MS = 700;
+// A device counts as connected while its queue polls keep arriving.
+export const ONLINE_MS = 60 * 1000;
+const PRESENCE_REFRESH_MS = 20 * 1000;
 export const AVATARS = [
   "avatar-1", "avatar-2", "avatar-3", "avatar-4", "avatar-5", "avatar-6", "avatar-7", "avatar-8",
 ];
@@ -76,8 +79,37 @@ export const publicRoom = (d) => ({
   claimable: !d.pinAuth && !d.migratedFrom,
 });
 
-/** Public list: no secrets. */
-export async function listRooms(rooms) {
+/**
+ * Marks a session's device as connected (called from the queue poll). Writes
+ * at most every 20s per device: the filter only matches a stale entry, and a
+ * fresh one makes the upsert collide, which is ignored.
+ */
+export async function touchPresence(presence, token, roomId, now = Date.now()) {
+  if (typeof token !== "string" || !token) return;
+  try {
+    await presence.updateOne(
+      { _id: sha256(token), lastSeen: { $lt: new Date(now - PRESENCE_REFRESH_MS) } },
+      { $set: { roomId, lastSeen: new Date(now) } },
+      { upsert: true }
+    );
+  } catch (e) {
+    if (e?.code !== 11000) throw e;
+  }
+}
+
+/** { roomId: number of devices seen in the last minute } */
+export async function countOnline(presence, now = Date.now()) {
+  const rows = await presence
+    .aggregate([
+      { $match: { lastSeen: { $gte: new Date(now - ONLINE_MS) } } },
+      { $group: { _id: "$roomId", n: { $sum: 1 } } },
+    ])
+    .toArray();
+  return Object.fromEntries(rows.map((r) => [r._id, r.n]));
+}
+
+/** Public list: no secrets. Connected-device counts when `presence` is given. */
+export async function listRooms(rooms, presence) {
   await ensureDefaultRooms(rooms);
   const docs = await rooms
     .find(
@@ -85,7 +117,8 @@ export async function listRooms(rooms) {
       { projection: { name: 1, avatar: 1, slot: 1, description: 1, pinAuth: 1, migratedFrom: 1 } }
     )
     .toArray();
-  return docs.sort((a, b) => a.slot - b.slot).map(publicRoom);
+  const online = presence ? await countOnline(presence) : {};
+  return docs.sort((a, b) => a.slot - b.slot).map((d) => ({ ...publicRoom(d), online: online[d._id] ?? 0 }));
 }
 
 async function readAttempt(attempts, key) {
@@ -196,8 +229,10 @@ export async function resolveSession({ rooms, sessions }, token, now = Date.now(
   return room ? session.roomId : null;
 }
 
-export async function leaveSession({ sessions }, token) {
-  if (typeof token === "string" && token) await sessions.deleteOne({ _id: sha256(token) });
+export async function leaveSession({ sessions, presence }, token) {
+  if (typeof token !== "string" || !token) return;
+  await sessions.deleteOne({ _id: sha256(token) });
+  if (presence) await presence.deleteOne({ _id: sha256(token) });
 }
 
 export function readCookie(req, name = COOKIE_NAME) {
@@ -223,7 +258,7 @@ export async function getSessionCollections() {
   const sessions = db.collection("room_sessions");
   const attempts = db.collection("room_attempts");
   await sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-  return { rooms: await getRooms(), sessions, attempts };
+  return { rooms: await getRooms(), sessions, attempts, presence: db.collection("room_presence") };
 }
 
 /** The helper for every endpoint: request -> roomId, or null (respond 401). */

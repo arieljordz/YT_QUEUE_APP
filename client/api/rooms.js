@@ -1,5 +1,5 @@
 // Vercel serverless function: room selection and room sessions.
-//   GET                                -> { rooms: [{ id, name, avatar }] }   (public, no secrets)
+//   GET                                -> { rooms: [{ id, name, avatar, description, hasPin, claimable, online }] }   (public, no secrets)
 //   POST { action: "enter", roomId, pin } -> sets the HttpOnly session cookie
 //   POST { action: "me" }              -> { room } for the current session, or 401
 //   POST { action: "leave" }           -> ends the session and clears the cookie
@@ -26,7 +26,9 @@ export default async function handler(req, res) {
     const cols = await getSessionCollections();
     if (req.method === "GET") {
       res.setHeader("Cache-Control", "no-store");
-      return res.status(200).json({ rooms: await listRooms(cols.rooms) });
+      // Old presence entries clean themselves up.
+      await cols.presence.createIndex({ lastSeen: 1 }, { expireAfterSeconds: 600 });
+      return res.status(200).json({ rooms: await listRooms(cols.rooms, cols.presence) });
     }
     if (req.method !== "POST") {
       res.setHeader("Allow", "GET, POST");

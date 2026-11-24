@@ -4,8 +4,8 @@
 // POST body:
 //   { rev }                  -> poll: { rev, exists, changed, state? }
 //   { push: { queue, isPaused, played } } -> save: { rev }
-import { getRooms, slimQueueItem, slimVideo } from "./_db.js";
-import { requireRoom } from "./_session.js";
+import { getDb, getRooms, slimQueueItem, slimVideo } from "./_db.js";
+import { readCookie, requireRoom, touchPresence } from "./_session.js";
 
 const MAX_ITEMS = 5000;
 
@@ -78,6 +78,12 @@ export default async function handler(req, res) {
     const roomId = await requireRoom(req);
     if (!roomId) return res.status(401).json({ error: "Not in a room" });
     const result = await handleQueue(await getRooms(), roomId, req.body);
+    // Counts this device as connected to the room (shown on the room screen).
+    try {
+      await touchPresence((await getDb()).collection("room_presence"), readCookie(req), roomId);
+    } catch (error) {
+      console.error("presence update failed", error);
+    }
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("queue sync failed", error);

@@ -11,6 +11,8 @@ export default function PinEntry({ room, onBack, onEntered, onMissing }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [locked, setLocked] = useState(false);
+  // Bumped on each wrong PIN to replay the shake animation.
+  const [shake, setShake] = useState(0);
   const refs = useRef([]);
 
   const setAt = (index, value) =>
@@ -51,6 +53,7 @@ export default function PinEntry({ room, onBack, onEntered, onMissing }) {
       if (result.data.missing) return onMissing();
       setError(result.data.error ?? "Could not enter the room.");
       setLocked(Boolean(result.data.locked));
+      setShake((n) => n + 1);
       setDigits(EMPTY);
     } catch {
       setError("Could not reach the server. Try again.");
@@ -70,7 +73,7 @@ export default function PinEntry({ room, onBack, onEntered, onMissing }) {
         <Avatar avatar={room.avatar} size={56} />
         <h1 className="room-heading mb-1">{room.name}</h1>
         <p className="room-muted">Enter the 4-digit PIN</p>
-        <div className="pin-row">
+        <div className={`pin-row${shake ? " pin-shake" : ""}`} key={shake}>
           {digits.map((digit, i) => (
             <input
               key={i}
