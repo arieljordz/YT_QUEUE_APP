@@ -12,7 +12,7 @@ export default defineConfig({
     // Nothing from /api is ever cached.
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/logo.svg', 'icons/favicon-32.png', 'icons/apple-touch-icon.png'],
+      includeAssets: ['icons/logo-v2.svg', 'icons/favicon-32-v2.png', 'icons/apple-touch-icon-v2.png'],
       manifest: {
         name: 'YouTube Queueing App',
         short_name: 'YT Queue',
@@ -24,9 +24,9 @@ export default defineConfig({
         background_color: '#141414',
         theme_color: '#141414',
         icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/icons/icon-192-v2.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icons/icon-512-v2.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icons/maskable-512-v2.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
