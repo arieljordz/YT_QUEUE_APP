@@ -1,6 +1,6 @@
 import { useState, useMemo, memo } from "react";
 import { Modal, Button } from "react-bootstrap";
-import { FaTrash, FaStar, FaHistory, FaList } from "react-icons/fa";
+import { FaTrash, FaStar, FaHistory, FaList, FaSearch } from "react-icons/fa";
 import { MdPlaylistAdd } from "react-icons/md";
 import VideoList from "./VideoList";
 import useLocalStorage from "../hooks/useLocalStorage";
@@ -130,44 +130,45 @@ function Library({
   };
 
   const views = [
-    ["all", "All", library.length, <FaList key="all" aria-hidden="true" />],
+    ["all", "All videos", library.length, <FaList key="all" aria-hidden="true" />],
     ["favorites", "Favorites", favorites.length, <FaStar key="fav" aria-hidden="true" />],
     ["recent", "Recently played", recent.length, <FaHistory key="rec" aria-hidden="true" />],
   ];
 
   return (
     <div>
-      <div className="btn-group btn-group-sm mb-2 flex-wrap" role="group" aria-label="Library view">
+      <div className="lib-chips" role="group" aria-label="Library view">
         {views.map(([key, label, count, icon]) => (
           <button
             key={key}
-            className={`btn d-flex align-items-center gap-1 ${
-              view === key ? "btn-primary" : "btn-outline-primary"
-            }`}
+            type="button"
+            className={`lib-chip${view === key ? " active" : ""}`}
             onClick={() => {
               setView(key);
               setVisibleCount(PAGE_SIZE);
             }}
             aria-pressed={view === key}
           >
-            {icon} {label} ({count})
+            {icon} {label} <span className="lib-chip-count">{count}</span>
           </button>
         ))}
       </div>
 
-      <div className="d-flex flex-wrap gap-2">
-        <input
-          type="search"
-          className="form-control flex-grow-1 w-auto"
-          style={{ flexBasis: "12rem" }}
-          placeholder={`Filter ${library.length} saved videos...`}
-          aria-label="Filter library"
-          value={filter}
-          onChange={(e) => {
-            setFilter(e.target.value);
-            setVisibleCount(PAGE_SIZE);
-          }}
-        />
+      <div className="lib-toolbar">
+        <div className="lib-search">
+          <FaSearch aria-hidden="true" />
+          <input
+            type="search"
+            className="form-control"
+            placeholder={view === "all" ? "Search your library by title or channel" : "Search this list"}
+            aria-label="Search library"
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value);
+              setVisibleCount(PAGE_SIZE);
+            }}
+          />
+        </div>
         <select
           className="form-select w-auto"
           aria-label="Sort library"
@@ -178,11 +179,11 @@ function Library({
             setVisibleCount(PAGE_SIZE);
           }}
         >
-          <option value="az">A–Z</option>
-          <option value="newest">Newest first</option>
+          <option value="az">Title A–Z</option>
+          <option value="newest">Recently added</option>
         </select>
         <button
-          className="btn btn-success text-nowrap d-flex align-items-center gap-1"
+          className="btn yq-btn-primary text-nowrap d-flex align-items-center gap-1"
           onClick={handleQueueAll}
           disabled={queueable.length === 0}
           title={filter.trim() ? "Add every matching video to the queue" : "Add the whole library to the queue"}
@@ -192,13 +193,14 @@ function Library({
         </button>
         {flags.deleteAllButton && (
           <button
-            className="btn btn-outline-danger text-nowrap d-flex align-items-center gap-1"
+            className="btn yq-btn-ghost-danger text-nowrap d-flex align-items-center gap-1"
             onClick={() => setConfirmingDelete(true)}
             disabled={library.length === 0}
             title="Delete every saved video"
+            aria-label="Delete all"
           >
             <FaTrash aria-hidden="true" />
-            Delete all
+            <span className="d-none d-sm-inline">Delete all</span>
           </button>
         )}
       </div>
@@ -215,7 +217,7 @@ function Library({
           <Button variant="secondary" onClick={() => setConfirmingQueueAll(false)}>
             Cancel
           </Button>
-          <Button variant="success" onClick={confirmQueueAll}>
+          <Button className="yq-btn-primary" onClick={confirmQueueAll}>
             Queue all ({queueable.length})
           </Button>
         </Modal.Footer>
@@ -230,7 +232,12 @@ function Library({
         />
       )}
 
-      <div className="library-scroll mt-2" onScroll={handleScroll}>
+      <p className="lib-summary" aria-live="polite">
+        {filter.trim()
+          ? `${shown.length} ${shown.length === 1 ? "match" : "matches"} for “${filter.trim()}”`
+          : `${shown.length} ${shown.length === 1 ? "video" : "videos"}${view === "recent" ? ", newest first" : ""}`}
+      </p>
+      <div className="library-scroll" onScroll={handleScroll}>
       <VideoList
         videos={visible}
         queuedIds={queuedIds}
@@ -241,21 +248,29 @@ function Library({
         onToggleFavorite={toggleFavorite}
         isLoading={false}
         hasSearched
+        emptyIcon={filter.trim() ? <FaSearch aria-hidden="true" /> : views.find(([k]) => k === view)[3]}
+        emptyTitle={
+          filter.trim()
+            ? "No matches"
+            : view === "recent"
+              ? "Nothing played yet"
+              : view === "favorites"
+                ? "No favorites yet"
+                : "Your library is empty"
+        }
         emptyText={
-          view === "recent"
-            ? "Songs you play will show up here, newest first."
-            : view === "favorites"
-              ? filter.trim()
-                ? "No favorites match that filter."
-                : "Tap the star on a video to keep it here."
-              : library.length === 0
-                ? "Videos you add to the queue are saved here automatically."
-                : "No saved videos match that filter."
+          filter.trim()
+            ? "Try another title or channel name."
+            : view === "recent"
+              ? "Songs you play will show up here, newest first."
+              : view === "favorites"
+                ? "Tap the star on a video to keep it here."
+                : "Videos you add to the queue are saved here automatically."
         }
       />
       </div>
       {shown.length > visible.length && (
-        <p className="text-muted small text-center mt-2">
+        <p className="lib-summary text-center mt-2">
           Showing {visible.length} of {shown.length}. Scroll down to load more.
         </p>
       )}

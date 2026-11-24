@@ -9,7 +9,7 @@ import { MdOpenInNew } from "react-icons/md";
  */
 function AppTabs({ tabs, active, onSelect }) {
   return (
-    <ul className="nav nav-tabs app-tabs flex-nowrap mb-3">
+    <ul className="nav app-tabs flex-nowrap mb-3">
       {tabs.map(({ key, label, icon, count, href, title }) => {
         const content = (
           <>
@@ -19,7 +19,7 @@ function AppTabs({ tabs, active, onSelect }) {
               {href && <MdOpenInNew className="tab-external" size={13} aria-hidden="true" />}
             </span>
             {count !== undefined && (
-              <span className="badge rounded-pill text-bg-secondary tab-count">{count}</span>
+              <span className="tab-count">{count}</span>
             )}
           </>
         );

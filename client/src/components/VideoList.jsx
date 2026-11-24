@@ -16,6 +16,8 @@ function VideoList({
   isLoading,
   hasSearched,
   emptyText = "No results found.",
+  emptyTitle,
+  emptyIcon,
 }) {
   // With onRemove, the trash button needs a second click to confirm.
   const [confirmId, setConfirmId] = useState(null);
@@ -31,11 +33,17 @@ function VideoList({
     );
   }
   if (videos.length === 0) {
-    return <p className="text-muted text-center my-4">{emptyText}</p>;
+    return (
+      <div className="yq-empty">
+        {emptyIcon}
+        {emptyTitle && <div className="yq-empty-title">{emptyTitle}</div>}
+        <div>{emptyText}</div>
+      </div>
+    );
   }
 
   return (
-    <ul className="list-group">
+    <ul className="yq-list">
       {videos.map((video) => {
         const { thumbnails, title, channelTitle } = video.snippet;
         const inQueue = queuedIds.has(video.id.videoId);
@@ -45,26 +53,26 @@ function VideoList({
         return (
           <li
             key={video.id.videoId}
-            className="list-group-item d-flex align-items-center gap-3"
+            className="yq-row"
           >
             <img
               src={(thumbnails.medium ?? thumbnails.default).url}
               alt=""
               loading="lazy"
-              className="result-thumb rounded"
+              className="result-thumb"
             />
             <div className="flex-grow-1 min-w-0">
-              <div className="fw-semibold text-truncate-2" title={title}>
+              <div className="yq-title text-truncate-2" title={title}>
                 {title}
               </div>
               {(channelTitle || meta) && (
-                <small className="text-muted d-block">
+                <small className="yq-meta d-block">
                   {[channelTitle, meta].filter(Boolean).join(" · ")}
                 </small>
               )}
               {(inQueue || youtubeOnly) && (
-                <div className="d-flex flex-wrap gap-1">
-                  {inQueue && <span className="badge bg-secondary">In queue</span>}
+                <div className="d-flex flex-wrap gap-1 mt-1">
+                  {inQueue && <span className="yq-badge-queued">In queue</span>}
                   {youtubeOnly && <YoutubeOnlyBadge />}
                 </div>
               )}
@@ -82,15 +90,15 @@ function VideoList({
                 title={favoriteSet?.has(video.id.videoId) ? "Favorite" : "Add to favorites"}
               >
                 {favoriteSet?.has(video.id.videoId) ? (
-                  <FaStar className="text-warning" size={18} aria-hidden="true" />
+                  <FaStar className="is-on" size={18} aria-hidden="true" />
                 ) : (
-                  <FaRegStar className="text-secondary" size={18} aria-hidden="true" />
+                  <FaRegStar className="is-off" size={18} aria-hidden="true" />
                 )}
               </button>
             )}
             <div className="d-flex gap-1 flex-shrink-0">
               <button
-                className="btn btn-sm btn-success row-action d-flex align-items-center justify-content-center gap-1 flex-shrink-0"
+                className="btn btn-sm yq-btn-primary row-action d-flex align-items-center justify-content-center gap-1 flex-shrink-0"
                 onClick={() => onAdd(video)}
                 aria-label={`Add ${title} to queue`}
                 title="Add to queue"
@@ -103,7 +111,7 @@ function VideoList({
                   className={`btn btn-sm row-action d-flex align-items-center justify-content-center gap-1 flex-shrink-0 ${
                     confirmId === video.id.videoId
                       ? "btn-danger is-confirming"
-                      : "btn-outline-danger"
+                      : "yq-btn-ghost-danger"
                   }`}
                   onClick={() => {
                     if (confirmId === video.id.videoId) {
