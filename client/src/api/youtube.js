@@ -1,3 +1,5 @@
+import { decodeEntities } from "../lib/text";
+
 const API_KEY = import.meta.env.VITE_YT_API_KEY;
 const SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 const VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos";
@@ -19,7 +21,15 @@ export async function searchVideos(query, signal) {
   if (!res.ok) throw new Error(`YouTube search failed (${res.status})`);
 
   const data = await res.json();
-  return data.items ?? [];
+  // Show titles as plain text: YouTube sends them with HTML entities (&#39; &amp;).
+  return (data.items ?? []).map((item) => ({
+    ...item,
+    snippet: {
+      ...item.snippet,
+      title: decodeEntities(item.snippet?.title ?? ""),
+      channelTitle: decodeEntities(item.snippet?.channelTitle ?? ""),
+    },
+  }));
 }
 
 /** "PT1H2M5S" -> 3725. Returns null for live streams and anything unreadable. */

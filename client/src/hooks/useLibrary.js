@@ -68,6 +68,20 @@ export default function useLibrary() {
   const libraryRef = useRef(library);
   libraryRef.current = library;
 
+  // Videos saved before titles were decoded still show "&#39;" and the like:
+  // clean them once (the sync then spreads the clean copy to the other devices).
+  useEffect(() => {
+    const hasEntity = library.some((v) =>
+      /&(#x[\da-f]+|#\d+|[a-z]+);/i.test(`${v.snippet?.title} ${v.snippet?.channelTitle}`)
+    );
+    if (!hasEntity) return;
+    setLibrary((prev) => {
+      const cleaned = mergeLibrary(prev, []);
+      // An entity this decoder does not know stays as it is: do not loop on it.
+      return JSON.stringify(cleaned) === JSON.stringify(prev) ? prev : cleaned;
+    });
+  }, [library, setLibrary]);
+
   const addToLibrary = useCallback(
     (videos) => setLibrary((prev) => mergeLibrary(prev, videos)),
     [setLibrary]

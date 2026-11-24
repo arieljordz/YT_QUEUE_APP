@@ -1,5 +1,7 @@
 // Helpers for the saved video library (every video the user has ever added).
 
+import { decodeEntities } from "./text";
+
 /** Reduce a YouTube search result to the fields the UI uses. Returns null if unusable. */
 export function slimVideo(video) {
   const id = video?.id?.videoId;
@@ -15,8 +17,8 @@ export function slimVideo(video) {
   return {
     id: { videoId: id },
     snippet: {
-      title: snippet.title,
-      channelTitle: snippet.channelTitle ?? "",
+      title: decodeEntities(snippet.title),
+      channelTitle: decodeEntities(snippet.channelTitle ?? ""),
       thumbnails,
     },
   };

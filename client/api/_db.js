@@ -42,7 +42,31 @@ export function readSyncCode(req) {
   return typeof code === "string" && code.length >= MIN_CODE_LENGTH ? code : null;
 }
 
-// Keep only what the UI needs so documents stay small.
+// Keep only what the UI needs so documents stay small. Titles are stored as
+// plain text: YouTube's HTML entities are decoded here, for every video saved.
+const NAMED_ENTITIES = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+  copy: "©", reg: "®", trade: "™", hellip: "…", ndash: "–", mdash: "—",
+  lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”", laquo: "«", raquo: "»",
+  middot: "·", bull: "•",
+};
+
+/** YouTube sends titles with HTML entities (&#39; &amp; &quot;); turn them into plain characters. */
+export function decodeEntities(value) {
+  if (typeof value !== "string") return value;
+  return value.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (match, code) => {
+    if (code[0] === "#") {
+      const num = code[1].toLowerCase() === "x" ? parseInt(code.slice(2), 16) : Number(code.slice(1));
+      try {
+        return String.fromCodePoint(num);
+      } catch {
+        return match; // not a real character
+      }
+    }
+    return NAMED_ENTITIES[code.toLowerCase()] ?? match;
+  });
+}
+
 export function slimVideo(video) {
   const id = video?.id?.videoId;
   const snippet = video?.snippet;
@@ -55,8 +79,9 @@ export function slimVideo(video) {
   return {
     id: { videoId: id },
     snippet: {
-      title: snippet.title,
-      channelTitle: typeof snippet.channelTitle === "string" ? snippet.channelTitle : "",
+      title: decodeEntities(snippet.title),
+      channelTitle:
+        typeof snippet.channelTitle === "string" ? decodeEntities(snippet.channelTitle) : "",
       thumbnails,
     },
   };

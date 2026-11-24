@@ -23,6 +23,7 @@
 //     single request runs long.
 import {
   SEARCHES_LIST,
+  decodeEntities,
   getCatalog,
   isSearchesList,
   readSyncCode,
@@ -41,18 +42,6 @@ const cleanName = (value) => {
   const name = text(value);
   return name && name.length <= MAX_NAME ? name : null;
 };
-
-const NAMED_ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
-/** YouTube returns titles with HTML entities (&#39;, &amp;); turn them back into characters. */
-function decodeEntities(value) {
-  return value.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (match, code) => {
-    if (code[0] === "#") {
-      const num = code[1].toLowerCase() === "x" ? parseInt(code.slice(2), 16) : Number(code.slice(1));
-      return Number.isFinite(num) ? String.fromCodePoint(num) : match;
-    }
-    return NAMED_ENTITIES[code.toLowerCase()] ?? match;
-  });
-}
 
 /** True when the title contains every word of `wanted` (ignoring case). */
 export function titleMatches(title, wanted) {
