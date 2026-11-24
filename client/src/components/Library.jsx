@@ -162,6 +162,7 @@ function Library({
             className="form-control"
             placeholder={view === "all" ? "Search your library by title or channel" : "Search this list"}
             aria-label="Search library"
+            autoFocus
             value={filter}
             onChange={(e) => {
               setFilter(e.target.value);
