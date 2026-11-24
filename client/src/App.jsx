@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import Home from "./components/Home";
-import PlayerPage from "./components/PlayerPage";
+import PlayerGate from "./components/PlayerGate";
 import NavBar from "./components/NavBar";
 import useRemoteSync from "./hooks/useRemoteSync";
 import useLibrary from "./hooks/useLibrary";
@@ -107,6 +107,11 @@ function App() {
     [setRoomId]
   );
 
+  // A player tab never shows room selection: it says it stopped instead.
+  if (!roomId && window.location.pathname === "/player") {
+    return <PlayerGate roomId="" roomName="" />;
+  }
+
   if (!roomId) {
     return (
       <>
@@ -146,7 +151,10 @@ function App() {
       <ToastContainer position="top-right" autoClose={2000} />
       <Routes>
         <Route path="/" element={<Home libraryApi={libraryApi} />} />
-        <Route path="/player" element={<PlayerPage />} />
+        <Route
+          path="/player"
+          element={<PlayerGate roomId={roomId} roomName={roomName} onSignedOut={checkSession} />}
+        />
       </Routes>
     </BrowserRouter>
   );

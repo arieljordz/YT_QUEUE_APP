@@ -19,6 +19,16 @@ export async function listRooms() {
 
 export const enterRoom = (roomId, pin) => post({ action: "enter", roomId, pin });
 export const currentRoom = () => post({ action: "me" });
+// The room's player lease: only one device plays a room at a time.
+export const claimPlayer = (playerId, takeover = false) => post({ action: "player", playerId, takeover });
+// Sent while the tab is closing, so it uses keepalive and ignores the answer.
+export const releasePlayer = (playerId) =>
+  fetch("/api/rooms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "player", playerId, release: true }),
+    keepalive: true,
+  }).catch(() => {});
 export const leaveRoomSession = () => post({ action: "leave" }).catch(() => {});
 
 // Room management (admin only: the server checks the admin sign-in cookie).

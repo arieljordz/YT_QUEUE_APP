@@ -6,10 +6,12 @@
 //   POST { action: "create", name, avatar, description?, newPin }       -> creates a room
 //   POST { action: "update", roomId, name?, avatar?, description?, newPin? }
 //   POST { action: "delete", roomId }
+//   POST { action: "player", playerId, takeover?, release? } -> { active } (one playing device per room)
 // Create/update/delete need the admin cookie (see admin.js).
 import { getCatalog } from "./_db.js";
 import { requireAdmin } from "./_admin.js";
 import { createRoom, deleteRoom, updateRoom } from "./_manage.js";
+import { claimPlayer, isPlayerId, releasePlayer } from "./_player.js";
 import {
   publicRoom,
   clientIp,
@@ -77,6 +79,16 @@ export default async function handler(req, res) {
       if (!roomId) return res.status(401).json({ error: "No session" });
       const room = await cols.rooms.findOne({ _id: roomId });
       return res.status(200).json({ room: publicRoom(room) });
+    }
+    if (action === "player") {
+      const roomId = await resolveSession(cols, token);
+      if (!roomId) return res.status(401).json({ error: "No session" });
+      const { playerId, takeover, release } = req.body;
+      if (!isPlayerId(playerId)) return res.status(400).json({ error: "Invalid player id" });
+      const result = release
+        ? await releasePlayer(cols.rooms, roomId, playerId)
+        : await claimPlayer(cols.rooms, roomId, { playerId, takeover: takeover === true });
+      return res.status(result.status).json(result.body);
     }
     if (action === "leave") {
       await leaveSession(cols, token);
