@@ -9,7 +9,8 @@
 //   POST {}                         -> { flags, locked }
 //   POST { flags: {...}, password } -> { flags, locked: true }   (403 on a wrong password)
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { getRooms, readSyncCode, roomIdFor } from "./_db.js";
+import { getRooms } from "./_db.js";
+import { requireRoom } from "./_session.js";
 
 export const DEFAULT_FLAGS = {
   removeButton: false,
@@ -76,11 +77,10 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
-  const code = readSyncCode(req);
-  if (!code) return res.status(401).json({ error: "Missing or too short sync code" });
-
   try {
-    const result = await handleFlags(await getRooms(), roomIdFor(code), req.body);
+    const roomId = await requireRoom(req);
+    if (!roomId) return res.status(401).json({ error: "Not in a room" });
+    const result = await handleFlags(await getRooms(), roomId, req.body);
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("flags request failed", error);

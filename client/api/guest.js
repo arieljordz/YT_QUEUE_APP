@@ -3,7 +3,7 @@
 // to it. Everything else (library, delete, import, flags, reordering) needs the
 // owner's sync code, so the server refuses it for guests.
 //
-// Owner (header x-sync-code), POST:
+// Owner (room session cookie), POST:
 //   { action: "status" }  -> { token }        (token is null when nothing is shared)
 //   { action: "create" }  -> { token }        (a new token; the old link stops working)
 //   { action: "revoke" }  -> { token: null }
@@ -12,7 +12,8 @@
 //   { action: "library" }             -> { library }   (read only)
 //   { action: "add", video }          -> { added, reason? }
 import { randomBytes } from "node:crypto";
-import { getRooms, readSyncCode, roomIdFor, slimQueueItem } from "./_db.js";
+import { getRooms, slimQueueItem } from "./_db.js";
+import { requireRoom } from "./_session.js";
 
 const TOKEN_PATTERN = /^[\w-]{12,64}$/;
 export const MAX_GUEST_QUEUE = 300; // guests cannot grow the queue past this
@@ -94,10 +95,10 @@ export default async function handler(req, res) {
       indexReady = true;
     }
 
-    const ownerCode = readSyncCode(req);
+    const roomId = req.headers["x-guest-code"] ? null : await requireRoom(req);
     let result;
-    if (ownerCode) {
-      result = await handleOwner(rooms, roomIdFor(ownerCode), req.body);
+    if (roomId) {
+      result = await handleOwner(rooms, roomId, req.body);
     } else {
       const guestCode = req.headers["x-guest-code"];
       if (typeof guestCode !== "string") {

@@ -6,7 +6,8 @@
 //   POST {}                                   -> { favorites: [id], history: [video] }
 //   POST { favorites: { add: [id], remove: [id] } } -> same as above, after the change
 //   POST { played: video }                    -> same as above, after the change
-import { getRooms, readSyncCode, roomIdFor, slimVideo } from "./_db.js";
+import { getRooms, slimVideo } from "./_db.js";
+import { requireRoom } from "./_session.js";
 
 export const MAX_FAVORITES = 5000;
 export const MAX_HISTORY = 50;
@@ -56,11 +57,10 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
-  const code = readSyncCode(req);
-  if (!code) return res.status(401).json({ error: "Missing or too short sync code" });
-
   try {
-    const result = await handleExtras(await getRooms(), roomIdFor(code), req.body);
+    const roomId = await requireRoom(req);
+    if (!roomId) return res.status(401).json({ error: "Not in a room" });
+    const result = await handleExtras(await getRooms(), roomId, req.body);
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("extras request failed", error);

@@ -23,14 +23,13 @@
 //     The browser calls POST repeatedly until it has enough videos, so no
 //     single request runs long.
 import { readFlags } from "./flags.js";
+import { requireRoom } from "./_session.js";
 import {
   SEARCHES_LIST,
   decodeEntities,
   getCatalog,
   getRooms,
   isSearchesList,
-  readSyncCode,
-  roomIdFor,
   slimVideo,
 } from "./_db.js";
 
@@ -218,11 +217,9 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
 let indexReady = false;
 
 export default async function handler(req, res) {
-  const code = readSyncCode(req);
-  if (!code) return res.status(401).json({ error: "Turn on sync first (missing sync code)" });
-  const owner = roomIdFor(code);
-
   try {
+    const owner = await requireRoom(req);
+    if (!owner) return res.status(401).json({ error: "Not in a room" });
     const catalog = await getCatalog();
     if (!indexReady) {
       await catalog.createIndex({ owner: 1, catalog: 1, order: 1 });

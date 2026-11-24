@@ -258,3 +258,33 @@
     font-size: 0.6rem;
   }
 }
+
+/* ---- Room selection / PIN (Netflix-style) ---- */
+.room-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #141414;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 1rem 2rem;
+}
+.room-brand { display: flex; align-items: center; gap: 0.6rem; font-size: 1.5rem; font-weight: 700; margin-bottom: 2.5rem; align-self: flex-start; }
+.room-heading { font-size: clamp(1.8rem, 5vw, 3.2rem); font-weight: 500; margin-bottom: 2rem; text-align: center; }
+.room-muted { color: #8c8c8c; }
+.room-notice { color: #ff8a80; background: rgba(229, 9, 20, 0.12); border-radius: 6px; padding: 0.5rem 0.9rem; text-align: center; max-width: 28rem; }
+.room-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 160px)); gap: 1.5rem; justify-content: center; width: 100%; max-width: 920px; }
+.room-card { background: none; border: 0; color: #8c8c8c; display: flex; flex-direction: column; align-items: center; gap: 0.7rem; cursor: pointer; padding: 0; font-size: 1.05rem; }
+.room-card:hover, .room-card:focus-visible { color: #fff; outline: none; }
+.room-card:hover .room-avatar, .room-card:focus-visible .room-avatar { box-shadow: 0 0 0 4px #fff; }
+.room-avatar { display: inline-flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 1; border-radius: 8px; color: #fff; overflow: hidden; }
+.room-avatar svg { width: 55%; height: 55%; }
+.pin-panel { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; width: 100%; max-width: 26rem; }
+.pin-panel .room-avatar { width: 96px; }
+.pin-row { display: flex; align-items: center; gap: 0.6rem; margin: 1rem 0; }
+.pin-box { width: 3.2rem; height: 3.8rem; text-align: center; font-size: 1.8rem; background: #333; color: #fff; border: 2px solid #555; border-radius: 6px; }
+.pin-box:focus { border-color: #fff; outline: none; }
+.pin-toggle { background: none; border: 0; color: #8c8c8c; font-size: 1.2rem; padding: 0.4rem; }
+.pin-actions { display: flex; gap: 0.8rem; margin-top: 0.8rem; flex-wrap: wrap; justify-content: center; }
+@media (max-width: 420px) { .pin-box { width: 2.7rem; height: 3.3rem; } .room-grid { grid-template-columns: repeat(2, 1fr); } }

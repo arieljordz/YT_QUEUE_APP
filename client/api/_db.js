@@ -4,8 +4,6 @@
 import { createHash } from "node:crypto";
 import { MongoClient } from "mongodb";
 
-export const MIN_CODE_LENGTH = 8;
-
 // The saved list that holds videos the user found with Search and queued one by one.
 export const SEARCHES_LIST = "My Searches";
 export const isSearchesList = (name) =>
@@ -14,7 +12,7 @@ export const isSearchesList = (name) =>
 // Reused between invocations of a warm function instead of reconnecting each time.
 let clientPromise;
 
-async function getDb() {
+export async function getDb() {
   if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI is not configured");
   clientPromise ??= new MongoClient(process.env.MONGODB_URI).connect();
   const client = await clientPromise;
@@ -31,15 +29,9 @@ export async function getCatalog() {
   return (await getDb()).collection("catalog_videos");
 }
 
-/** Room id = hash of the sync code, so the code itself is never stored. */
+/** Legacy room id = hash of the old sync code. Only used by the migration script. */
 export function roomIdFor(code) {
   return createHash("sha256").update(code).digest("hex");
-}
-
-/** Returns the sync code from the request, or null if it is missing or too short. */
-export function readSyncCode(req) {
-  const code = req.headers["x-sync-code"];
-  return typeof code === "string" && code.length >= MIN_CODE_LENGTH ? code : null;
 }
 
 // Keep only what the UI needs so documents stay small. Titles are stored as

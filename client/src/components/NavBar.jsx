@@ -3,8 +3,7 @@ import { Dropdown } from "react-bootstrap";
 import { useLocation } from "react-router-dom";
 import { MdInstallMobile } from "react-icons/md";
 import useInstallPrompt from "../hooks/useInstallPrompt";
-import { FaBars, FaSync, FaQrcode, FaDownload, FaBookOpen, FaFlag, FaCoffee } from "react-icons/fa";
-import SyncModal from "./SyncModal";
+import { FaBars, FaDoorOpen, FaQrcode, FaDownload, FaBookOpen, FaFlag, FaCoffee } from "react-icons/fa";
 import InviteGuestsModal from "./InviteGuestsModal";
 import ImportVideosModal from "./ImportVideosModal";
 import AddLibraryModal from "./AddLibraryModal";
@@ -16,7 +15,7 @@ const NavBar = ({ sync }) => {
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem("theme") === "dark"
   );
-  // Which settings window is open: null | "sync" | "invite" | "import" | "library" | "flags" | "support".
+  // Which settings window is open: null | "invite" | "import" | "library" | "flags" | "support".
   const [openModal, setOpenModal] = useState(null);
 
   useEffect(() => {
@@ -60,14 +59,10 @@ const NavBar = ({ sync }) => {
             <Dropdown.Menu className="py-1">
               <Dropdown.Item
                 className="small d-flex align-items-center gap-2"
-                onClick={() => setOpenModal("sync")}
+                onClick={sync.leaveRoom}
               >
-                <FaSync aria-hidden="true" /> Sync
-                <span
-                  className={`badge ms-auto ${sync.syncCode ? "text-bg-success" : "text-bg-secondary"}`}
-                >
-                  {sync.syncCode ? "On" : "Off"}
-                </span>
+                <FaDoorOpen aria-hidden="true" /> Leave room / switch room
+                {sync.roomName && <span className="badge text-bg-secondary ms-auto">{sync.roomName}</span>}
               </Dropdown.Item>
               <Dropdown.Divider className="m-0" />
               <Dropdown.Item
@@ -121,16 +116,6 @@ const NavBar = ({ sync }) => {
         </div>
       </nav>
 
-      <SyncModal
-        show={openModal === "sync"}
-        onHide={closeModal}
-        syncCode={sync.syncCode}
-        lastSyncCode={sync.lastSyncCode}
-        onChangeCode={sync.setSyncCode}
-        status={sync.status}
-        onRetry={sync.retrySync}
-        liveStatus={sync.liveStatus}
-      />
       <InviteGuestsModal
         show={openModal === "invite"}
         onHide={closeModal}

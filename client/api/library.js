@@ -2,11 +2,10 @@
 // in MongoDB. The client sends its library; the server merges it with the
 // stored one (union by video id) and returns the result.
 import { readFlags } from "./flags.js";
+import { requireRoom } from "./_session.js";
 import {
   getCatalog,
   getRooms,
-  readSyncCode,
-  roomIdFor,
   slimVideo,
 } from "./_db.js";
 
@@ -138,13 +137,12 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
-  const code = readSyncCode(req);
-  if (!code) return res.status(401).json({ error: "Missing or too short sync code" });
-
   try {
+    const roomId = await requireRoom(req);
+    if (!roomId) return res.status(401).json({ error: "Not in a room" });
     const result = await handleLibrary(
       await getRooms(),
-      roomIdFor(code),
+      roomId,
       req.body,
       await getCatalog()
     );
