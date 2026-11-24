@@ -66,7 +66,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
   }, []);
   const online = useOnlineStatus();
   const { record: recordEmbeddable, youtubeOnlyIds } = useEmbeddableCache();
-  const { library, addToLibrary, syncCode, clearLibrary, removeFromLibrary } = libraryApi;
+  const { library, addToLibrary, syncCode, clearLibrary, removeFromLibrary, removeManyFromLibrary } = libraryApi;
   const searchAbortRef = useRef(null);
 
   useEffect(() => () => searchAbortRef.current?.abort(), []);
@@ -247,6 +247,15 @@ function Home({ libraryApi, roomName, onSignedOut }) {
     return ok;
   }, [clearLibrary]);
 
+  const handleDeleteMatches = useCallback(
+    (videos) => {
+      removeManyFromLibrary(videos.map((v) => v.id.videoId));
+      toast.success(`Deleted ${videos.length} ${videos.length === 1 ? "video" : "videos"}`);
+      return true;
+    },
+    [removeManyFromLibrary]
+  );
+
   const toggleRepeat = useCallback(() => setIsRepeat((repeat) => !repeat), [setIsRepeat]);
   const queuedIds = useMemo(() => new Set(queue.map((v) => v.id.videoId)), [queue]);
   const togglePaused = useCallback(
@@ -319,6 +328,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
           onAdd={addToQueue}
           onAddAll={addAllToQueue}
           onClearLibrary={handleClearLibrary}
+          onDeleteMatches={handleDeleteMatches}
           onRemove={removeFromLibrary}
           queuedIds={queuedIds}
           youtubeOnlyIds={youtubeOnlyIds}

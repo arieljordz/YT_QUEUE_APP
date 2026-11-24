@@ -4,6 +4,8 @@ import { mergeLibrary } from "../lib/library";
 import { clearRoomData } from "../lib/roomData";
 
 const SYNC_DELAY_MS = 2000;
+// The server takes at most this many removals per request; the rest follow in the next syncs.
+const REMOVALS_PER_SYNC = 500;
 
 /**
  * The library is every video the user has ever added to the queue. It is kept
@@ -96,11 +98,24 @@ export default function useLibrary() {
     [syncCode, setLibrary, setPendingRemovals]
   );
 
+  // Removes several videos at once (Delete all with a search: the matches).
+  const removeManyFromLibrary = useCallback(
+    (videoIds) => {
+      const gone = new Set(videoIds);
+      if (gone.size === 0) return;
+      setLibrary((prev) => prev.filter((v) => !gone.has(v.id.videoId)));
+      if (syncCode) {
+        setPendingRemovals((prev) => [...prev, ...[...gone].filter((id) => !prev.includes(id))]);
+      }
+    },
+    [syncCode, setLibrary, setPendingRemovals]
+  );
+
   const sync = useCallback(
     async (signal) => {
       setStatus("syncing");
       const sentLibrary = libraryRef.current;
-      const sentRemovals = pendingRef.current;
+      const sentRemovals = pendingRef.current.slice(0, REMOVALS_PER_SYNC);
       try {
         const response = await fetch("/api/library", {
           method: "POST",
@@ -204,5 +219,6 @@ export default function useLibrary() {
     retrySync,
     clearLibrary,
     removeFromLibrary,
+    removeManyFromLibrary,
   };
 }

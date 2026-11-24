@@ -73,9 +73,10 @@ export async function handleLibrary(rooms, roomId, body, catalog, flags) {
   const incoming = body?.library;
   const clientEpoch = body?.epoch;
   const clientSeq = Number.isInteger(body?.removalSeq) && body.removalSeq >= 0 ? body.removalSeq : 0;
-  // Removing single videos only counts while the Remove flag is on; otherwise the
-  // request is treated as if nothing had been removed (the video stays).
-  const removedNow = Array.isArray(body?.removed) && flags.removeButton
+  // Removing videos only counts while the Remove or Delete all flag is on (Delete
+  // all removes the videos matching the search); otherwise the request is
+  // treated as if nothing had been removed (the videos stay).
+  const removedNow = Array.isArray(body?.removed) && (flags.removeButton || flags.deleteAllButton)
     ? [...new Set(body.removed.filter((id) => typeof id === "string" && id && id.length <= 40))]
     : [];
   if (

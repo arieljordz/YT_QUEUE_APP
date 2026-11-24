@@ -13,8 +13,9 @@ const PAGE_SIZE = 100;
 
 const newDeleteCode = () => String(Math.floor(1000 + Math.random() * 9000));
 
-// Deleting the whole library needs a typed code, so it cannot happen by accident.
-function DeleteAllModal({ show, count, synced, onConfirm, onCancel }) {
+// Deleting needs a typed code, so it cannot happen by accident. With a search
+// (`query`) only the matching videos go; without one, the whole library.
+function DeleteAllModal({ show, count, query, synced, onConfirm, onCancel }) {
   const [code, setCode] = useState(newDeleteCode);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -34,12 +35,23 @@ function DeleteAllModal({ show, count, synced, onConfirm, onCancel }) {
   return (
     <Modal show={show} onHide={close} centered>
       <Modal.Header closeButton>
-        <Modal.Title as="h5">Delete the whole library?</Modal.Title>
+        <Modal.Title as="h5">
+          {query ? `Delete ${count} matching ${count === 1 ? "video" : "videos"}?` : "Delete the whole library?"}
+        </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <p>
-          This removes all {count} saved videos
-          {synced ? " from this device and from your sync code" : " from this browser"}.
+          {query ? (
+            <>
+              This removes the {count} {count === 1 ? "video" : "videos"} matching <strong>“{query}”</strong>
+              {synced ? " from this room's library" : " from this browser"}. The rest of your library stays.
+            </>
+          ) : (
+            <>
+              This removes all {count} saved videos
+              {synced ? " from this room's library" : " from this browser"}.
+            </>
+          )}{" "}
           It cannot be undone.
         </p>
         <label htmlFor="delete-code" className="form-label">
@@ -59,7 +71,7 @@ function DeleteAllModal({ show, count, synced, onConfirm, onCancel }) {
           Cancel
         </Button>
         <Button variant="danger" onClick={confirm} disabled={typed !== code || busy}>
-          {busy ? "Deleting…" : "Delete all"}
+          {busy ? "Deleting…" : query ? `Delete ${count}` : "Delete all"}
         </Button>
       </Modal.Footer>
     </Modal>
@@ -71,6 +83,7 @@ function Library({
   onAdd,
   onAddAll,
   onClearLibrary,
+  onDeleteMatches,
   onRemove,
   queuedIds,
   youtubeOnlyIds,
@@ -119,6 +132,23 @@ function Library({
     () => shown.filter((v) => !queuedIds.has(v.id.videoId)),
     [shown, queuedIds]
   );
+  // With a search, Delete all only deletes the saved videos it found ("Recently
+  // played" can show videos that are no longer in the library).
+  const query = filter.trim();
+  const deletable = useMemo(() => {
+    if (!query) return library;
+    const saved = new Set(library.map((v) => v.id.videoId));
+    return shown.filter((v) => saved.has(v.id.videoId));
+  }, [query, shown, library]);
+  // Kept while the dialog is open, so the list can't change under the user.
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const openDelete = () => {
+    setDeleteTarget(query ? { query, videos: deletable } : { query: "", videos: library });
+    setConfirmingDelete(true);
+  };
+  const confirmDelete = () =>
+    deleteTarget?.query ? onDeleteMatches(deleteTarget.videos) : onClearLibrary();
+
   // Large batches ask for confirmation first.
   const handleQueueAll = () => {
     if (queueable.length > 25) setConfirmingQueueAll(true);
@@ -195,13 +225,15 @@ function Library({
         {flags.deleteAllButton && (
           <button
             className="btn yq-btn-ghost-danger text-nowrap d-flex align-items-center gap-1"
-            onClick={() => setConfirmingDelete(true)}
-            disabled={library.length === 0}
-            title="Delete every saved video"
-            aria-label="Delete all"
+            onClick={openDelete}
+            disabled={deletable.length === 0}
+            title={query ? "Delete only the videos this search found" : "Delete every saved video"}
+            aria-label={query ? `Delete ${deletable.length} matching videos` : "Delete all"}
           >
             <FaTrash aria-hidden="true" />
-            <span className="d-none d-sm-inline">Delete all</span>
+            <span className="d-none d-sm-inline">
+              {query ? `Delete ${deletable.length}` : "Delete all"}
+            </span>
           </button>
         )}
       </div>
@@ -226,9 +258,10 @@ function Library({
       {flags.deleteAllButton && (
         <DeleteAllModal
           show={confirmingDelete}
-          count={library.length}
+          count={deleteTarget?.videos.length ?? 0}
+          query={deleteTarget?.query ?? ""}
           synced={Boolean(syncCode)}
-          onConfirm={onClearLibrary}
+          onConfirm={confirmDelete}
           onCancel={() => setConfirmingDelete(false)}
         />
       )}
