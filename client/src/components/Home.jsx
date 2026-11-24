@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import SearchBar from "./SearchBar";
+import { FaSearch } from "react-icons/fa";
 import AppTabs from "./AppTabs";
 import useOnlineStatus from "../hooks/useOnlineStatus";
 import { useEmbeddableCache } from "../hooks/useEmbeddable";
@@ -48,6 +49,7 @@ function Home({ libraryApi }) {
   const [playedVideos, setPlayedVideos] = useLocalStorage("playedVideos", []);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [lastQuery, setLastQuery] = useState("");
   const [details, setDetails] = useState(() => new Map());
   const [tab, setTab] = useState("library");
   const online = useOnlineStatus();
@@ -67,6 +69,7 @@ function Home({ libraryApi }) {
       const results = await searchVideos(query, controller.signal);
       setVideos(results);
       setHasSearched(true);
+      setLastQuery(query);
       // Length, views and whether it can play in the player tab (best effort).
       const fresh = await getVideoDetails(
         results.map((v) => v.id.videoId),
@@ -267,6 +270,11 @@ function Home({ libraryApi }) {
       {tab === "search" && (
         <>
           <SearchBar onSearch={handleSearch} isLoading={isSearching} />
+          {hasSearched && !isSearching && videos.length > 0 && (
+            <p className="lib-summary" aria-live="polite">
+              {videos.length} results for “{lastQuery}”
+            </p>
+          )}
           <VideoList
             videos={videos}
             queuedIds={queuedIds}
@@ -274,6 +282,9 @@ function Home({ libraryApi }) {
             onAdd={addFromSearch}
             isLoading={isSearching}
             hasSearched={hasSearched}
+            emptyIcon={<FaSearch aria-hidden="true" />}
+            emptyTitle="No results"
+            emptyText={`Nothing found for “${lastQuery}”. Try other words or the artist's name.`}
           />
         </>
       )}

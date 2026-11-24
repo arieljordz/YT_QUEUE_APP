@@ -11,26 +11,27 @@ function SearchBar({ onSearch, isLoading }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="input-group">
-      <input
-        type="search"
-        className="form-control"
-        placeholder="Search YouTube..."
-        aria-label="Search YouTube"
-        value={term}
-        onChange={(e) => setTerm(e.target.value)}
-        autoFocus
-      />
+    <form onSubmit={handleSubmit} className="search-bar" role="search">
+      <div className="lib-search">
+        <FaSearch aria-hidden="true" />
+        <input
+          type="search"
+          className="form-control"
+          placeholder="Search YouTube for a song, artist or karaoke"
+          aria-label="Search YouTube"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          autoFocus
+        />
+      </div>
       <button
-        className="btn btn-primary d-flex align-items-center gap-2"
+        className="btn yq-btn-primary d-flex align-items-center justify-content-center gap-2"
         type="submit"
         disabled={isLoading || !term.trim()}
       >
         {isLoading ? (
           <span className="spinner-border spinner-border-sm" aria-hidden="true" />
-        ) : (
-          <FaSearch aria-hidden="true" />
-        )}
+        ) : null}
         Search
       </button>
     </form>

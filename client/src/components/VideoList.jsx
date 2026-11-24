@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { FaTrash, FaStar, FaRegStar } from "react-icons/fa";
+import { FaTrash, FaStar, FaRegStar, FaYoutube } from "react-icons/fa";
 import { MdPlaylistAdd } from "react-icons/md";
 import { describeVideo } from "../lib/format";
 import YoutubeOnlyBadge from "./YoutubeOnlyBadge";
@@ -23,13 +23,28 @@ function VideoList({
   const [confirmId, setConfirmId] = useState(null);
 
   if (isLoading) {
-    return <p className="text-muted text-center my-4">Searching…</p>;
+    // Placeholder rows in the shape of the results, while searching.
+    return (
+      <ul className="yq-list mt-3" aria-busy="true" aria-label="Searching">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <li key={i} className="yq-row yq-skeleton" aria-hidden="true">
+            <span className="result-thumb sk-block" />
+            <span className="flex-grow-1">
+              <span className="sk-line" style={{ width: `${70 - i * 6}%` }} />
+              <span className="sk-line sk-short" />
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
   }
   if (!hasSearched) {
     return (
-      <p className="text-muted text-center my-4">
-        Search for a song or video, then press Queue to line it up.
-      </p>
+      <div className="yq-empty">
+        <FaYoutube aria-hidden="true" />
+        <div className="yq-empty-title">Find something to play</div>
+        <div>Search YouTube, then press Queue to line it up.</div>
+      </div>
     );
   }
   if (videos.length === 0) {
