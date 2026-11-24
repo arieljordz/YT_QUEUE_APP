@@ -11,7 +11,11 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { getRooms, readSyncCode, roomIdFor } from "./_db.js";
 
-export const DEFAULT_FLAGS = { removeButton: false, deleteAllButton: false };
+export const DEFAULT_FLAGS = {
+  removeButton: false,
+  deleteAllButton: false,
+  deleteListButton: false,
+};
 const MIN_PASSWORD = 6;
 const MAX_PASSWORD = 100;
 

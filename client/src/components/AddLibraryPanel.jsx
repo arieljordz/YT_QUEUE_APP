@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "react-toastify";
 import { FaBookOpen, FaCheck, FaTrash } from "react-icons/fa";
 import useLocalStorage from "../hooks/useLocalStorage";
+import useFeatureFlags from "../hooks/useFeatureFlags";
 import { mergeLibrary } from "../lib/library";
 import { deleteCatalog, getCatalogVideos, listCatalogs } from "../api/catalog";
 
@@ -11,6 +12,7 @@ import { deleteCatalog, getCatalogVideos, listCatalogs } from "../api/catalog";
  */
 export default function AddLibraryPanel() {
   const [syncCode] = useLocalStorage("syncCode", "");
+  const { flags } = useFeatureFlags();
   const [library, setLibrary] = useLocalStorage("videoLibrary", []);
   const libraryIds = useMemo(() => new Set(library.map((v) => v.id.videoId)), [library]);
 
@@ -136,7 +138,7 @@ export default function AddLibraryPanel() {
                       : "Add to library"}
                 </button>
               )}
-              {mine && (
+              {mine && flags.deleteListButton && (
                 <button
                   className={`btn btn-sm d-flex align-items-center gap-1 ${
                     confirmDelete === name ? "btn-danger" : "btn-outline-danger"

@@ -12,7 +12,8 @@
 //                                        (ids = the video ids in the list; mine =
 //                                         this room imported part of it)
 //   GET    /api/catalog?name=X        -> { videos: [...] }
-//   DELETE /api/catalog?name=X        -> { deleted }   (this room's part only)
+//   DELETE /api/catalog?name=X        -> { deleted }   (this room's part only; needs the
+//                                        "deleteListButton" feature flag)
 //   POST   /api/catalog { save: video } -> adds one video to the "My Searches" list
 //   POST   /api/catalog               -> collects ONE page (50) of YouTube
 //          { name, channel?, channelId?, title?, pageToken?, offset?, any? }
@@ -21,10 +22,12 @@
 //          -> { fetched, added, nextPageToken?, channelId?, channelTitle? }
 //     The browser calls POST repeatedly until it has enough videos, so no
 //     single request runs long.
+import { readFlags } from "./flags.js";
 import {
   SEARCHES_LIST,
   decodeEntities,
   getCatalog,
+  getRooms,
   isSearchesList,
   readSyncCode,
   roomIdFor,
@@ -101,7 +104,9 @@ export async function handleList(catalog, owner, query) {
   return { status: 200, body: { videos } };
 }
 
-export async function handleDelete(catalog, owner, query) {
+export async function handleDelete(catalog, owner, query, flags) {
+  // Deleting a saved list needs its feature flag (see flags.js) to be on for the room.
+  if (!flags?.deleteListButton) return fail(403, "Deleting saved lists is turned off");
   const name = cleanName(query?.name);
   if (!name) return fail(400, "Missing list name");
   const result = await catalog.deleteMany({ owner, catalog: name });
@@ -227,7 +232,10 @@ export default async function handler(req, res) {
 
     let result;
     if (req.method === "GET") result = await handleList(catalog, owner, req.query);
-    else if (req.method === "DELETE") result = await handleDelete(catalog, owner, req.query);
+    else if (req.method === "DELETE") {
+      const room = await (await getRooms()).findOne({ _id: owner }, { projection: { flags: 1 } });
+      result = await handleDelete(catalog, owner, req.query, readFlags(room));
+    }
     else if (req.method === "POST") {
       const apiKey = process.env.YT_API_KEY || process.env.VITE_YT_API_KEY;
       result =

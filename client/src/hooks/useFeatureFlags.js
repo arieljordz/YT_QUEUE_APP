@@ -5,6 +5,7 @@ import useLocalStorage from "./useLocalStorage";
 export const FEATURE_FLAGS = {
   removeButton: false,
   deleteAllButton: false,
+  deleteListButton: false,
 };
 
 const REFRESH_MS = 30000;

@@ -110,6 +110,14 @@ export default function FeatureFlagsModal({ show, onHide, darkMode, onToggleThem
           disabled={needsPassword || saving}
           onChange={(on) => change("deleteAllButton", on)}
         />
+        <Flag
+          id="flag-delete-list"
+          label="Add Library: Delete list button"
+          description="Show the trash button on each saved list in Add Library."
+          checked={flags.deleteListButton}
+          disabled={needsPassword || saving}
+          onChange={(on) => change("deleteListButton", on)}
+        />
       </Modal.Body>
       <Modal.Footer>
         <Button variant="secondary" onClick={close}>
