@@ -14,9 +14,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/logo-v2.svg', 'icons/favicon-32-v2.png', 'icons/apple-touch-icon-v2.png'],
       manifest: {
-        name: 'YouTube Queueing App',
-        short_name: 'YT Queue',
-        description: 'Queue YouTube videos and songs, search while they play, and share the queue with friends.',
+        name: 'QueueUp',
+        short_name: 'QueueUp',
+        description: 'Line up songs and videos in your own room, search while they play, and play them on one screen.',
         start_url: '/',
         scope: '/',
         display: 'standalone',

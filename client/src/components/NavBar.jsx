@@ -41,7 +41,7 @@ const NavBar = ({ sync }) => {
         className={`navbar navbar-expand-lg ${darkMode ? "bg-light" : "bg-dark"} px-3 py-1`}
       >
         <span className="navbar-brand py-0 fs-6 d-flex align-items-center gap-2">
-          <AppLogo size={22} /> YT Queue
+          <AppLogo size={22} /> QueueUp
         </span>
 
         <div className="ms-auto d-flex align-items-center gap-2">

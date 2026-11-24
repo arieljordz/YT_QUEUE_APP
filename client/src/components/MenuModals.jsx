@@ -21,7 +21,7 @@ export function InviteModal({ show, onHide }) {
 
   const share = async () => {
     try {
-      await navigator.share({ title: "YouTube Queueing App", url });
+      await navigator.share({ title: "QueueUp", url });
     } catch {
       // cancelled by the user
     }

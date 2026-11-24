@@ -68,7 +68,7 @@ export default function PinEntry({ room, onBack, onEntered, onMissing }) {
     <main className="room-screen">
       <header className="room-brand">
         <AppLogo size={48} />
-        <span>YT Queue</span>
+        <span>QueueUp</span>
       </header>
       <form className="pin-panel" onSubmit={submit}>
         <Avatar avatar={room.avatar} size={56} />

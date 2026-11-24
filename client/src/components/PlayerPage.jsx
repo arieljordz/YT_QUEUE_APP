@@ -44,7 +44,7 @@ function PlayerPage({ roomName, onSignedOut }) {
     const decoded = title ? decodeHtml(title) : null;
     document.title = decoded ? `▶ ${decoded} · ${room}` : `${room} · Player`;
     return () => {
-      document.title = "YouTube Queueing App";
+      document.title = "QueueUp";
     };
   }, [title, room]);
 

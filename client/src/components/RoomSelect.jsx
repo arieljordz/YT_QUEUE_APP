@@ -69,7 +69,7 @@ export default function RoomSelect({ onSelect, notice }) {
     <main className="room-screen">
       <header className="room-brand">
         <AppLogo size={48} />
-        <span>YT Queue</span>
+        <span>QueueUp</span>
       </header>
       <h1 className="room-heading">{managing ? "Manage Rooms" : "Who's Watching?"}</h1>
       {notice && !managing && <p className="room-notice" role="alert">{notice}</p>}
