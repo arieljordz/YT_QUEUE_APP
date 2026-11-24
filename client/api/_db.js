@@ -1,7 +1,6 @@
 /* global process */
 // Shared MongoDB helpers for the serverless functions. The file name starts
 // with "_" so Vercel does not expose it as an endpoint.
-import { createHash } from "node:crypto";
 import { MongoClient } from "mongodb";
 
 // The saved list that holds videos the user found with Search and queued one by one.
@@ -19,7 +18,7 @@ export async function getDb() {
   return client.db(process.env.MONGODB_DB || "yt_queue-db");
 }
 
-/** Per-sync-code state (queue, library). */
+/** The rooms (each room's queue, library, PIN hash). */
 export async function getRooms() {
   return (await getDb()).collection("rooms");
 }
@@ -27,11 +26,6 @@ export async function getRooms() {
 /** Shared catalogs of videos (for example karaoke lists), one document per video. */
 export async function getCatalog() {
   return (await getDb()).collection("catalog_videos");
-}
-
-/** Legacy room id = hash of the old sync code. Only used by the migration script. */
-export function roomIdFor(code) {
-  return createHash("sha256").update(code).digest("hex");
 }
 
 // Keep only what the UI needs so documents stay small. Titles are stored as
