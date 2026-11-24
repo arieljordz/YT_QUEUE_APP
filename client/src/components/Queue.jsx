@@ -11,6 +11,7 @@ import {
   FaRedo,
   FaRedoAlt,
   FaRandom,
+  FaListUl,
 } from "react-icons/fa";
 
 // Entries saved before queueIds existed fall back to a videoId+index key.
@@ -20,60 +21,83 @@ const thumbOf = (video) => {
   return (thumbnails.medium ?? thumbnails.default).url;
 };
 
+/** The video playing now, with Pause / Repeat / Shuffle / Next. */
 const NowPlaying = memo(function NowPlaying({
   video,
   isPaused,
   isRepeat,
+  canShuffle,
   onTogglePause,
   onToggleRepeat,
+  onShuffle,
   onSkip,
   youtubeOnly,
 }) {
   return (
-    <div className="card mb-3 border-primary">
-      <div className="card-body d-flex flex-wrap align-items-center gap-3">
-        <img src={thumbOf(video)} alt="" className="result-thumb rounded" />
-        <div className="now-playing-info min-w-0">
-          <small className="text-primary text-uppercase fw-bold">
+    <div className="now-card">
+      <div className="now-media">
+        <img src={thumbOf(video)} alt="" className="now-thumb" />
+        <div className="now-info min-w-0">
+          <div className="now-label">
+            {!isPaused && (
+              <span className="eq" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+            )}
             {isPaused ? "Paused" : "Now playing"}
-            {isRepeat && " · Repeat on"}
-          </small>
-          <div className="fw-semibold text-truncate-2" title={video.snippet.title}>
+            {isRepeat && <span className="now-repeat">· Repeat on</span>}
+          </div>
+          <div className="now-title text-truncate-2" title={video.snippet.title}>
             {video.snippet.title}
           </div>
-          {youtubeOnly && <YoutubeOnlyBadge />}
+          {video.snippet.channelTitle && <div className="yq-meta">{video.snippet.channelTitle}</div>}
+          {youtubeOnly && (
+            <div className="mt-1">
+              <YoutubeOnlyBadge />
+            </div>
+          )}
         </div>
-        <div className="d-flex gap-1 queue-actions">
-          <button
-            className="btn btn-sm btn-primary now-action"
-            onClick={onTogglePause}
-            aria-label={isPaused ? "Resume" : "Pause"}
-          >
-            {isPaused ? <FaPlay aria-hidden="true" /> : <FaPause aria-hidden="true" />}
-            <span>{isPaused ? "Resume" : "Pause"}</span>
-          </button>
-          <button
-            className={`btn btn-sm now-action ${
-              isRepeat ? "btn-success" : "btn-outline-secondary"
-            }`}
-            onClick={onToggleRepeat}
-            aria-label={isRepeat ? "Turn repeat off" : "Turn repeat on"}
-            aria-pressed={isRepeat}
-            title={isRepeat ? "Repeat is on" : "Repeat this video"}
-          >
-            <FaRedoAlt aria-hidden="true" />
-            <span>Repeat</span>
-          </button>
-          <button
-            className="btn btn-sm btn-outline-primary now-action"
-            onClick={onSkip}
-            aria-label="Skip to the next video"
-            title="Skip to the next video"
-          >
-            <FaStepForward aria-hidden="true" />
-            <span>Next</span>
-          </button>
-        </div>
+      </div>
+      <div className="now-controls" role="group" aria-label="Playback">
+        <button
+          className="btn yq-btn-primary now-btn"
+          onClick={onTogglePause}
+          aria-label={isPaused ? "Resume" : "Pause"}
+        >
+          {isPaused ? <FaPlay aria-hidden="true" /> : <FaPause aria-hidden="true" />}
+          <span>{isPaused ? "Resume" : "Pause"}</span>
+        </button>
+        <button
+          className={`btn now-btn yq-btn-toggle${isRepeat ? " active" : ""}`}
+          onClick={onToggleRepeat}
+          aria-label={isRepeat ? "Turn repeat off" : "Turn repeat on"}
+          aria-pressed={isRepeat}
+          title={isRepeat ? "Repeat is on" : "Repeat this video"}
+        >
+          <FaRedoAlt aria-hidden="true" />
+          <span>Repeat</span>
+        </button>
+        <button
+          className="btn now-btn yq-btn-toggle"
+          onClick={onShuffle}
+          disabled={!canShuffle}
+          aria-label="Shuffle the songs up next"
+          title={canShuffle ? "Mix up the songs that are coming next" : "Needs at least 2 songs up next"}
+        >
+          <FaRandom aria-hidden="true" />
+          <span>Shuffle</span>
+        </button>
+        <button
+          className="btn now-btn yq-btn-toggle"
+          onClick={onSkip}
+          aria-label="Skip to the next video"
+          title="Skip to the next video"
+        >
+          <FaStepForward aria-hidden="true" />
+          <span>Next</span>
+        </button>
       </div>
     </div>
   );
@@ -83,31 +107,34 @@ const NowPlaying = memo(function NowPlaying({
 const UpNextItem = memo(function UpNextItem({ video, index, onPlay, onRemove, youtubeOnly }) {
   return (
     <Draggable draggableId={getItemId(video, index)} index={index - 1}>
-      {(provided) => (
+      {(provided, snapshot) => (
         <li
-          className="list-group-item d-flex flex-wrap align-items-center gap-2"
+          className={`yq-row queue-row${snapshot.isDragging ? " is-dragging" : ""}`}
           ref={provided.innerRef}
           {...provided.draggableProps}
         >
           <span
-            className="drag-handle text-muted"
+            className="drag-handle"
             title="Drag to reorder"
             aria-label="Drag to reorder"
             {...provided.dragHandleProps}
           >
             <FaGripVertical />
           </span>
-          <span className="text-muted small queue-position">{index}</span>
-          <img src={thumbOf(video)} alt="" className="queue-thumb rounded" />
-          <div className="up-next-title min-w-0">
-            <span className="text-truncate-2 d-block" title={video.snippet.title}>
+          <span className="queue-position">{index}</span>
+          <img src={thumbOf(video)} alt="" className="queue-thumb" loading="lazy" />
+          <div className="flex-grow-1 min-w-0">
+            <div className="yq-title text-truncate-2" title={video.snippet.title}>
               {video.snippet.title}
-            </span>
+            </div>
+            {video.snippet.channelTitle && (
+              <div className="yq-meta text-truncate">{video.snippet.channelTitle}</div>
+            )}
             {youtubeOnly && <YoutubeOnlyBadge />}
           </div>
           <div className="d-flex gap-1 flex-shrink-0">
             <button
-              className="btn btn-sm btn-primary row-action d-flex align-items-center justify-content-center gap-1"
+              className="btn btn-sm yq-btn-primary row-action d-flex align-items-center justify-content-center gap-1"
               onClick={() => onPlay(index)}
               aria-label={`Play ${video.snippet.title} now`}
               title="Play now"
@@ -116,7 +143,7 @@ const UpNextItem = memo(function UpNextItem({ video, index, onPlay, onRemove, yo
               <span className="d-none d-sm-inline">Play now</span>
             </button>
             <button
-              className="btn btn-sm btn-outline-danger row-action d-flex align-items-center justify-content-center gap-1"
+              className="btn btn-sm yq-btn-ghost-danger row-action d-flex align-items-center justify-content-center gap-1"
               onClick={() => onRemove(index)}
               aria-label={`Remove ${video.snippet.title} from the queue`}
               title="Remove from queue"
@@ -203,77 +230,83 @@ function Queue({
     setConfirmingClear(false);
   };
 
+  const requeueButton = (primary) => (
+    <button
+      className={`btn btn-sm ${primary ? "yq-btn-primary" : "yq-btn-toggle"} d-flex align-items-center gap-1`}
+      onClick={onRequeuePlayed}
+      disabled={playedCount === 0}
+      title="Add the songs that already played to the end of the queue"
+    >
+      <FaRedo aria-hidden="true" />
+      <span className={primary ? "" : "d-none d-sm-inline"}>Re-queue played</span>
+      <span className={primary ? "d-none" : "d-sm-none"}>Re-queue</span>
+      {playedCount > 0 && <span className="yq-count">{playedCount}</span>}
+    </button>
+  );
+
   return (
     <section>
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <div className="d-flex gap-2 flex-wrap">
-          <button
-            className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
-            onClick={onShuffle}
-            disabled={upNext.length < 2}
-            title="Mix up the songs that are coming next"
-          >
-            <FaRandom aria-hidden="true" /> Shuffle
-          </button>
-          <button
-            className="btn btn-sm btn-outline-warning d-flex align-items-center gap-1"
-            onClick={onRequeuePlayed}
-            disabled={playedCount === 0}
-          >
-            <FaRedo /> Re-queue played{playedCount > 0 && ` (${playedCount})`}
-          </button>
-          <button
-            className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
-            onClick={() => setConfirmingClear(true)}
-            disabled={queue.length === 0}
-          >
-            <FaTrash /> Clear
-          </button>
-        </div>
-      </div>
-
       {!current ? (
-        <p className="text-muted text-center my-4">
-          The queue is empty. Add videos from the search results.
-        </p>
+        <div className="yq-empty">
+          <FaListUl aria-hidden="true" />
+          <div className="yq-empty-title">The queue is empty</div>
+          <div>Add videos from Search or your Library.</div>
+          {playedCount > 0 && <div className="d-flex justify-content-center mt-3">{requeueButton(true)}</div>}
+        </div>
       ) : (
-        <NowPlaying
-          video={current}
-          isPaused={isPaused}
-          isRepeat={isRepeat}
-          onTogglePause={onTogglePause}
-          onToggleRepeat={onToggleRepeat}
-          onSkip={onSkip}
-          youtubeOnly={youtubeOnlyIds?.has(current.id.videoId)}
-        />
-      )}
-
-      {upNext.length > 0 && (
         <>
-          <h6 className="text-muted text-uppercase small">Up next</h6>
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="video-queue">
-              {(provided) => (
-                <ul
-                  className="list-group"
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                >
-                  {upNext.map((video, i) => (
-                    <UpNextItem
-                      key={getItemId(video, i + 1)}
-                      video={video}
-                      index={i + 1}
-                      onPlay={onPlay}
-                      onRemove={handleRequestRemove}
-                      youtubeOnly={youtubeOnlyIds?.has(video.id.videoId)}
-                    />
-                  ))}
-                  {provided.placeholder}
-                </ul>
-              )}
-            </Droppable>
-          </DragDropContext>
+          <NowPlaying
+            video={current}
+            isPaused={isPaused}
+            isRepeat={isRepeat}
+            canShuffle={upNext.length >= 2}
+            onTogglePause={onTogglePause}
+            onToggleRepeat={onToggleRepeat}
+            onShuffle={onShuffle}
+            onSkip={onSkip}
+            youtubeOnly={youtubeOnlyIds?.has(current.id.videoId)}
+          />
+
+          {/* Actions for the whole list sit on the list's own header. */}
+          <div className="queue-header">
+            <h2 className="queue-heading">
+              Up next <span className="lib-chip-count">{upNext.length}</span>
+            </h2>
+            <div className="queue-header-actions">
+              {requeueButton(false)}
+              <button
+                className="btn btn-sm yq-btn-ghost-danger d-flex align-items-center gap-1"
+                onClick={() => setConfirmingClear(true)}
+                title="Remove every video from the queue"
+              >
+                <FaTrash aria-hidden="true" /> <span>Clear</span>
+              </button>
+            </div>
+          </div>
+
+          {upNext.length === 0 ? (
+            <p className="lib-summary text-center my-3">Nothing up next. Add more from Search or your Library.</p>
+          ) : (
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="video-queue">
+                {(provided) => (
+                  <ul className="yq-list" ref={provided.innerRef} {...provided.droppableProps}>
+                    {upNext.map((video, i) => (
+                      <UpNextItem
+                        key={getItemId(video, i + 1)}
+                        video={video}
+                        index={i + 1}
+                        onPlay={onPlay}
+                        onRemove={handleRequestRemove}
+                        youtubeOnly={youtubeOnlyIds?.has(video.id.videoId)}
+                      />
+                    ))}
+                    {provided.placeholder}
+                  </ul>
+                )}
+              </Droppable>
+            </DragDropContext>
+          )}
         </>
       )}
 
