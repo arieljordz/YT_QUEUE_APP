@@ -939,3 +939,6 @@
   color: var(--yq-text);
 }
 .app-header #dropdown-gear:hover { background: var(--yq-hover); }
+/* Just the burger: no Bootstrap dropdown caret beside it. */
+.app-header #dropdown-gear::after { display: none; }
+.app-header .navbar-brand { letter-spacing: -0.02em; }
