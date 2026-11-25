@@ -65,7 +65,8 @@ export async function handleQueue(rooms, roomId, body, now = Date.now()) {
     const result = await rooms.findOneAndUpdate(
       { _id: roomId },
       { $set: { ...state, updatedAt: new Date() }, $unset: { played: "" }, $inc: { rev: 1 } },
-      { upsert: true, returnDocument: "after" }
+      // Only the new rev comes back: the whole room (with its library) can be megabytes.
+      { upsert: true, returnDocument: "after", projection: { rev: 1 } }
     );
     return { status: 200, body: { rev: result?.rev ?? 1 } };
   }

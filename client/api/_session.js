@@ -106,14 +106,19 @@ export async function countOnline(presence, now = Date.now()) {
   return Object.fromEntries(rows.map((r) => [r._id, r.n]));
 }
 
+/**
+ * The room fields the room screens need. A room document also holds its whole
+ * library (thousands of videos, megabytes), so every read that does not need
+ * the library must use this projection, or it can take longer than the
+ * function's 10-second limit.
+ */
+export const ROOM_FIELDS = { name: 1, avatar: 1, slot: 1, description: 1, pinAuth: 1 };
+
 /** Public list: no secrets. Connected-device counts when `presence` is given. */
 export async function listRooms(rooms, presence) {
   await ensureDefaultRooms(rooms);
   const docs = await rooms
-    .find(
-      { slot: { $exists: true } },
-      { projection: { name: 1, avatar: 1, slot: 1, description: 1, pinAuth: 1 } }
-    )
+    .find({ slot: { $exists: true } }, { projection: ROOM_FIELDS })
     .toArray();
   const online = presence ? await countOnline(presence) : {};
   return docs.sort((a, b) => a.slot - b.slot).map((d) => ({ ...publicRoom(d), online: online[d._id] ?? 0 }));
@@ -193,7 +198,7 @@ export async function enterRoom({ rooms, sessions, attempts }, { roomId, pin, ip
   if (typeof roomId !== "string" || !isValidPin(pin)) {
     return { status: 400, body: { error: "Enter your 4-digit PIN" } };
   }
-  const room = await rooms.findOne({ _id: roomId, slot: { $exists: true } });
+  const room = await rooms.findOne({ _id: roomId, slot: { $exists: true } }, { projection: ROOM_FIELDS });
   if (!room) return missingRoom;
   if (!room.pinAuth) {
     return { status: 403, body: { error: "This room has no PIN set yet" } };
@@ -220,7 +225,7 @@ export async function resolveSession({ rooms, sessions }, token, now = Date.now(
   if (typeof token !== "string" || token.length < 32) return null;
   const session = await sessions.findOne({ _id: sha256(token) });
   if (!session || new Date(session.expiresAt).getTime() <= now) return null;
-  const room = await rooms.findOne({ _id: session.roomId, slot: { $exists: true } });
+  const room = await rooms.findOne({ _id: session.roomId, slot: { $exists: true } }, { projection: { _id: 1 } });
   return room ? session.roomId : null;
 }
 

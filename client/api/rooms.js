@@ -13,6 +13,7 @@ import { requireAdmin } from "./_admin.js";
 import { createRoom, deleteRoom, updateRoom } from "./_manage.js";
 import { claimPlayer, isPlayerId, releasePlayer } from "./_player.js";
 import {
+  ROOM_FIELDS,
   publicRoom,
   clientIp,
   enterRoom,
@@ -77,7 +78,7 @@ export default async function handler(req, res) {
     if (action === "me") {
       const roomId = await resolveSession(cols, token);
       if (!roomId) return res.status(401).json({ error: "No session" });
-      const room = await cols.rooms.findOne({ _id: roomId });
+      const room = await cols.rooms.findOne({ _id: roomId }, { projection: ROOM_FIELDS });
       return res.status(200).json({ room: publicRoom(room) });
     }
     if (action === "player") {

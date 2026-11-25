@@ -2,7 +2,7 @@
 // Only the admin can do any of it: the endpoint checks the admin session
 // (see _admin.js) before calling these. Room PINs only let people into a room.
 import { SEARCHES_LIST } from "./_db.js";
-import { AVATARS, ROOM_COUNT, hashPin, isValidPin, missingRoom, newRoomDoc, pinMatches, publicRoom } from "./_session.js";
+import { AVATARS, ROOM_COUNT, ROOM_FIELDS, hashPin, isValidPin, missingRoom, newRoomDoc, pinMatches, publicRoom } from "./_session.js";
 
 export const MAX_NAME = 30;
 export const MAX_DESCRIPTION = 80;
@@ -68,7 +68,7 @@ export async function createRoom({ rooms }, input) {
 
 async function findRoom(rooms, roomId) {
   if (typeof roomId !== "string") return null;
-  return rooms.findOne({ _id: roomId, slot: { $exists: true } });
+  return rooms.findOne({ _id: roomId, slot: { $exists: true } }, { projection: ROOM_FIELDS });
 }
 
 /** Edits a room. A new PIN signs every device out of that room. */
