@@ -87,6 +87,13 @@ export const notify = {
     flagFailed: (err) => toast.error(errorText(err)),
   },
 
+  external: {
+    tabMayBeOpen: () =>
+      toast.info("The queue moved on. The YouTube tab may still be open; close it there.", {
+        toastId: "external-tab-open",
+      }),
+  },
+
   share: {
     linkCopied: () => toast.success("Link copied"),
     copyFailed: () => toast.error("Could not copy. Select the link and copy it."),

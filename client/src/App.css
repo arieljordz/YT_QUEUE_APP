@@ -39,6 +39,46 @@
   pointer-events: none;
 }
 
+/* Covers the player while the queue is at a video that only plays on youtube.com. */
+.external-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1.25rem 1rem;
+  overflow-y: auto;
+  text-align: center;
+  background: #141414;
+  color: #fff;
+}
+.external-title {
+  font-size: clamp(1.1rem, 3.5vw, 1.5rem);
+  font-weight: 700;
+  margin: 0;
+  max-width: 36rem;
+}
+.external-text {
+  color: #a3a3a3;
+  margin: 0;
+  max-width: 32rem;
+}
+.external-warning {
+  color: #ffb4b4;
+  margin: 0;
+  max-width: 32rem;
+}
+.external-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
 /* Shown only if the browser blocked autoplay; any click starts the video. */
 .tap-hint {
   position: absolute;
