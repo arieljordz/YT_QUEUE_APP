@@ -4,6 +4,10 @@ import { LOCAL_CHANGE_EVENT } from "../hooks/useLocalStorage";
 // library, queue and set of flags). Settings like the theme are not included.
 const ROOM_DATA = {
   videoLibrary: [],
+  // Where this device is in the room's library changes (see useLibrary).
+  librarySince: null,
+  librarySyncedIds: [],
+  libraryRemovals: [],
   videoQueue: [],
   isPaused: false,
   featureFlags: {},

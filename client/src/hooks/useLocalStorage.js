@@ -20,12 +20,17 @@ export default function useLocalStorage(key, initialValue) {
   const [value, setValue] = useState(() => readStorage(key, initialValue));
 
   const initialRef = useRef(initialValue);
+  // What this hook last wrote. Its own write announcing itself must not reload
+  // the state: a newer update may already be queued, and reloading the older
+  // stored value would undo it.
+  const writtenRef = useRef(null);
 
   // Pick up writes made by other tabs and by other hooks in this tab, so every
   // view of the queue stays in step.
   useEffect(() => {
     const reload = () => {
       const raw = localStorage.getItem(key);
+      if (raw === writtenRef.current) return;
       setValue((prev) =>
         JSON.stringify(prev) === raw ? prev : readStorage(key, initialRef.current)
       );
@@ -47,6 +52,7 @@ export default function useLocalStorage(key, initialValue) {
   useEffect(() => {
     try {
       const raw = JSON.stringify(value);
+      writtenRef.current = raw;
       // Nothing to write (for example on mount, when the state was just read from
       // storage). Announcing it anyway made other hooks reload and drop a change
       // they had not applied yet.

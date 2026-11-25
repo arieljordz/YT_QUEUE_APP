@@ -1,21 +1,48 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import useLocalStorage from "./useLocalStorage";
-import { mergeLibrary } from "../lib/library";
+import { mergeLibrary, slimVideo } from "../lib/library";
 import { clearRoomData } from "../lib/roomData";
 
 const SYNC_DELAY_MS = 2000;
-// The server takes at most this many removals per request; the rest follow in the next syncs.
-const REMOVALS_PER_SYNC = 500;
+// While the tab is visible, other devices' changes are picked up this often.
+const POLL_MS = 60 * 1000;
+// The server takes at most this many adds and removals per request; the rest
+// follow in the next requests of the same sync.
+const PER_REQUEST = 500;
+const MAX_ROUNDS = 200;
+
+/**
+ * Applies the server's changes to a library: removals drop the video, videos
+ * are added (or replaced in place). `hidden` are videos removed on this device
+ * that the server has not heard about yet.
+ */
+function applyChanges(library, changes, hidden) {
+  if (changes.length === 0) return library;
+  const byId = new Map(library.map((v) => [v.id.videoId, v]));
+  for (const change of changes) {
+    if (change.removed) {
+      byId.delete(change.id);
+    } else {
+      const video = slimVideo(change.video);
+      if (video && !hidden.has(video.id.videoId)) byId.set(video.id.videoId, video);
+    }
+  }
+  return [...byId.values()];
+}
 
 /**
  * The library is every video the user has ever added to the queue. It is kept
- * in localStorage and, when a sync code is set, merged with a copy stored on
- * the server (/api/library) so every device ends up with the same list.
+ * in localStorage and, in a room, synced with the room's copy on the server
+ * (/api/library) so every device ends up with the same list.
  *
- * Merging is a union, so videos are never lost. Only "clear everything" is
- * supported; it empties the server copy first, because a merge would otherwise
- * bring the videos straight back. Other devices that still hold their own copy
- * will upload it again the next time they sync.
+ * Only changes travel: this device sends the videos the server does not have
+ * yet (`librarySyncedIds` = what the server is known to have) and its removals,
+ * and gets back what changed since its last sync (`librarySince`), a page at a
+ * time. A device that never synced downloads the whole library in pages.
+ *
+ * Merging is a union, so videos are never lost. "Delete all" empties the server
+ * copy first and bumps the room's epoch, which makes every other device drop
+ * its copy and download the (now empty) library again.
  */
 export default function useLibrary() {
   const [library, setLibrary] = useLocalStorage("videoLibrary", []);
@@ -31,18 +58,32 @@ export default function useLibrary() {
   useEffect(() => {
     if (syncCode && !lastSyncCode) setLastSyncCode(syncCode);
   }, [syncCode, lastSyncCode, setLastSyncCode]);
+
   // The deletion epoch this device last saw (null = never synced with epochs).
   const [epoch, setEpoch] = useLocalStorage("libraryEpoch", null);
+  // The last change this device has (null = never synced in this format).
+  const [since, setSince] = useLocalStorage("librarySince", null);
+  // Videos the server is known to have; the rest of the library is still to send.
+  const [syncedIds, setSyncedIds] = useLocalStorage("librarySyncedIds", []);
+  // Videos removed on this device that the server has not heard about yet.
+  const [pendingRemovals, setPendingRemovals] = useLocalStorage("libraryRemovals", []);
+
+  const libraryRef = useRef(library);
+  libraryRef.current = library;
   const epochRef = useRef(epoch);
   epochRef.current = epoch;
-  // Number of single-video removals this device has seen, and removals not yet
-  // reported to the server.
-  const [removalSeq, setRemovalSeq] = useLocalStorage("libraryRemovalSeq", 0);
-  const [pendingRemovals, setPendingRemovals] = useLocalStorage("libraryRemovals", []);
-  const removalSeqRef = useRef(removalSeq);
-  removalSeqRef.current = removalSeq;
+  const sinceRef = useRef(since);
+  sinceRef.current = since;
+  const knownRef = useRef(null);
+  const known = useMemo(() => new Set(syncedIds), [syncedIds]);
+  knownRef.current = known;
   const pendingRef = useRef(pendingRemovals);
   pendingRef.current = pendingRemovals;
+
+  const unsentCount = useMemo(
+    () => library.reduce((n, v) => (known.has(v.id.videoId) ? n : n + 1), 0),
+    [library, known]
+  );
 
   // A device that enters the code of the room it already belongs to (or its first
   // code) adds its own videos to the shared library. Entering a different room's
@@ -58,20 +99,18 @@ export default function useLibrary() {
         setLastSyncCode(syncCodeRef.current);
       }
       setEpoch(code ? "join" : null);
-      setRemovalSeq(0);
+      setSince(null);
+      setSyncedIds([]);
       setPendingRemovals([]);
       setSyncCodeRaw(code);
     },
-    [setEpoch, setRemovalSeq, setPendingRemovals, setSyncCodeRaw, setLastSyncCode]
+    [setEpoch, setSince, setSyncedIds, setPendingRemovals, setSyncCodeRaw, setLastSyncCode]
   );
   // "off" | "syncing" | "synced" | "unavailable" | "error"
   const [status, setStatus] = useState("off");
-  const syncedCountRef = useRef(-1);
-  const libraryRef = useRef(library);
-  libraryRef.current = library;
 
   // Videos saved before titles were decoded still show "&#39;" and the like:
-  // clean them once (the sync then spreads the clean copy to the other devices).
+  // clean them once on this device.
   useEffect(() => {
     const hasEntity = library.some((v) =>
       /&(#x[\da-f]+|#\d+|[a-z]+);/i.test(`${v.snippet?.title} ${v.snippet?.channelTitle}`)
@@ -89,7 +128,7 @@ export default function useLibrary() {
     [setLibrary]
   );
 
-  // Takes one video out of the library on this device and, with sync on, on all.
+  // Takes one video out of the library on this device and, in a room, on all.
   const removeFromLibrary = useCallback(
     (videoId) => {
       setLibrary((prev) => prev.filter((v) => v.id.videoId !== videoId));
@@ -111,76 +150,115 @@ export default function useLibrary() {
     [syncCode, setLibrary, setPendingRemovals]
   );
 
-  const sync = useCallback(
+  // One request: send up to PER_REQUEST adds and removals, apply one page of
+  // changes. Returns true when there is more to send or to download.
+  const syncOnce = useCallback(
     async (signal) => {
-      setStatus("syncing");
-      const sentLibrary = libraryRef.current;
-      const sentRemovals = pendingRef.current.slice(0, REMOVALS_PER_SYNC);
-      try {
-        const response = await fetch("/api/library", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            library: sentLibrary,
-            epoch: epochRef.current,
-            removalSeq: removalSeqRef.current,
-            removed: sentRemovals,
-          }),
-          signal,
-        });
-        const isJson = response.headers.get("content-type")?.includes("application/json");
-        // Local dev (plain vite) has no /api route and answers with HTML or 404.
-        if (!isJson || response.status === 404) return setStatus("unavailable");
-        if (!response.ok) return setStatus("error");
+      const knownNow = knownRef.current;
+      const added = libraryRef.current.filter((v) => !knownNow.has(v.id.videoId)).slice(0, PER_REQUEST);
+      const removed = pendingRef.current.slice(0, PER_REQUEST);
+      const response = await fetch("/api/library", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ v: 2, epoch: epochRef.current, since: sinceRef.current ?? 0, added, removed }),
+        signal,
+      });
+      const isJson = response.headers.get("content-type")?.includes("application/json");
+      // Local dev (plain vite) has no /api route and answers with HTML or 404.
+      if (!isJson || response.status === 404) throw new Error("unavailable");
+      if (!response.ok) throw new Error("error");
+      const data = await response.json();
+      // The server only moved the room's old library this time: send it all again.
+      if (data.retry) return true;
 
-        const { library: remote, epoch: serverEpoch, removalSeq: serverSeq, reset } =
-          await response.json();
-        if (Number.isInteger(serverEpoch)) setEpoch(serverEpoch);
-        if (Number.isInteger(serverSeq)) setRemovalSeq(serverSeq);
+      // Removals sent are now the server's business; ones made meanwhile stay pending.
+      const sentGone = new Set(removed);
+      const stillPending = data.reset ? [] : pendingRef.current.filter((id) => !sentGone.has(id));
+      const hidden = new Set(stillPending);
 
-        // The server's copy is the truth (it already has the removals applied).
-        // Changes made on this device while the request was running are kept.
-        const sentIds = new Set(sentLibrary.map((v) => v.id.videoId));
-        const added = libraryRef.current.filter((v) => !sentIds.has(v.id.videoId));
-        const sentGone = new Set(sentRemovals);
-        const stillPending = pendingRef.current.filter((id) => !sentGone.has(id));
-        setPendingRemovals(stillPending);
-        const hidden = new Set(stillPending);
-        const merged = mergeLibrary(
-          remote.filter((v) => !hidden.has(v.id.videoId)),
-          reset ? [] : added
-        );
-        syncedCountRef.current = merged.length;
-        setLibrary(merged);
-        setStatus("synced");
-      } catch (err) {
-        if (err.name !== "AbortError") setStatus("error");
+      // What the server now has: what it had, what was just sent, and the page's changes.
+      const nextKnown = new Set(data.reset ? [] : knownRef.current);
+      if (!data.reset) for (const v of added) nextKnown.add(v.id.videoId);
+      for (const change of data.changes) {
+        if (change.removed) nextKnown.delete(change.id);
+        else if (change.video?.id?.videoId) nextKnown.add(change.video.id.videoId);
       }
+
+      // A reset (the library was deleted elsewhere) drops this device's copy.
+      const update = (prev) => applyChanges(data.reset ? [] : prev, data.changes, hidden);
+      libraryRef.current = update(libraryRef.current);
+      if (data.reset || data.changes.length > 0) setLibrary(update);
+
+      knownRef.current = nextKnown;
+      setSyncedIds([...nextKnown]);
+      pendingRef.current = stillPending;
+      setPendingRemovals(stillPending);
+      epochRef.current = data.epoch;
+      setEpoch(data.epoch);
+      sinceRef.current = data.since;
+      setSince(data.since);
+
+      const unsent = libraryRef.current.some((v) => !nextKnown.has(v.id.videoId));
+      return Boolean(data.more) || unsent || stillPending.length > 0;
     },
-    [setLibrary, setEpoch, setRemovalSeq, setPendingRemovals]
+    [setLibrary, setSyncedIds, setPendingRemovals, setEpoch, setSince]
   );
 
-  // Sync when a code is set, and shortly after the library changes.
+  // Runs requests until everything is sent and downloaded. Only one sync runs at
+  // a time; a sync asked for meanwhile runs right after.
+  const runningRef = useRef(false);
+  const againRef = useRef(false);
+  const sync = useCallback(async () => {
+    if (runningRef.current) {
+      againRef.current = true;
+      return;
+    }
+    runningRef.current = true;
+    setStatus("syncing");
+    try {
+      let rounds = 0;
+      let more = true;
+      while ((more || againRef.current) && rounds < MAX_ROUNDS && syncCodeRef.current) {
+        againRef.current = false;
+        more = await syncOnce();
+        rounds += 1;
+      }
+      setStatus("synced");
+    } catch (err) {
+      setStatus(err.message === "unavailable" ? "unavailable" : "error");
+    } finally {
+      runningRef.current = false;
+    }
+  }, [syncOnce]);
+
+  // Sync on entering a room, and every minute while the tab is visible.
   useEffect(() => {
     if (!syncCode) {
       setStatus("off");
-      syncedCountRef.current = -1;
       return;
     }
-    if (library.length === syncedCountRef.current && pendingRemovals.length === 0) return;
-
-    const controller = new AbortController();
-    const timer = setTimeout(
-      () => sync(controller.signal),
-      syncedCountRef.current === -1 ? 0 : SYNC_DELAY_MS
-    );
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
+    sync();
+    const timer = setInterval(() => {
+      if (!document.hidden) sync();
+    }, POLL_MS);
+    const onVisible = () => {
+      if (!document.hidden) sync();
     };
-  }, [syncCode, library.length, pendingRemovals.length, sync]);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [syncCode, sync]);
 
-  // Deletes the whole library. Resolves to true on success; with sync on, a
+  // Send local changes shortly after they happen.
+  useEffect(() => {
+    if (!syncCode || (unsentCount === 0 && pendingRemovals.length === 0)) return;
+    const timer = setTimeout(sync, SYNC_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [syncCode, unsentCount, pendingRemovals.length, sync]);
+
+  // Deletes the whole library. Resolves to true on success; in a room, a
   // failed server call leaves the library untouched and resolves to false.
   const clearLibrary = useCallback(async () => {
     if (syncCode) {
@@ -188,26 +266,28 @@ export default function useLibrary() {
         const response = await fetch("/api/library", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clear: true }),
+          body: JSON.stringify({ v: 2, clear: true }),
         });
         if (!response.ok) return false;
         const { epoch: newEpoch } = await response.json();
-        if (Number.isInteger(newEpoch)) setEpoch(newEpoch);
+        if (Number.isInteger(newEpoch)) {
+          epochRef.current = newEpoch;
+          setEpoch(newEpoch);
+        }
+        pendingRef.current = [];
         setPendingRemovals([]);
+        knownRef.current = new Set();
+        setSyncedIds([]);
       } catch {
         return false;
       }
     }
-    // Mark the empty list as already synced so it is not merged with the server.
-    syncedCountRef.current = 0;
+    libraryRef.current = [];
     setLibrary([]);
     return true;
-  }, [syncCode, setLibrary, setEpoch, setPendingRemovals]);
+  }, [syncCode, setLibrary, setEpoch, setPendingRemovals, setSyncedIds]);
 
-  const retrySync = useCallback(() => {
-    syncedCountRef.current = -1;
-    sync();
-  }, [sync]);
+  const retrySync = useCallback(() => sync(), [sync]);
 
   return {
     library,

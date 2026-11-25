@@ -28,6 +28,11 @@ export async function getCatalog() {
   return (await getDb()).collection("catalog_videos");
 }
 
+/** Each room's library, one document per video (see library.js). */
+export async function getLibraryVideos() {
+  return (await getDb()).collection("library_videos");
+}
+
 // Keep only what the UI needs so documents stay small. Titles are stored as
 // plain text: YouTube's HTML entities are decoded here, for every video saved.
 const NAMED_ENTITIES = {
