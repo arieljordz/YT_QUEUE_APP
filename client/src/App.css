@@ -716,6 +716,47 @@
   min-height: 50dvh;
 }
 
+/* Phone, upright: the player runs edge to edge instead of inside the page margins. */
+@media (max-width: 575.98px) and (orientation: portrait) {
+  .inapp-player:not(.is-hidden) {
+    margin-left: calc(-0.5 * var(--bs-gutter-x, 1.5rem));
+    margin-right: calc(-0.5 * var(--bs-gutter-x, 1.5rem));
+    border-radius: 0;
+  }
+}
+
+/* Phone, turned sideways: the player covers the whole screen, like YouTube's own
+   app. Turning the phone upright again brings back the bar and the tabs. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .inapp-player:not(.is-hidden) {
+    position: fixed;
+    inset: 0;
+    z-index: 1040; /* above the navbar and tabs, below modals and toasts */
+    border-radius: 0;
+  }
+  /* The page underneath stays put while the player covers it. */
+  html:has(.inapp-player:not(.is-hidden)),
+  body:has(.inapp-player:not(.is-hidden)) {
+    overflow: hidden;
+  }
+  .inapp-player:not(.is-hidden) .video-container,
+  .inapp-player:not(.is-hidden) .player-page {
+    height: 100%;
+  }
+  .inapp-player:not(.is-hidden) .video-container iframe {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    aspect-ratio: auto;
+  }
+  .inapp-player:not(.is-hidden) .player-notice,
+  .inapp-player:not(.is-hidden) .player-checking {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}
+
 /* Settings tabs: the main tab style, sharing the full width evenly. */
 .settings-tabs .nav-item {
   flex: 1 1 0;
