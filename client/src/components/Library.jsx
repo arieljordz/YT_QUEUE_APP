@@ -105,8 +105,11 @@ function Library({
         v.snippet.channelTitle?.toLowerCase().includes(needle)
     );
     if (view === "recent") return matches;
-    return sort === "newest" ? matches.reverse() : matches.sort(byTitle);
-  }, [view, recent, favorites, library, filter, sort]);
+    if (sort === "newest") return matches.reverse();
+    // A-Z: playable videos first, then the YouTube-only ones, each group by title.
+    const ytOnly = (v) => (youtubeOnlyIds?.has(v.id.videoId) ? 1 : 0);
+    return matches.sort((a, b) => ytOnly(a) - ytOnly(b) || byTitle(a, b));
+  }, [view, recent, favorites, library, filter, sort, youtubeOnlyIds]);
 
   const visible = useMemo(() => shown.slice(0, visibleCount), [shown, visibleCount]);
   // Load the next page of rows when the user scrolls close to the bottom.
