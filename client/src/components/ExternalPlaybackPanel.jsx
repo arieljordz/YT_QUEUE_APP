@@ -51,12 +51,14 @@ export default function ExternalPlaybackPanel({ video, playback }) {
       <p className="external-text">{text}</p>
       {blocked && (
         <p className="external-warning" role="alert">
-          Your browser blocked the new tab. Allow pop-ups for this site, then try again.
+          {blocked === "auto"
+            ? "Your browser stopped the YouTube tab from opening by itself. Allow pop-ups for this site so these videos open automatically, or press Watch on YouTube."
+            : "Your browser blocked the new tab. Allow pop-ups for this site, then try again."}
         </p>
       )}
       <div className="external-actions">
         {validId && !active && (
-          <button type="button" className="btn player-notice-btn d-inline-flex align-items-center gap-2" onClick={open}>
+          <button type="button" className="btn player-notice-btn d-inline-flex align-items-center gap-2" onClick={() => open()}>
             <FaYoutube aria-hidden="true" /> Watch on YouTube
           </button>
         )}

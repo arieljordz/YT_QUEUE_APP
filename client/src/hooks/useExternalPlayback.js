@@ -6,8 +6,10 @@ import { notify } from "../lib/notify";
 /**
  * Playback on youtube.com for a video whose owner turned embedding off.
  *
- * The video opens in a new tab (from the user's click, so pop-up blockers allow
- * it) and the queue moves on once the video's length has passed. The app cannot
+ * The video opens in a new tab by itself when the queue reaches it. Browsers
+ * block that unless pop-ups are allowed for this site; then the panel's button
+ * opens it (a click is always allowed). The queue moves on once the video's
+ * length has passed, and the page tries to close the tab it opened. The app cannot
  * see that tab: it does not know whether the video started, was paused or
  * finished, so the time is only an estimate from the video's length.
  *
@@ -57,9 +59,10 @@ function useVideoSeconds(videoId, enabled) {
 /**
  * video: the queue entry at the head, when it can only play on YouTube (else null).
  * enabled: this device is the active player.
+ * autoOpen: open the tab without a click when the queue reaches it (not while paused).
  * onFinished(queueId): move the queue past that entry.
  */
-export default function useExternalPlayback(video, { enabled, onFinished }) {
+export default function useExternalPlayback(video, { enabled, autoOpen = true, onFinished }) {
   const queueId = video?.queueId ?? null;
   const videoId = video?.id?.videoId ?? null;
   const seconds = useVideoSeconds(videoId, enabled && Boolean(video));
@@ -106,8 +109,11 @@ export default function useExternalPlayback(video, { enabled, onFinished }) {
     finishedRef.current?.(queueId);
   }, [queueId, active, closeTab, setSession]);
 
-  /** Open the video on YouTube. Must run inside the click handler. */
-  const open = useCallback(() => {
+  /**
+   * Open the video on YouTube. From a click it always works; on its own
+   * (`auto`) the browser allows it only when pop-ups are allowed for this site.
+   */
+  const open = useCallback((auto = false) => {
     if (!enabled || !queueId || !isValidVideoId(videoId)) return;
     const existing = tabRef.current;
     if (active) {
@@ -117,7 +123,7 @@ export default function useExternalPlayback(video, { enabled, onFinished }) {
     }
     const win = window.open(`https://www.youtube.com/watch?v=${videoId}`, TAB_NAME);
     if (!win) {
-      setBlocked(true);
+      setBlocked(auto === true ? "auto" : "click");
       return;
     }
     try {
@@ -148,6 +154,17 @@ export default function useExternalPlayback(video, { enabled, onFinished }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queueId, enabled]);
 
+  // Open the tab by itself once the queue reaches the video (and its length is
+  // known, so the timer can start). Tried once per queue entry: a blocked
+  // attempt is not repeated, the panel's button takes over.
+  const autoTriedRef = useRef(null);
+  useEffect(() => {
+    if (!enabled || !autoOpen || !queueId || active || seconds === undefined) return;
+    if (autoTriedRef.current === queueId) return;
+    autoTriedRef.current = queueId;
+    open(true);
+  }, [enabled, autoOpen, queueId, active, seconds, open]);
+
   // The one timer: when the estimated time is up, move on. After a reload whose
   // deadline already passed, this moves on right away.
   const endsAt = active ? session.endsAt : null;
@@ -161,7 +178,7 @@ export default function useExternalPlayback(video, { enabled, onFinished }) {
     active,
     endsAt,
     seconds, // undefined while looking up, null when unknown
-    blocked,
+    blocked, // false, "auto" (opening by itself was blocked) or "click"
     validId: isValidVideoId(videoId),
     open,
     finish,

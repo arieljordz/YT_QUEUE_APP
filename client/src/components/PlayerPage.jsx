@@ -63,10 +63,11 @@ function PlayerPage({ roomName, onSignedOut }) {
   }, [currentVideo, advancePast]);
 
   // A video whose owner turned embedding off is not loaded into the player: it
-  // is offered on youtube.com instead, and the queue moves on after its length.
+  // opens on youtube.com in a new tab instead, and the queue moves on after its length.
   const isExternal = Boolean(currentVideo && youtubeOnlyIds.has(currentVideo.id.videoId));
   const external = useExternalPlayback(isExternal ? currentVideo : null, {
     enabled: active && isExternal,
+    autoOpen: !isPaused,
     onFinished: advancePast,
   });
 
