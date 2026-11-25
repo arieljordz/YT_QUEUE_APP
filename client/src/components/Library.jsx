@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { FaTrash, FaStar, FaHistory, FaList, FaSearch } from "react-icons/fa";
 import { MdPlaylistAdd } from "react-icons/md";
@@ -7,6 +7,7 @@ import useLocalStorage from "../hooks/useLocalStorage";
 import useFeatureFlags from "../hooks/useFeatureFlags";
 import { byTitle } from "../lib/sort";
 import { useFavorites } from "../hooks/useExtras";
+import { notify } from "../lib/notify";
 
 // The list grows by this many rows each time the user scrolls near the bottom.
 const PAGE_SIZE = 100;
@@ -150,6 +151,83 @@ function Library({
   const confirmDelete = () =>
     deleteTarget?.query ? onDeleteMatches(deleteTarget.videos) : onClearLibrary();
 
+  // Picked videos for Delete selected. Off with the flag (and in "Recently
+  // played", where Remove is not offered either).
+  const selectionOn = flags.librarySelection;
+  const showSelection = selectionOn && view !== "recent";
+  const [selected, setSelected] = useState(() => new Set());
+  // Drop picks that left the library (removed here or on another device), and
+  // all of them when the flag is switched off.
+  const [seen, setSeen] = useState({ library, selectionOn });
+  if (seen.library !== library || seen.selectionOn !== selectionOn) {
+    setSeen({ library, selectionOn });
+    if (selected.size > 0) {
+      const saved = new Set(library.map((v) => v.id.videoId));
+      const kept = selectionOn ? [...selected].filter((id) => saved.has(id)) : [];
+      if (kept.length !== selected.size) setSelected(new Set(kept));
+    }
+  }
+  const selectedVideos = useMemo(
+    () => (selectionOn ? library.filter((v) => selected.has(v.id.videoId)) : []),
+    [selectionOn, library, selected]
+  );
+  const toggleSelected = useCallback((videoId) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(videoId)) next.add(videoId);
+      return next;
+    });
+  }, []);
+  // Select all works on the whole list shown (every match, not only the rows loaded so far).
+  const shownSelected = useMemo(
+    () => shown.reduce((n, v) => (selected.has(v.id.videoId) ? n + 1 : n), 0),
+    [shown, selected]
+  );
+  const allShownSelected = shown.length > 0 && shownSelected === shown.length;
+  const toggleSelectAll = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const v of shown) {
+        if (allShownSelected) next.delete(v.id.videoId);
+        else next.add(v.id.videoId);
+      }
+      return next;
+    });
+  };
+  const selectAllRef = useCallback(
+    (el) => {
+      if (el) el.indeterminate = shownSelected > 0 && !allShownSelected;
+    },
+    [shownSelected, allShownSelected]
+  );
+
+  // Delete selected: the same removal as each video's Remove button, in one go.
+  const [confirmingDeleteSelected, setConfirmingDeleteSelected] = useState(false);
+  const [deletingSelected, setDeletingSelected] = useState(false);
+  // Kept while the dialog is open, so the count can't change under the user.
+  const [selectedTarget, setSelectedTarget] = useState([]);
+  const openDeleteSelected = () => {
+    setSelectedTarget(selectedVideos);
+    setConfirmingDeleteSelected(true);
+  };
+  const confirmDeleteSelected = async () => {
+    setDeletingSelected(true);
+    try {
+      const ok = await onDeleteMatches(selectedTarget);
+      if (ok) {
+        setSelected(new Set());
+        setConfirmingDeleteSelected(false);
+      } else {
+        notify.library.selectedDeleteFailed();
+      }
+    } catch (err) {
+      console.error("Delete selected failed", err);
+      notify.library.selectedDeleteFailed();
+    } finally {
+      setDeletingSelected(false);
+    }
+  };
+
   // Large batches ask for confirmation first.
   const handleQueueAll = () => {
     if (queueable.length > 25) setConfirmingQueueAll(true);
@@ -267,6 +345,68 @@ function Library({
         />
       )}
 
+      {flags.deleteSelectedButton && (
+        <Modal
+          show={confirmingDeleteSelected}
+          onHide={() => !deletingSelected && setConfirmingDeleteSelected(false)}
+          centered
+        >
+          <Modal.Header closeButton>
+            <Modal.Title as="h5">
+              Delete {selectedTarget.length} selected {selectedTarget.length === 1 ? "video" : "videos"}?
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            This removes the {selectedTarget.length} selected{" "}
+            {selectedTarget.length === 1 ? "video" : "videos"}
+            {syncCode ? " from this room's library" : " from this browser"}. It cannot be undone.
+          </Modal.Body>
+          <Modal.Footer>
+            <Button
+              variant="secondary"
+              onClick={() => setConfirmingDeleteSelected(false)}
+              disabled={deletingSelected}
+            >
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={confirmDeleteSelected} disabled={deletingSelected}>
+              {deletingSelected ? "Deleting…" : `Delete ${selectedTarget.length}`}
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      )}
+
+      {showSelection && shown.length > 0 && (
+        <div className="lib-selection-bar">
+          <label className="lib-select-all">
+            <input
+              ref={selectAllRef}
+              type="checkbox"
+              className="form-check-input"
+              checked={allShownSelected}
+              onChange={toggleSelectAll}
+              aria-label={query ? "Select all matching videos" : "Select all videos"}
+            />
+            Select all
+          </label>
+          <span className="lib-summary" aria-live="polite">
+            {selectedVideos.length} selected
+          </span>
+          {flags.deleteSelectedButton && (
+            <button
+              type="button"
+              className="btn btn-sm yq-btn-ghost-danger text-nowrap d-flex align-items-center gap-1 ms-auto"
+              onClick={openDeleteSelected}
+              disabled={selectedVideos.length === 0}
+              title="Delete the selected videos"
+            >
+              <FaTrash aria-hidden="true" />
+              Delete selected{selectedVideos.length > 0 ? ` (${selectedVideos.length})` : ""}
+            </button>
+          )}
+        </div>
+      )}
+
       <p className="lib-summary" aria-live="polite">
         {downloading && library.length === 0 ? null : filter.trim()
           ? `${shown.length} ${shown.length === 1 ? "match" : "matches"} for “${filter.trim()}”`
@@ -291,6 +431,8 @@ function Library({
         youtubeOnlyIds={youtubeOnlyIds}
         onAdd={onAdd}
         onRemove={flags.removeButton && view !== "recent" ? onRemove : undefined}
+        selectedIds={showSelection ? selected : undefined}
+        onToggleSelect={showSelection ? toggleSelected : undefined}
         favoriteSet={favoriteSet}
         onToggleFavorite={toggleFavorite}
         isLoading={false}

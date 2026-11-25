@@ -35,6 +35,8 @@ const SECTIONS = [
     flags: [
       { name: "removeButton", label: "Remove button", description: "Show the Remove button on each video in the Library." },
       { name: "deleteAllButton", label: "Delete all button", description: "Show the Delete all button above the Library list." },
+      { name: "librarySelection", label: "Library video selection", description: "Show a checkbox on each video in the Library, plus Select all." },
+      { name: "deleteSelectedButton", label: "Delete selected button", description: "Show the Delete selected button above the Library list (works with Library video selection)." },
       { name: "deleteListButton", label: "Delete list button", description: "Show the trash button on each saved list in Add Library." },
     ],
   },

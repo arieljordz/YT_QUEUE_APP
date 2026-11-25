@@ -16,6 +16,8 @@ export const DEFAULT_FLAGS = {
   removeButton: false,
   deleteAllButton: false,
   deleteListButton: false,
+  librarySelection: false,
+  deleteSelectedButton: false,
 };
 const FLAGS_ID = "flags";
 

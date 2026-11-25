@@ -190,8 +190,8 @@ export async function handleLibrary({ rooms, videos, catalog }, roomId, body, fl
   const isCurrent = epoch === "join" || epoch === serverEpoch || (epoch == null && serverEpoch === 0);
   const from = isCurrent ? since : 0;
   if (isCurrent) {
-    // Removing only counts while the Remove or Delete all flag is on.
-    const allowed = flags.removeButton || flags.deleteAllButton ? removed : [];
+    // Removing only counts while the Remove, Delete all or Delete selected flag is on.
+    const allowed = flags.removeButton || flags.deleteAllButton || flags.deleteSelectedButton ? removed : [];
     const removedIds = await applyChanges(rooms, videos, roomId, { added, removed: allowed, since });
     if (catalog && removedIds.length > 0) {
       await catalog.deleteMany({ owner: roomId, "video.id.videoId": { $in: removedIds } });

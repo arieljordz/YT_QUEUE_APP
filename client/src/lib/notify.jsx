@@ -57,6 +57,7 @@ export const notify = {
     deleted: () => toast.success("Library deleted"),
     deleteFailed: () => toast.error("Could not delete the synced library. Please try again."),
     videosDeleted: (count) => toast.success(`Deleted ${plural(count, "video")}`),
+    selectedDeleteFailed: () => toast.error("Could not delete the selected videos. Please try again."),
   },
 
   catalog: {

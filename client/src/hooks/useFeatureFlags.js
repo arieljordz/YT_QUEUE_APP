@@ -9,6 +9,8 @@ export const FEATURE_FLAGS = {
   removeButton: false,
   deleteAllButton: false,
   deleteListButton: false,
+  librarySelection: false,
+  deleteSelectedButton: false,
 };
 
 const REFRESH_MS = 30000;

@@ -11,6 +11,8 @@ function VideoList({
   youtubeOnlyIds,
   onAdd,
   onRemove,
+  selectedIds,
+  onToggleSelect,
   favoriteSet,
   onToggleFavorite,
   isLoading,
@@ -68,8 +70,17 @@ function VideoList({
         return (
           <li
             key={video.id.videoId}
-            className="yq-row"
+            className={`yq-row${selectedIds?.has(video.id.videoId) ? " is-selected" : ""}`}
           >
+            {onToggleSelect && (
+              <input
+                type="checkbox"
+                className="form-check-input yq-row-select flex-shrink-0 m-0"
+                checked={Boolean(selectedIds?.has(video.id.videoId))}
+                onChange={() => onToggleSelect(video.id.videoId)}
+                aria-label={`Select ${title}`}
+              />
+            )}
             <img
               src={(thumbnails.medium ?? thumbnails.default).url}
               alt=""
