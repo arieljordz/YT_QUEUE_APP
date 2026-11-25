@@ -1,28 +1,15 @@
 /**
- * The app's mark, drawn inline so it follows the theme: the queue bars take the
- * text color (dark on light pages, white on dark ones) and the play arrow stays red.
+ * The app's mark, in two versions: dark bars for light pages and white bars for
+ * dark ones. Both are rendered and CSS (.app-logo-*) shows the one that fits
+ * the theme, so it switches instantly with no flash.
  * (The installed app icon, public/icons/logo-v2.svg, keeps its own dark tile.)
  */
 export default function AppLogo({ size = 36 }) {
+  const props = { width: size, height: size, alt: "", "aria-hidden": true };
   return (
-    <svg
-      viewBox="87 108 360 320"
-      width={size}
-      height={size}
-      aria-hidden="true"
-      focusable="false"
-      className="app-logo"
-    >
-      <rect x="87" y="108" width="280" height="44" rx="22" fill="currentColor" />
-      <rect x="87" y="186" width="168" height="44" rx="22" fill="currentColor" fillOpacity="0.72" />
-      <rect x="87" y="264" width="112" height="44" rx="22" fill="currentColor" fillOpacity="0.45" />
-      <path
-        d="M291 242 L291 390 L411 316 Z"
-        fill="var(--yq-accent, #e50914)"
-        stroke="var(--yq-accent, #e50914)"
-        strokeWidth="28"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <span className="app-logo" style={{ width: size, height: size }}>
+      <img src="/icons/logo-light.svg" className="app-logo-light" {...props} />
+      <img src="/icons/logo-dark.svg" className="app-logo-dark" {...props} />
+    </span>
   );
 }

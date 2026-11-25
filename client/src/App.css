@@ -695,7 +695,15 @@
 @media (prefers-reduced-motion: reduce) {
   .sk-block, .sk-line { animation: none; }
 }
-.app-logo { border-radius: 22%; flex-shrink: 0; }
+/* Two logo files: the light-page one by default, the dark-page one in dark mode
+   and on the room / PIN screens, which are always dark. */
+.app-logo { display: inline-flex; flex-shrink: 0; }
+.app-logo img { display: block; }
+.app-logo-dark { display: none !important; }
+[data-bs-theme="dark"] .app-logo-light,
+.room-screen .app-logo-light { display: none !important; }
+[data-bs-theme="dark"] .app-logo-dark,
+.room-screen .app-logo-dark { display: block !important; }
 
 /* Player messages: stopped, switched room, playing on another device. */
 .player-notice {
