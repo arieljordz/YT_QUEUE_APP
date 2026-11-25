@@ -4,6 +4,8 @@ import YoutubeOnlyBadge from "./YoutubeOnlyBadge";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useNowPosition } from "../hooks/usePlayerProgress";
 import { formatClock } from "../lib/progress";
+import { plural } from "../lib/notify";
+import { MdPlaylistRemove } from "react-icons/md";
 import {
   FaTrash,
   FaGripVertical,
@@ -283,12 +285,13 @@ function Queue({
               Up next <span className="lib-chip-count">{upNext.length}</span>
             </h2>
             <div className="queue-header-actions">
+              {/* Empties the whole queue, the playing video included (not only "Up next"). */}
               <button
                 className="btn btn-sm yq-btn-ghost-danger d-flex align-items-center gap-1"
                 onClick={() => setConfirmingClear(true)}
-                title="Remove every video from the queue"
+                title="Remove every video from the queue, including the one playing now"
               >
-                <FaTrash aria-hidden="true" /> <span>Clear</span>
+                <MdPlaylistRemove size={18} aria-hidden="true" /> <span>Clear queue</span>
               </button>
             </div>
           </div>
@@ -339,12 +342,14 @@ function Queue({
       <ConfirmModal
         show={confirmingClear}
         title="Clear the queue?"
-        confirmLabel="Clear all"
+        confirmLabel="Clear queue"
         onConfirm={confirmClear}
         onCancel={() => setConfirmingClear(false)}
       >
-        This removes all {queue.length} videos from the queue, including the one
-        playing now.
+        {queue.length === 1
+          ? "This removes the video playing now and empties the queue."
+          : `This removes all ${plural(queue.length, "video")} from the queue, including the one playing now.`}{" "}
+        You can undo it right after.
       </ConfirmModal>
     </section>
   );
