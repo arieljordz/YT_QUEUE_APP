@@ -131,24 +131,30 @@
   }
 }
 
-/* The library can hold hundreds of videos, so it scrolls on its own.
-   Tall enough for 8 rows (86px each, 0.25rem apart), but never taller than the screen allows. */
-.library-scroll {
-  --lib-rows: 8;
-  --lib-row: 86px;
-  --lib-gap: 0.25rem;
-  max-height: min(calc(var(--lib-rows) * var(--lib-row) + (var(--lib-rows) - 1) * var(--lib-gap) + 2px), 80vh);
-  max-height: min(calc(var(--lib-rows) * var(--lib-row) + (var(--lib-rows) - 1) * var(--lib-gap) + 2px), 80dvh);
+/* The library and the queue can grow long, so each scrolls on its own.
+   Tall enough for 8 rows (--list-row each, 0.25rem apart), but never taller than the screen allows. */
+.library-scroll,
+.queue-scroll {
+  --list-rows: 8;
+  --list-gap: 0.25rem;
+  max-height: min(calc(var(--list-rows) * var(--list-row) + (var(--list-rows) - 1) * var(--list-gap) + 2px), 80vh);
+  max-height: min(calc(var(--list-rows) * var(--list-row) + (var(--list-rows) - 1) * var(--list-gap) + 2px), 80dvh);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+.library-scroll { --list-row: 86px; } /* set by the 68px thumbnail */
+.queue-scroll { --list-row: 79px; }   /* a two-line title */
+/* Every queue row gets the same height, so exactly 8 fit whatever the title length. */
+.queue-scroll .queue-row { min-height: var(--list-row); }
 
-/* Phones: rows are taller (titles wrap more), so the list fills most of the screen instead. */
+/* Phones: rows wrap differently, so each list fills most of the screen instead. */
 @media (max-width: 575.98px) {
-  .library-scroll {
+  .library-scroll,
+  .queue-scroll {
     max-height: 70vh;
     max-height: 70dvh;
   }
+  .queue-scroll .queue-row { min-height: 0; }
 }
 
 /* Player page: "Next: ..." banner during the last seconds of a song. */
