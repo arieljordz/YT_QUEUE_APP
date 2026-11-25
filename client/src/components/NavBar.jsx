@@ -21,7 +21,6 @@ const ITEMS = [
 const NavBar = ({ sync }) => {
   // The theme the admin allows (feature flags) and this device prefers.
   const { theme, setTheme, options } = useTheme();
-  const darkMode = theme === "dark";
   // Which window is open: null | one of ITEMS' keys.
   const [openModal, setOpenModal] = useState(null);
 
@@ -35,13 +34,10 @@ const NavBar = ({ sync }) => {
 
   return (
     <>
-      {/* The bar uses the opposite theme to the page so it always stands out. */}
-      <nav
-        data-bs-theme={darkMode ? "light" : "dark"}
-        className={`navbar navbar-expand-lg ${darkMode ? "bg-light" : "bg-dark"} px-3 py-1`}
-      >
-        <span className="navbar-brand py-0 fs-6 d-flex align-items-center gap-2">
-          <AppLogo size={22} /> QueueUp
+      {/* Like YouTube: no separate bar, just the logo and menu on the page's own background. */}
+      <nav className="navbar app-header px-3 py-2">
+        <span className="navbar-brand py-0 fs-5 fw-semibold d-flex align-items-center gap-2">
+          <AppLogo size={26} /> QueueUp
         </span>
 
         <div className="ms-auto d-flex align-items-center gap-2">
@@ -56,7 +52,7 @@ const NavBar = ({ sync }) => {
               className="d-flex align-items-center"
               style={{ cursor: "pointer" }}
             >
-              <FaBars size={18} aria-hidden="true" color={darkMode ? "#000" : "#fff"} />
+              <FaBars size={18} aria-hidden="true" />
             </Dropdown.Toggle>
 
             <Dropdown.Menu className="py-1">

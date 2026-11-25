@@ -921,3 +921,21 @@
 .lib-selection-bar .lib-summary { margin: 0; }
 .lib-select-all { display: inline-flex; align-items: center; gap: 0.45rem; margin: 0; color: var(--yq-text); font-size: 0.9rem; cursor: pointer; }
 .lib-select-all .form-check-input { margin: 0; }
+
+/* ==== Header: no bar of its own, it sits on the page like YouTube's ==== */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  background: var(--bs-body-bg);
+  color: var(--yq-text);
+}
+.app-header .navbar-brand { color: var(--yq-text); }
+.app-header #dropdown-gear {
+  width: 36px;
+  height: 36px;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--yq-text);
+}
+.app-header #dropdown-gear:hover { background: var(--yq-hover); }
