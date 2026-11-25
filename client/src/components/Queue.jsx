@@ -288,7 +288,7 @@ function Queue({
             <p className="lib-summary text-center my-3">Nothing up next. Add more from Search or your Library.</p>
           ) : (
             <DragDropContext onDragEnd={handleDragEnd}>
-              {/* Scrolls on its own after 8 videos; dragging near its edge scrolls it too. */}
+              {/* Scrolls on its own after 7 videos; dragging near its edge scrolls it too. */}
               <div className="queue-scroll">
               <Droppable droppableId="video-queue">
                 {(provided) => (
