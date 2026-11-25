@@ -16,9 +16,11 @@
 //                                        "deleteListButton" feature flag)
 //   POST   /api/catalog { save: video } -> adds one video to the "My Searches" list
 //   POST   /api/catalog               -> collects ONE page (50) of YouTube
-//          { name, channel?, channelId?, title?, pageToken?, offset?, any? }
+//          { name, channel?, channelId?, title?, pageToken?, offset?, any?, noShorts?, newest? }
 //          channel = only videos of that channel; title = only videos whose title
-//          contains all the words of this text (at least one of the two is needed)
+//          contains all the words of this text (at least one of the two is needed);
+//          noShorts = skip YouTube Shorts (1 more quota unit per page);
+//          newest = newest uploads first instead of YouTube's relevance order
 //          -> { fetched, added, nextPageToken?, channelId?, channelTitle? }
 //     The browser calls POST repeatedly until it has enough videos, so no
 //     single request runs long.
@@ -34,6 +36,10 @@ import {
 } from "./_db.js";
 
 const SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
+const VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos";
+// Shorts are up to 3 minutes long and vertical. The API has no "is a Short" flag.
+const SHORT_MAX_SECONDS = 180;
+const ALWAYS_SHORT_SECONDS = 60;
 const MAX_VIDEOS = 8000; // keeps one response under Vercel's 4.5 MB limit
 const MAX_NAME = 60;
 const CHANNEL_ID = /^UC[\w-]{20,}$/;
@@ -53,6 +59,46 @@ export function titleMatches(title, wanted) {
     .split(/\s+/)
     .filter(Boolean)
     .every((word) => haystack.includes(word));
+}
+
+/** "PT1H2M5S" -> 3725. Returns null for live streams and anything unreadable. */
+function parseIsoDuration(value) {
+  const match = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(value ?? "");
+  if (!match) return null;
+  const [, d = 0, h = 0, m = 0, sec = 0] = match;
+  const total = Number(d) * 86400 + Number(h) * 3600 + Number(m) * 60 + Number(sec);
+  return total > 0 ? total : null;
+}
+
+/** True when a videos.list item looks like a YouTube Short. */
+export function looksLikeShort(item) {
+  const seconds = parseIsoDuration(item?.contentDetails?.duration);
+  if (seconds === null || seconds > SHORT_MAX_SECONDS) return false;
+  if (seconds <= ALWAYS_SHORT_SECONDS) return true;
+  const width = Number(item?.player?.embedWidth);
+  const height = Number(item?.player?.embedHeight);
+  return width > 0 && height > width; // vertical
+}
+
+/**
+ * Returns the set of ids (of up to 50) that are Shorts. Costs 1 quota unit.
+ * `null` means the quota is used up; any other failure keeps every video.
+ */
+async function findShorts(fetchFn, apiKey, ids) {
+  const shorts = new Set();
+  if (ids.length === 0) return shorts;
+  const params = new URLSearchParams({
+    part: "contentDetails,player",
+    id: ids.slice(0, 50).join(","),
+    maxWidth: "200", // makes YouTube send the player's width and height
+    key: apiKey,
+  });
+  const res = await fetchFn(`${VIDEOS_URL}?${params}`);
+  if (res.status === 403) return null;
+  if (!res.ok) return shorts;
+  const data = await res.json();
+  for (const item of data.items ?? []) if (looksLikeShort(item)) shorts.add(item.id);
+  return shorts;
 }
 
 const fail = (status, error) => ({ status, body: { error } });
@@ -179,6 +225,7 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
   if (title) params.q = title; // helps YouTube find them; the title check below is the real filter
   if (channelId) params.channelId = channelId;
   if (body?.any !== true) params.videoEmbeddable = "true";
+  if (body?.newest === true) params.order = "date";
   if (pageToken) params.pageToken = pageToken;
 
   const result = await youtubeSearch(fetchFn, params);
@@ -186,10 +233,16 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
   if (result.failed) return fail(502, "YouTube search failed");
 
   const items = result.data.items ?? [];
+  let shorts = new Set();
+  if (body?.noShorts === true) {
+    shorts = await findShorts(fetchFn, apiKey, items.map((item) => item?.id?.videoId).filter(Boolean));
+    if (shorts === null) return fail(429, "quota");
+  }
   const operations = [];
   items.forEach((item) => {
     const video = slimVideo(item);
     if (!video) return;
+    if (shorts.has(video.id.videoId)) return;
     // Only videos whose own title contains the text (YouTube also matches descriptions).
     if (title && !titleMatches(video.snippet.title, title)) return;
     operations.push({

@@ -19,8 +19,10 @@ export default function ImportVideosPanel() {
   const [channel, setChannel] = useState("");
   const [title, setTitle] = useState("");
   const [customName, setCustomName] = useState(null); // null = follow channel / search text
-  const [max, setMax] = useState(250);
+  const [max, setMax] = useState(500);
   const [embeddableOnly, setEmbeddableOnly] = useState(true);
+  const [skipShorts, setSkipShorts] = useState(true);
+  const [newestFirst, setNewestFirst] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ saved: 0, target: 0 });
@@ -60,6 +62,8 @@ export default function ImportVideosPanel() {
           pageToken,
           offset: saved,
           any: !embeddableOnly,
+          noShorts: skipShorts,
+          newest: newestFirst,
         });
         pages += 1;
         channelId = page.channelId ?? channelId;
@@ -154,6 +158,32 @@ export default function ImportVideosPanel() {
         />
         <label className="form-check-label small" htmlFor="imp-embed">
           Only videos that can play in the player tab
+        </label>
+      </div>
+      <div className="form-check">
+        <input
+          id="imp-shorts"
+          type="checkbox"
+          className="form-check-input"
+          checked={skipShorts}
+          onChange={(e) => setSkipShorts(e.target.checked)}
+          disabled={busy}
+        />
+        <label className="form-check-label small" htmlFor="imp-shorts">
+          Leave out YouTube Shorts
+        </label>
+      </div>
+      <div className="form-check">
+        <input
+          id="imp-newest"
+          type="checkbox"
+          className="form-check-input"
+          checked={newestFirst}
+          onChange={(e) => setNewestFirst(e.target.checked)}
+          disabled={busy}
+        />
+        <label className="form-check-label small" htmlFor="imp-newest">
+          Newest uploads first (good for re-importing a channel to catch new videos)
         </label>
       </div>
       <div className="form-text">
