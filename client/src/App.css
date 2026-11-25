@@ -131,11 +131,24 @@
   }
 }
 
-/* The library can hold hundreds of videos, so it scrolls on its own. */
+/* The library can hold hundreds of videos, so it scrolls on its own.
+   Tall enough for 8 rows (86px each, 0.25rem apart), but never taller than the screen allows. */
 .library-scroll {
-  max-height: min(65vh, 600px);
+  --lib-rows: 8;
+  --lib-row: 86px;
+  --lib-gap: 0.25rem;
+  max-height: min(calc(var(--lib-rows) * var(--lib-row) + (var(--lib-rows) - 1) * var(--lib-gap) + 2px), 80vh);
+  max-height: min(calc(var(--lib-rows) * var(--lib-row) + (var(--lib-rows) - 1) * var(--lib-gap) + 2px), 80dvh);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+/* Phones: rows are taller (titles wrap more), so the list fills most of the screen instead. */
+@media (max-width: 575.98px) {
+  .library-scroll {
+    max-height: 70vh;
+    max-height: 70dvh;
+  }
 }
 
 /* Player page: "Next: ..." banner during the last seconds of a song. */
