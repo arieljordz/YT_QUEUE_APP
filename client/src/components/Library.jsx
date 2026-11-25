@@ -12,67 +12,55 @@ import { notify } from "../lib/notify";
 // The list grows by this many rows each time the user scrolls near the bottom.
 const PAGE_SIZE = 100;
 
-const newDeleteCode = () => String(Math.floor(1000 + Math.random() * 9000));
-
-// Deleting needs a typed code, so it cannot happen by accident. With a search
-// (`query`) only the matching videos go; without one, the whole library.
-function DeleteAllModal({ show, count, query, synced, onConfirm, onCancel }) {
-  const [code, setCode] = useState(newDeleteCode);
-  const [typed, setTyped] = useState("");
+// Confirms Delete all (the button itself is behind its feature flag). With a
+// search (`query`) only the matching videos go; in Favorites (`favorites`) only
+// the favorites; with neither, the whole library.
+function DeleteAllModal({ show, count, query, favorites, synced, onConfirm, onCancel }) {
   const [busy, setBusy] = useState(false);
 
-  const close = () => {
-    setTyped("");
-    setCode(newDeleteCode());
-    onCancel();
-  };
   const confirm = async () => {
     setBusy(true);
     const ok = await onConfirm();
     setBusy(false);
-    if (ok) close();
+    if (ok) onCancel();
   };
 
+  const videos = count === 1 ? "video" : "videos";
+  const where = synced ? " from this room's library" : " from this browser";
+  const partial = Boolean(query) || favorites;
+  const title = !partial
+    ? "Delete the whole library?"
+    : `Delete ${count} ${query ? "matching " : ""}${favorites ? (count === 1 ? "favorite" : "favorites") : videos}?`;
+
   return (
-    <Modal show={show} onHide={close} centered>
+    <Modal show={show} onHide={() => !busy && onCancel()} centered>
       <Modal.Header closeButton>
-        <Modal.Title as="h5">
-          {query ? `Delete ${count} matching ${count === 1 ? "video" : "videos"}?` : "Delete the whole library?"}
-        </Modal.Title>
+        <Modal.Title as="h5">{title}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <p>
-          {query ? (
-            <>
-              This removes the {count} {count === 1 ? "video" : "videos"} matching <strong>“{query}”</strong>
-              {synced ? " from this room's library" : " from this browser"}. The rest of your library stays.
-            </>
-          ) : (
-            <>
-              This removes all {count} saved videos
-              {synced ? " from this room's library" : " from this browser"}.
-            </>
-          )}{" "}
-          It cannot be undone.
-        </p>
-        <label htmlFor="delete-code" className="form-label">
-          Type <strong>{code}</strong> to confirm
-        </label>
-        <input
-          id="delete-code"
-          className="form-control"
-          inputMode="numeric"
-          autoComplete="off"
-          value={typed}
-          onChange={(e) => setTyped(e.target.value.trim())}
-        />
+        {partial ? (
+          <>
+            This removes the {count} {favorites ? `favorite ${videos}` : videos}
+            {query && (
+              <>
+                {" "}matching <strong>“{query}”</strong>
+              </>
+            )}
+            {where}. The rest of your library stays.
+          </>
+        ) : (
+          <>
+            This removes all {count} saved videos{where}.
+          </>
+        )}{" "}
+        It cannot be undone.
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={close} disabled={busy}>
+        <Button variant="secondary" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
-        <Button variant="danger" onClick={confirm} disabled={typed !== code || busy}>
-          {busy ? "Deleting…" : query ? `Delete ${count}` : "Delete all"}
+        <Button variant="danger" onClick={confirm} disabled={busy}>
+          {busy ? "Deleting…" : partial ? `Delete ${count}` : "Delete all"}
         </Button>
       </Modal.Footer>
     </Modal>
@@ -135,21 +123,36 @@ function Library({
     [shown, queuedIds]
   );
   // With a search, Delete all only deletes the saved videos it found ("Recently
-  // played" can show videos that are no longer in the library).
+  // played" can show videos that are no longer in the library). In Favorites it
+  // only deletes the favorites (the ones the search found, with a search).
   const query = filter.trim();
+  const favoritesOnly = view === "favorites";
+  const partialDelete = Boolean(query) || favoritesOnly;
   const deletable = useMemo(() => {
-    if (!query) return library;
+    if (!partialDelete) return library;
     const saved = new Set(library.map((v) => v.id.videoId));
     return shown.filter((v) => saved.has(v.id.videoId));
-  }, [query, shown, library]);
+  }, [partialDelete, shown, library]);
   // Kept while the dialog is open, so the list can't change under the user.
   const [deleteTarget, setDeleteTarget] = useState(null);
   const openDelete = () => {
-    setDeleteTarget(query ? { query, videos: deletable } : { query: "", videos: library });
+    setDeleteTarget(
+      partialDelete
+        ? { partial: true, query, favorites: favoritesOnly, videos: deletable }
+        : { partial: false, query: "", favorites: false, videos: library }
+    );
     setConfirmingDelete(true);
   };
   const confirmDelete = () =>
-    deleteTarget?.query ? onDeleteMatches(deleteTarget.videos) : onClearLibrary();
+    deleteTarget?.partial ? onDeleteMatches(deleteTarget.videos) : onClearLibrary();
+  const deleteAllLabel = partialDelete ? `Delete ${deletable.length}` : "Delete all";
+  const deleteAllTitle = query
+    ? favoritesOnly
+      ? "Delete only the favorites this search found"
+      : "Delete only the videos this search found"
+    : favoritesOnly
+      ? "Delete every favorite (the rest of the library stays)"
+      : "Delete every saved video";
 
   // Picked videos for Delete selected. Off with the flag (and in "Recently
   // played", where Remove is not offered either).
@@ -306,13 +309,15 @@ function Library({
             className="btn yq-btn-ghost-danger text-nowrap d-flex align-items-center gap-1"
             onClick={openDelete}
             disabled={deletable.length === 0}
-            title={query ? "Delete only the videos this search found" : "Delete every saved video"}
-            aria-label={query ? `Delete ${deletable.length} matching videos` : "Delete all"}
+            title={deleteAllTitle}
+            aria-label={
+              partialDelete
+                ? `Delete ${deletable.length} ${query ? "matching " : ""}${favoritesOnly ? "favorites" : "videos"}`
+                : "Delete all"
+            }
           >
             <FaTrash aria-hidden="true" />
-            <span className="d-none d-sm-inline">
-              {query ? `Delete ${deletable.length}` : "Delete all"}
-            </span>
+            <span className="d-none d-sm-inline">{deleteAllLabel}</span>
           </button>
         )}
       </div>
@@ -339,6 +344,7 @@ function Library({
           show={confirmingDelete}
           count={deleteTarget?.videos.length ?? 0}
           query={deleteTarget?.query ?? ""}
+          favorites={Boolean(deleteTarget?.favorites)}
           synced={Boolean(syncCode)}
           onConfirm={confirmDelete}
           onCancel={() => setConfirmingDelete(false)}
