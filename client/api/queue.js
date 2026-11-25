@@ -3,8 +3,10 @@
 //
 // POST body:
 //   { rev }                  -> poll: { rev, exists, changed, state? }
-//   { push: { queue, isPaused, played } } -> save: { rev }
-import { getDb, getRooms, slimQueueItem, slimVideo } from "./_db.js";
+//   { push: { queue, isPaused, isRepeat } } -> save: { rev }
+// Older copies of the app also send and expect a "played" list (the removed
+// re-queue feature): it is ignored on save and always answered as empty.
+import { getDb, getRooms, slimQueueItem } from "./_db.js";
 import { readCookie, requireRoom, touchPresence } from "./_session.js";
 
 const MAX_ITEMS = 5000;
@@ -14,9 +16,7 @@ function cleanState(push) {
     !Array.isArray(push?.queue) ||
     push.queue.length > MAX_ITEMS ||
     typeof push.isPaused !== "boolean" ||
-    (push.isRepeat !== undefined && typeof push.isRepeat !== "boolean") ||
-    !Array.isArray(push.played) ||
-    push.played.length > MAX_ITEMS
+    (push.isRepeat !== undefined && typeof push.isRepeat !== "boolean")
   ) {
     return null;
   }
@@ -24,7 +24,6 @@ function cleanState(push) {
     queue: push.queue.map(slimQueueItem).filter(Boolean),
     isPaused: push.isPaused,
     isRepeat: push.isRepeat === true,
-    played: push.played.map(slimVideo).filter(Boolean),
   };
 }
 
@@ -36,7 +35,7 @@ export async function handleQueue(rooms, roomId, body) {
 
     const result = await rooms.findOneAndUpdate(
       { _id: roomId },
-      { $set: { ...state, updatedAt: new Date() }, $inc: { rev: 1 } },
+      { $set: { ...state, updatedAt: new Date() }, $unset: { played: "" }, $inc: { rev: 1 } },
       { upsert: true, returnDocument: "after" }
     );
     return { status: 200, body: { rev: result?.rev ?? 1 } };
@@ -45,7 +44,7 @@ export async function handleQueue(rooms, roomId, body) {
   const known = Number.isInteger(body?.rev) ? body.rev : -1;
   const doc = await rooms.findOne(
     { _id: roomId },
-    { projection: { queue: 1, isPaused: 1, isRepeat: 1, played: 1, rev: 1 } }
+    { projection: { queue: 1, isPaused: 1, isRepeat: 1, rev: 1 } }
   );
   if (!doc || doc.queue === undefined) {
     return { status: 200, body: { exists: false, changed: false, rev: 0 } };
@@ -63,7 +62,7 @@ export async function handleQueue(rooms, roomId, body) {
         queue: doc.queue,
         isPaused: doc.isPaused,
         isRepeat: doc.isRepeat === true,
-        played: doc.played ?? [],
+        played: [], // for older copies of the app, which still read it
       },
     },
   };

@@ -49,7 +49,6 @@ function Home({ libraryApi, roomName, onSignedOut }) {
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
   const [isRepeat, setIsRepeat] = useLocalStorage("isRepeat", false);
-  const [playedVideos, setPlayedVideos] = useLocalStorage("playedVideos", []);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [lastQuery, setLastQuery] = useState("");
@@ -193,10 +192,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
     const finished = queue[0];
     if (!finished) return;
     setQueue((prev) => prev.slice(1));
-    setPlayedVideos((prev) =>
-      prev.some((v) => v.id.videoId === finished.id.videoId) ? prev : [...prev, finished]
-    );
-  }, [queue, setQueue, setPlayedVideos]);
+  }, [queue, setQueue]);
 
   const handlePlay = useCallback(
     (index) => {
@@ -211,13 +207,6 @@ function Home({ libraryApi, roomName, onSignedOut }) {
     },
     [setQueue, setIsPaused]
   );
-
-  const handleRequeuePlayed = useCallback(() => {
-    if (playedVideos.length === 0) return;
-    setQueue((prev) => [...prev, ...playedVideos.map(toQueueItem)]);
-    setPlayedVideos([]);
-    notify.queue.requeued(playedVideos.length);
-  }, [playedVideos, setQueue, setPlayedVideos]);
 
   const handleClearLibrary = useCallback(async () => {
     const ok = await clearLibrary();
@@ -329,8 +318,6 @@ function Home({ libraryApi, roomName, onSignedOut }) {
           onClear={handleClear}
           youtubeOnlyIds={youtubeOnlyIds}
           onShuffle={handleShuffle}
-          playedCount={playedVideos.length}
-          onRequeuePlayed={handleRequeuePlayed}
         />
       )}
     </div>

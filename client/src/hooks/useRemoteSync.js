@@ -12,12 +12,11 @@ const slimQueueItem = (video) => {
   return slim && { ...slim, queueId: video.queueId };
 };
 
-function serialize(queue, isPaused, played, isRepeat) {
+function serialize(queue, isPaused, isRepeat) {
   return JSON.stringify({
     queue: queue.map(slimQueueItem).filter(Boolean),
     isPaused,
     isRepeat,
-    played: played.map(slimVideo).filter(Boolean),
   });
 }
 
@@ -36,7 +35,7 @@ async function callQueueApi(body, signal) {
 }
 
 /**
- * Keeps the queue, pause state and played list identical on every device that
+ * Keeps the queue, pause and repeat state identical on every device that
  * uses the same sync code. The state lives in MongoDB (/api/queue): each device
  * saves its changes and polls for the other devices' changes every few
  * seconds. Mount it once, high in the tree, so it runs on every page.
@@ -51,12 +50,11 @@ export default function useRemoteSync() {
   const [syncCode] = useLocalStorage("syncCode", "");
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
-  const [played, setPlayed] = useLocalStorage("playedVideos", []);
   const [isRepeat, setIsRepeat] = useLocalStorage("isRepeat", false);
   const [status, setStatus] = useState("off");
 
-  const stateRef = useRef({ queue, isPaused, played, isRepeat });
-  stateRef.current = { queue, isPaused, played, isRepeat };
+  const stateRef = useRef({ queue, isPaused, isRepeat });
+  stateRef.current = { queue, isPaused, isRepeat };
   // What the server is known to hold (as a string) and its revision.
   const syncedJsonRef = useRef(null);
   const revRef = useRef(-1);
@@ -82,19 +80,17 @@ export default function useRemoteSync() {
       syncedJsonRef.current = serialize(
         state.queue,
         state.isPaused,
-        state.played,
         state.isRepeat
       );
       setQueue(state.queue);
       setIsPaused(state.isPaused);
       // An older server does not know about repeat; keep this device's setting then.
       if (typeof state.isRepeat === "boolean") setIsRepeat(state.isRepeat);
-      setPlayed(state.played);
     };
 
     const push = async () => {
-      const { queue, isPaused, played, isRepeat } = stateRef.current;
-      const json = serialize(queue, isPaused, played, isRepeat);
+      const { queue, isPaused, isRepeat } = stateRef.current;
+      const json = serialize(queue, isPaused, isRepeat);
       if (json === syncedJsonRef.current) return;
       const { rev } = await callQueueApi({ push: JSON.parse(json) }, controller.signal);
       revRef.current = rev;
@@ -142,12 +138,12 @@ export default function useRemoteSync() {
       controller.abort();
       pushNowRef.current = null;
     };
-  }, [syncCode, setQueue, setIsPaused, setPlayed, setIsRepeat]);
+  }, [syncCode, setQueue, setIsPaused, setIsRepeat]);
 
   // Save local changes shortly after they happen.
   useEffect(() => {
     if (status !== "connected") return;
-    if (serialize(queue, isPaused, played, isRepeat) === syncedJsonRef.current) return;
+    if (serialize(queue, isPaused, isRepeat) === syncedJsonRef.current) return;
 
     busyRef.current = true;
     const timer = setTimeout(async () => {
@@ -164,7 +160,7 @@ export default function useRemoteSync() {
       clearTimeout(timer);
       busyRef.current = false;
     };
-  }, [queue, isPaused, played, isRepeat, status]);
+  }, [queue, isPaused, isRepeat, status]);
 
   return status;
 }

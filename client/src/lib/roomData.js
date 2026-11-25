@@ -5,7 +5,6 @@ import { LOCAL_CHANGE_EVENT } from "../hooks/useLocalStorage";
 const ROOM_DATA = {
   videoLibrary: [],
   videoQueue: [],
-  playedVideos: [],
   isPaused: false,
   featureFlags: {},
   favoriteIds: [],

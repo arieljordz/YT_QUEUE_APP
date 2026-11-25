@@ -8,7 +8,6 @@ import {
   FaPause,
   FaPlay,
   FaStepForward,
-  FaRedo,
   FaRedoAlt,
   FaRandom,
   FaListUl,
@@ -190,8 +189,6 @@ function Queue({
   onClear,
   youtubeOnlyIds,
   onShuffle,
-  playedCount,
-  onRequeuePlayed,
 }) {
   const handleDragEnd = useCallback(
     (result) => {
@@ -230,20 +227,6 @@ function Queue({
     setConfirmingClear(false);
   };
 
-  const requeueButton = (primary) => (
-    <button
-      className={`btn btn-sm ${primary ? "yq-btn-primary" : "yq-btn-toggle"} d-flex align-items-center gap-1`}
-      onClick={onRequeuePlayed}
-      disabled={playedCount === 0}
-      title="Add the videos that already played to the end of the queue"
-    >
-      <FaRedo aria-hidden="true" />
-      <span className={primary ? "" : "d-none d-sm-inline"}>Re-queue played</span>
-      <span className={primary ? "d-none" : "d-sm-none"}>Re-queue</span>
-      {playedCount > 0 && <span className="yq-count">{playedCount}</span>}
-    </button>
-  );
-
   return (
     <section>
       {!current ? (
@@ -251,7 +234,6 @@ function Queue({
           <FaListUl aria-hidden="true" />
           <div className="yq-empty-title">The queue is empty</div>
           <div>Add videos from Search or your Library.</div>
-          {playedCount > 0 && <div className="d-flex justify-content-center mt-3">{requeueButton(true)}</div>}
         </div>
       ) : (
         <>
@@ -273,7 +255,6 @@ function Queue({
               Up next <span className="lib-chip-count">{upNext.length}</span>
             </h2>
             <div className="queue-header-actions">
-              {requeueButton(false)}
               <button
                 className="btn btn-sm yq-btn-ghost-danger d-flex align-items-center gap-1"
                 onClick={() => setConfirmingClear(true)}

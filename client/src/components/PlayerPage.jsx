@@ -15,7 +15,6 @@ function PlayerPage({ roomName, onSignedOut }) {
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
   const [isRepeat] = useLocalStorage("isRepeat", false);
-  const [, setPlayedVideos] = useLocalStorage("playedVideos", []);
 
   const currentVideo = queue[0] ?? null;
   const nextVideo = queue[1] ?? null;
@@ -53,12 +52,7 @@ function PlayerPage({ roomName, onSignedOut }) {
     // Only drop the head if it is still the video that finished; the user may
     // have reordered the queue from the other tab in the meantime.
     setQueue((prev) => (prev[0]?.queueId === currentVideo.queueId ? prev.slice(1) : prev));
-    setPlayedVideos((prev) =>
-      prev.some((v) => v.id.videoId === currentVideo.id.videoId)
-        ? prev
-        : [...prev, currentVideo]
-    );
-  }, [currentVideo, setQueue, setPlayedVideos]);
+  }, [currentVideo, setQueue]);
 
   if (status === "checking") return <div className="player-page player-checking" aria-busy="true" />;
   if (!active) {

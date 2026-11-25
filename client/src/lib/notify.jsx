@@ -48,7 +48,6 @@ export const notify = {
   queue: {
     added: (title) => toast.success(`Added "${decodeEntities(title)}" to the queue`),
     addedMany: (count) => toast.success(`Added ${plural(count, "video")} to the queue`),
-    requeued: (count) => toast.success(`Re-queued ${plural(count, "played video")}`),
     removed: (undo) => undoable("Removed from the queue", undo),
     cleared: (count, undo) => undoable(`Cleared ${plural(count, "video")}`, undo),
     shuffled: (count, undo) => undoable(`Shuffled ${plural(count, "video")}`, undo),
