@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../lib/notify";
 import SearchBar from "./SearchBar";
 import { FaSearch } from "react-icons/fa";
 import AppTabs from "./AppTabs";
@@ -94,9 +94,9 @@ function Home({ libraryApi, roomName, onSignedOut }) {
     } catch (err) {
       if (err.name === "AbortError") return;
       if (err instanceof QuotaError) {
-        toast.warning("Search quota limit reached. Please try again later.");
+        notify.search.quotaReached();
       } else {
-        toast.error("Search failed. Please try again.");
+        notify.search.failed();
         console.error("Search Error:", err);
       }
     } finally {
@@ -109,7 +109,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
     (video) => {
       setQueue((prev) => [...prev, toQueueItem(video)]);
       addToLibrary([video]);
-      toast.success(`Added "${video.snippet.title}" to the queue`);
+      notify.queue.added(video.snippet.title);
     },
     [setQueue, addToLibrary]
   );
@@ -128,7 +128,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
     (list) => {
       if (list.length === 0) return;
       setQueue((prev) => [...prev, ...list.map(toQueueItem)]);
-      toast.success(`Added ${list.length} video${list.length === 1 ? "" : "s"} to the queue`);
+      notify.queue.addedMany(list.length);
     },
     [setQueue]
   );
@@ -148,33 +148,12 @@ function Home({ libraryApi, roomName, onSignedOut }) {
     [setQueue]
   );
 
-  // A notice with an Undo button, for changes that are easy to regret.
-  const showUndo = useCallback((message, undo) => {
-    toast(
-      ({ closeToast }) => (
-        <div className="d-flex align-items-center justify-content-between gap-3">
-          <span>{message}</span>
-          <button
-            className="btn btn-sm btn-light"
-            onClick={() => {
-              undo();
-              closeToast();
-            }}
-          >
-            Undo
-          </button>
-        </div>
-      ),
-      { autoClose: 6000 }
-    );
-  }, []);
-
   const handleRemove = useCallback(
     (index) => {
       const removed = queue[index];
       if (!removed) return;
       setQueue((prev) => prev.filter((_, i) => i !== index));
-      showUndo("Removed from the queue", () =>
+      notify.queue.removed(() =>
         setQueue((prev) => {
           if (prev.some((video) => queueKey(video) === queueKey(removed))) return prev;
           // Back where it was (never in front of the song that is playing).
@@ -183,7 +162,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
         })
       );
     },
-    [queue, setQueue, showUndo]
+    [queue, setQueue]
   );
 
   const handleClear = useCallback(() => {
@@ -191,24 +170,24 @@ function Home({ libraryApi, roomName, onSignedOut }) {
     setQueue([]);
     setIsPaused(false);
     if (cleared.length > 0) {
-      showUndo(`Cleared ${cleared.length} songs`, () =>
+      notify.queue.cleared(cleared.length, () =>
         setQueue((prev) => {
           const clearedKeys = new Set(cleared.map(queueKey));
           return [...cleared, ...prev.filter((video) => !clearedKeys.has(queueKey(video)))];
         })
       );
     }
-  }, [queue, setQueue, setIsPaused, showUndo]);
+  }, [queue, setQueue, setIsPaused]);
 
   // Mixes up what is coming next; the song that is playing stays first.
   const handleShuffle = useCallback(() => {
     if (queue.length < 3) return;
     const before = queue;
     setQueue((prev) => (prev.length < 3 ? prev : [prev[0], ...shuffled(prev.slice(1))]));
-    showUndo(`Shuffled ${queue.length - 1} songs`, () =>
+    notify.queue.shuffled(queue.length - 1, () =>
       setQueue((prev) => restoreOrder(before, prev))
     );
-  }, [queue, setQueue, showUndo]);
+  }, [queue, setQueue]);
 
   const handleSkip = useCallback(() => {
     const finished = queue[0];
@@ -237,20 +216,20 @@ function Home({ libraryApi, roomName, onSignedOut }) {
     if (playedVideos.length === 0) return;
     setQueue((prev) => [...prev, ...playedVideos.map(toQueueItem)]);
     setPlayedVideos([]);
-    toast.success("Re-queued played videos!");
+    notify.queue.requeued(playedVideos.length);
   }, [playedVideos, setQueue, setPlayedVideos]);
 
   const handleClearLibrary = useCallback(async () => {
     const ok = await clearLibrary();
-    if (ok) toast.success("Library deleted");
-    else toast.error("Could not delete the synced library. Please try again.");
+    if (ok) notify.library.deleted();
+    else notify.library.deleteFailed();
     return ok;
   }, [clearLibrary]);
 
   const handleDeleteMatches = useCallback(
     (videos) => {
       removeManyFromLibrary(videos.map((v) => v.id.videoId));
-      toast.success(`Deleted ${videos.length} ${videos.length === 1 ? "video" : "videos"}`);
+      notify.library.videosDeleted(videos.length);
       return true;
     },
     [removeManyFromLibrary]

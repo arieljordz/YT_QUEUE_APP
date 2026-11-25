@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../lib/notify";
 import useFeatureFlags from "../hooks/useFeatureFlags";
 
 function Flag({ id, label, description, checked, disabled, onChange }) {
@@ -54,7 +54,7 @@ export default function FeatureFlagsPanel({ onAdminRequired }) {
     try {
       await setFlag(name, enabled);
     } catch (err) {
-      toast.error(err.message);
+      notify.admin.flagFailed(err);
       if (err.adminRequired) onAdminRequired?.();
     } finally {
       setSaving(false);

@@ -707,3 +707,94 @@
   padding-left: 0.4rem;
   padding-right: 0.4rem;
 }
+
+/* ==== Toasts: one card style; the type sets the color (lib/notify.jsx has the messages) ==== */
+:root,
+[data-bs-theme="light"] {
+  --yq-toast-success: #1e8e3e;
+  --yq-toast-info: #1a73e8;
+  --yq-toast-warning: #e37400;
+  --yq-toast-error: #d93025;
+  --yq-toast-default: var(--yq-text);
+  --yq-toast-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+[data-bs-theme="dark"] {
+  --yq-toast-success: #5bc777;
+  --yq-toast-info: #6aaeff;
+  --yq-toast-warning: #f5b301;
+  --yq-toast-error: #ff6b6b;
+  --yq-toast-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.app-toasts {
+  --toastify-toast-width: 360px;
+  --toastify-toast-min-height: 56px;
+  --toastify-toast-padding: 12px 36px 12px 14px;
+  --toastify-toast-bd-radius: 10px;
+  --toastify-font-family: inherit;
+  --toastify-toast-shadow: var(--yq-toast-shadow);
+  --toastify-color-success: var(--yq-toast-success);
+  --toastify-color-info: var(--yq-toast-info);
+  --toastify-color-warning: var(--yq-toast-warning);
+  --toastify-color-error: var(--yq-toast-error);
+}
+
+.app-toasts .Toastify__toast {
+  --yq-toast-color: var(--yq-toast-default);
+  background: var(--yq-surface);
+  color: var(--yq-text);
+  border: 1px solid var(--yq-border);
+  border-left: 4px solid var(--yq-toast-color);
+  font-size: 0.925rem;
+  line-height: 1.35;
+  overflow: hidden;
+}
+.app-toasts .Toastify__toast--success { --yq-toast-color: var(--yq-toast-success); }
+.app-toasts .Toastify__toast--info    { --yq-toast-color: var(--yq-toast-info); }
+.app-toasts .Toastify__toast--warning { --yq-toast-color: var(--yq-toast-warning); }
+.app-toasts .Toastify__toast--error   { --yq-toast-color: var(--yq-toast-error); }
+
+.app-toasts .Toastify__toast-icon svg { fill: var(--yq-toast-color); }
+.app-toasts .Toastify__progress-bar { background: var(--yq-toast-color); }
+.app-toasts .Toastify__progress-bar--bg { background: var(--yq-toast-color); opacity: 0.15; }
+
+.app-toasts .Toastify__close-button {
+  color: var(--yq-muted);
+  opacity: 0.8;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+}
+.app-toasts .Toastify__close-button:hover,
+.app-toasts .Toastify__close-button:focus-visible { color: var(--yq-text); opacity: 1; }
+
+/* Undo notice: message on the left, a red text button on the right. */
+.toast-undo { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; width: 100%; }
+.toast-undo-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--yq-border);
+  border-radius: 6px;
+  color: var(--yq-accent-text);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.75rem;
+  min-height: 32px;
+}
+.toast-undo-btn:hover { background: var(--yq-accent-soft); border-color: var(--yq-accent); }
+
+/* Phone: cards span the screen with a small gutter instead of touching the edges. */
+@media only screen and (max-width: 480px) {
+  .app-toasts.Toastify__toast-container {
+    width: 100vw;
+    left: 0;
+    right: 0;
+    padding: max(8px, env(safe-area-inset-top)) 12px 0;
+  }
+  .app-toasts .Toastify__toast {
+    margin-bottom: 8px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+  }
+}

@@ -302,7 +302,7 @@ const VideoPlayer = ({
         {needsTap && <div className="tap-hint">Click anywhere to start playback</div>}
         {endingSoon && !isRepeat && (
           <div className="next-up-banner" role="status">
-            <span className="next-up-label">{nextLabel ? "Next" : "Last song"}</span>
+            <span className="next-up-label">{nextLabel ? "Next" : "Last video"}</span>
             {nextLabel && <span className="next-up-title">{nextLabel}</span>}
           </div>
         )}

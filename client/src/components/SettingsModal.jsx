@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
-import { toast } from "react-toastify";
+import { notify } from "../lib/notify";
 import { FaCog } from "react-icons/fa";
 import { MdFileDownload, MdLibraryAdd, MdToggleOn, MdLock } from "react-icons/md";
 import AppTabs from "./AppTabs";
@@ -55,7 +55,7 @@ function SettingsBody({ onClose }) {
   }
 
   const expired = () => {
-    toast.info("Your admin sign-in expired. Enter the password again.");
+    notify.admin.sessionExpired();
     setSignedIn(false);
   };
 
@@ -69,7 +69,7 @@ function SettingsBody({ onClose }) {
         <AdminSignIn
           mode="change"
           onDone={() => {
-            toast.success("Admin password changed. It now works in every room.");
+            notify.admin.passwordChanged();
             setTab("import");
           }}
         />

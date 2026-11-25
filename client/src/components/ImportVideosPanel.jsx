@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { ProgressBar } from "react-bootstrap";
-import { toast } from "react-toastify";
+import { notify } from "../lib/notify";
 import { FaDownload, FaStop } from "react-icons/fa";
 import useLocalStorage from "../hooks/useLocalStorage";
 import { CatalogError, collectPage, isSearchesList, SEARCHES_LIST } from "../api/catalog";
@@ -68,13 +68,9 @@ export default function ImportVideosPanel() {
         setProgress({ saved, target: max });
         if (!pageToken || page.fetched === 0) break;
       }
-      toast.success(`Saved ${saved} videos to "${listName}"`);
+      notify.import.saved(saved, listName);
     } catch (err) {
-      toast.error(
-        saved > 0 && err instanceof CatalogError
-          ? `${err.message} (${saved} videos were saved)`
-          : err.message
-      );
+      notify.import.failed(err, err instanceof CatalogError ? saved : 0);
     } finally {
       setBusy(false);
     }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
+import AppToaster from "./components/AppToaster";
 import Home from "./components/Home";
 import PlayerGate from "./components/PlayerGate";
 import NavBar from "./components/NavBar";
@@ -134,7 +134,7 @@ function App() {
             }}
           />
         )}
-        <ToastContainer position="top-right" autoClose={2000} />
+        <AppToaster />
       </>
     );
   }
@@ -148,7 +148,7 @@ function App() {
           syncCode: roomId,
         }}
       />
-      <ToastContainer position="top-right" autoClose={2000} />
+      <AppToaster />
       <Routes>
         <Route
           path="/"

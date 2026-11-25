@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../lib/notify";
 import { FaBookOpen, FaCheck, FaTrash } from "react-icons/fa";
 import useLocalStorage from "../hooks/useLocalStorage";
 import useFeatureFlags from "../hooks/useFeatureFlags";
@@ -25,7 +25,7 @@ export default function AddLibraryPanel() {
       setLists(await listCatalogs());
     } catch (err) {
       setLists([]);
-      toast.error(err.message, { toastId: "catalog-list-error" });
+      notify.catalog.loadFailed(err);
     }
   }, []);
 
@@ -49,9 +49,9 @@ export default function AddLibraryPanel() {
       // Only the videos that are not in the library yet.
       const missing = videos.filter((v) => !libraryIds.has(v.id.videoId));
       setLibrary((prev) => mergeLibrary(prev, missing));
-      toast.success(`Added ${missing.length} videos from "${name}" to your library`);
+      notify.catalog.added(missing.length, name);
     } catch (err) {
-      toast.error(err.message);
+      notify.catalog.addFailed(err);
     } finally {
       setWorkingOn(null);
     }
@@ -65,11 +65,11 @@ export default function AddLibraryPanel() {
     setWorkingOn(name);
     try {
       await deleteCatalog(name);
-      toast.success(`Deleted the list "${name}"`);
+      notify.catalog.deleted(name);
       setConfirmDelete(null);
       await refreshLists();
     } catch (err) {
-      toast.error(err.message);
+      notify.catalog.deleteFailed(err);
     } finally {
       setWorkingOn(null);
     }

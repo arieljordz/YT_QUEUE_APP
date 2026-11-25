@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { QRCodeSVG } from "qrcode.react";
-import { toast } from "react-toastify";
+import { notify } from "../lib/notify";
 import { FaCopy, FaDoorOpen, FaMoon, FaPalette, FaQrcode, FaShareAlt, FaSun } from "react-icons/fa";
 
 /** Invite: a QR code of the app's address (not a room or guest link). */
@@ -13,9 +13,9 @@ export function InviteModal({ show, onHide }) {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link copied");
+      notify.share.linkCopied();
     } catch {
-      toast.error("Could not copy. Select the link and copy it.");
+      notify.share.copyFailed();
     }
   };
 

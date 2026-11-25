@@ -83,8 +83,8 @@ const NowPlaying = memo(function NowPlaying({
           className="btn now-btn yq-btn-toggle"
           onClick={onShuffle}
           disabled={!canShuffle}
-          aria-label="Shuffle the songs up next"
-          title={canShuffle ? "Mix up the songs that are coming next" : "Needs at least 2 songs up next"}
+          aria-label="Shuffle the videos up next"
+          title={canShuffle ? "Mix up the videos that are coming next" : "Needs at least 2 videos up next"}
         >
           <FaRandom aria-hidden="true" />
           <span>Shuffle</span>
@@ -235,7 +235,7 @@ function Queue({
       className={`btn btn-sm ${primary ? "yq-btn-primary" : "yq-btn-toggle"} d-flex align-items-center gap-1`}
       onClick={onRequeuePlayed}
       disabled={playedCount === 0}
-      title="Add the songs that already played to the end of the queue"
+      title="Add the videos that already played to the end of the queue"
     >
       <FaRedo aria-hidden="true" />
       <span className={primary ? "" : "d-none d-sm-inline"}>Re-queue played</span>

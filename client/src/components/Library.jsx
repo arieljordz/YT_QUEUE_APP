@@ -296,7 +296,7 @@ function Library({
           filter.trim()
             ? "Try another title or channel name."
             : view === "recent"
-              ? "Songs you play will show up here, newest first."
+              ? "Videos you play will show up here, newest first."
               : view === "favorites"
                 ? "Tap the star on a video to keep it here."
                 : "Videos you add to the queue are saved here automatically."
