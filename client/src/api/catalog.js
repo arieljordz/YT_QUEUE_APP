@@ -17,6 +17,13 @@ async function request({ method = "GET", query, body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const isJson = response.headers.get("content-type")?.includes("application/json");
+  if (!isJson && response.status >= 500) {
+    // Vercel's own error page, for example when the function ran out of time.
+    throw new CatalogError(
+      `The server did not answer in time (error ${response.status}). Try again.`,
+      "error"
+    );
+  }
   // Local dev (plain vite) has no /api route and answers with HTML or 404.
   if (!isJson || response.status === 404) {
     throw new CatalogError("This only works on the deployed site.", "unavailable");
@@ -34,8 +41,17 @@ async function request({ method = "GET", query, body } = {}) {
 
 export const listCatalogs = () => request().then((d) => d.catalogs);
 
-export const getCatalogVideos = (name) =>
-  request({ query: { name } }).then((d) => d.videos);
+/** Every video of a saved list, fetched a page at a time. */
+export async function getCatalogVideos(name) {
+  const videos = [];
+  let after = 0;
+  do {
+    const page = await request({ query: { name, after } });
+    videos.push(...page.videos);
+    after = page.next ?? null;
+  } while (after !== null);
+  return videos;
+}
 
 export const deleteCatalog = (name) =>
   request({ method: "DELETE", query: { name } });

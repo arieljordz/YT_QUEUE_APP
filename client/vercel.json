@@ -1,6 +1,7 @@
 {
   "functions": {
-    "api/library.js": { "maxDuration": 60 }
+    "api/library.js": { "maxDuration": 60 },
+    "api/catalog.js": { "maxDuration": 60 }
   },
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

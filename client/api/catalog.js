@@ -11,7 +11,8 @@
 //   GET    /api/catalog               -> { catalogs: [{ name, count, ids, mine }] }
 //                                        (ids = the video ids in the list; mine =
 //                                         this room imported part of it)
-//   GET    /api/catalog?name=X        -> { videos: [...] }
+//   GET    /api/catalog?name=X&after=N -> { videos: [...], next }  (up to 1,000 videos;
+//                                        next = the `after` for the next page, or null)
 //   DELETE /api/catalog?name=X        -> { deleted }   (this room's part only; needs the
 //                                        "deleteListButton" feature flag)
 //   POST   /api/catalog { save: video } -> adds one video to the "My Searches" list
@@ -45,7 +46,8 @@ const PLAYLIST_ITEMS_URL = "https://www.googleapis.com/youtube/v3/playlistItems"
 // Shorts are up to 3 minutes long and vertical. The API has no "is a Short" flag.
 const SHORT_MAX_SECONDS = 180;
 const ALWAYS_SHORT_SECONDS = 60;
-const MAX_VIDEOS = 8000; // keeps one response under Vercel's 4.5 MB limit
+const MAX_VIDEOS = 8000; // the most videos one list holds
+const LIST_PAGE_SIZE = 1000; // videos per GET ?name= response
 const MAX_NAME = 60;
 const CHANNEL_ID = /^UC[\w-]{20,}$/;
 const PAGE_TOKEN = /^[\w-]{1,200}$/;
@@ -159,8 +161,21 @@ export async function handleList(catalog, owner, query) {
     };
   }
 
+  // Big lists come in pages: sending thousands of videos at once takes longer
+  // than a function may run. `after` = how many documents were already sent.
+  const after = Number(query?.after);
+  const skip = Number.isInteger(after) && after > 0 ? Math.min(after, MAX_VIDEOS) : 0;
+  const limit = Math.min(LIST_PAGE_SIZE, MAX_VIDEOS - skip);
   const filter = name === SEARCHES_LIST ? { owner, catalog: name } : { catalog: name };
-  const docs = await catalog.find(filter).sort({ order: 1 }).limit(MAX_VIDEOS).toArray();
+  const docs =
+    limit > 0
+      ? await catalog
+          .find(filter, { projection: { _id: 0, video: 1 } })
+          .sort({ order: 1, _id: 1 })
+          .skip(skip)
+          .limit(limit)
+          .toArray()
+      : [];
   // Two rooms may have imported the same video into the same list.
   const seen = new Set();
   const videos = [];
@@ -170,7 +185,8 @@ export async function handleList(catalog, owner, query) {
       videos.push(doc.video);
     }
   }
-  return { status: 200, body: { videos } };
+  const more = docs.length === limit && skip + limit < MAX_VIDEOS;
+  return { status: 200, body: { videos, next: more ? skip + docs.length : null } };
 }
 
 export async function handleDelete(catalog, owner, query, flags) {
