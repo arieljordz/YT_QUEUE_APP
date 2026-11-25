@@ -88,6 +88,7 @@ function Library({
   queuedIds,
   youtubeOnlyIds,
   syncCode,
+  downloading = false,
 }) {
   const { flags } = useFeatureFlags();
   const { favoriteSet, toggleFavorite } = useFavorites();
@@ -267,11 +268,23 @@ function Library({
       )}
 
       <p className="lib-summary" aria-live="polite">
-        {filter.trim()
+        {downloading && library.length === 0 ? null : filter.trim()
           ? `${shown.length} ${shown.length === 1 ? "match" : "matches"} for “${filter.trim()}”`
           : `${shown.length} ${shown.length === 1 ? "video" : "videos"}${view === "recent" ? ", newest first" : ""}`}
+        {downloading && library.length > 0 && (
+          <span className="lib-loading-inline">
+            <span className="spinner-border spinner-border-sm" aria-hidden="true" /> Loading more…
+          </span>
+        )}
       </p>
       <div className="library-scroll" onScroll={handleScroll}>
+      {downloading && library.length === 0 && view !== "recent" ? (
+        // The library is still coming from the room (a page at a time).
+        <div className="lib-loading" role="status">
+          <span className="spinner-border" aria-hidden="true" />
+          <span>Loading your library…</span>
+        </div>
+      ) : (
       <VideoList
         videos={visible}
         queuedIds={queuedIds}
@@ -302,6 +315,7 @@ function Library({
                 : "Videos you add to the queue are saved here automatically."
         }
       />
+      )}
       </div>
       {shown.length > visible.length && (
         <p className="lib-summary text-center mt-2">

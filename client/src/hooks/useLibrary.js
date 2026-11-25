@@ -108,6 +108,9 @@ export default function useLibrary() {
   );
   // "off" | "syncing" | "synced" | "unavailable" | "error"
   const [status, setStatus] = useState("off");
+  // True while the whole library is downloading, page by page (first sync, or
+  // after Delete all on another device), for the library's loading spinner.
+  const [downloading, setDownloading] = useState(false);
 
   // Videos saved before titles were decoded still show "&#39;" and the like:
   // clean them once on this device.
@@ -170,6 +173,8 @@ export default function useLibrary() {
       const data = await response.json();
       // The server only moved the room's old library this time: send it all again.
       if (data.retry) return true;
+      // A reset means the whole library comes again, page by page.
+      if (data.reset && data.more) setDownloading(true);
 
       // Removals sent are now the server's business; ones made meanwhile stay pending.
       const sentGone = new Set(removed);
@@ -215,6 +220,8 @@ export default function useLibrary() {
     }
     runningRef.current = true;
     setStatus("syncing");
+    // Never synced: the whole library is about to come.
+    if (!sinceRef.current) setDownloading(true);
     try {
       let rounds = 0;
       let more = true;
@@ -228,6 +235,9 @@ export default function useLibrary() {
       setStatus(err.message === "unavailable" ? "unavailable" : "error");
     } finally {
       runningRef.current = false;
+      // Done, or stopped early (error, room left): no spinner left hanging. The
+      // next sync carries on from the last page received.
+      setDownloading(false);
     }
   }, [syncOnce]);
 
@@ -296,6 +306,7 @@ export default function useLibrary() {
     lastSyncCode,
     setSyncCode,
     status,
+    downloading,
     retrySync,
     clearLibrary,
     removeFromLibrary,

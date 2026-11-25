@@ -301,6 +301,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
           queuedIds={queuedIds}
           youtubeOnlyIds={youtubeOnlyIds}
           syncCode={syncCode}
+          downloading={libraryApi.downloading}
         />
       )}
 
