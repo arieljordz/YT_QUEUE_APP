@@ -5,9 +5,14 @@ import { FaDownload, FaStop } from "react-icons/fa";
 import useLocalStorage from "../hooks/useLocalStorage";
 import { CatalogError, collectPage, isSearchesList, SEARCHES_LIST } from "../api/catalog";
 
-const MAX_OPTIONS = [100, 250, 500];
-// Each page of 50 results costs 100 YouTube quota units, so the scan is capped.
-const MAX_PAGES = 10;
+// A list holds at most 8,000 videos (MAX_VIDEOS on the server).
+const ALL = 8000;
+// A channel is read from its uploads playlist: every upload, 2 quota units per 50.
+const CHANNEL_OPTIONS = [100, 250, 500, 1000, 2000, ALL];
+const CHANNEL_MAX_PAGES = ALL / 50;
+// Without a channel, YouTube search is used: 100 units per 50, about 500 results at most.
+const SEARCH_OPTIONS = [100, 250, 500];
+const SEARCH_MAX_PAGES = 10;
 
 /**
  * Menu > Import Videos: collect videos from a YouTube channel or search into a
@@ -22,12 +27,15 @@ export default function ImportVideosPanel() {
   const [max, setMax] = useState(500);
   const [embeddableOnly, setEmbeddableOnly] = useState(true);
   const [skipShorts, setSkipShorts] = useState(true);
-  const [newestFirst, setNewestFirst] = useState(false);
+  const [newestFirst, setNewestFirst] = useState(true);
 
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ saved: 0, target: 0 });
   const cancelRef = useRef(false);
 
+  const hasChannel = Boolean(channel.trim());
+  const maxOptions = hasChannel ? CHANNEL_OPTIONS : SEARCH_OPTIONS;
+  const limit = Math.min(max, maxOptions[maxOptions.length - 1]);
   const listName = customName ?? (channel.trim() || title.trim());
   const reservedName = isSearchesList(listName);
   const canStart =
@@ -45,15 +53,16 @@ export default function ImportVideosPanel() {
   const startImport = async () => {
     cancelRef.current = false;
     setBusy(true);
-    setProgress({ saved: 0, target: max });
+    setProgress({ saved: 0, target: limit });
 
+    const maxPages = hasChannel ? CHANNEL_MAX_PAGES : SEARCH_MAX_PAGES;
     let pages = 0;
     let saved = 0;
     let pageToken;
     let channelId;
     try {
       // Keep reading pages until enough videos matched, YouTube has no more, or the page cap.
-      while (saved < max && pages < MAX_PAGES && !cancelRef.current) {
+      while (saved < limit && pages < maxPages && !cancelRef.current) {
         const page = await collectPage({
           name: listName,
           channel: channelId ? undefined : channel.trim(),
@@ -63,13 +72,13 @@ export default function ImportVideosPanel() {
           offset: saved,
           any: !embeddableOnly,
           noShorts: skipShorts,
-          newest: newestFirst,
+          newest: !hasChannel && newestFirst,
         });
         pages += 1;
         channelId = page.channelId ?? channelId;
         pageToken = page.nextPageToken;
         saved += page.added;
-        setProgress({ saved, target: max });
+        setProgress({ saved, target: limit });
         if (!pageToken || page.fetched === 0) break;
       }
       notify.import.saved(saved, listName);
@@ -134,13 +143,13 @@ export default function ImportVideosPanel() {
           <select
             id="imp-max"
             className="form-select"
-            value={max}
+            value={limit}
             onChange={(e) => setMax(Number(e.target.value))}
             disabled={busy}
           >
-            {MAX_OPTIONS.map((n) => (
+            {maxOptions.map((n) => (
               <option key={n} value={n}>
-                {n} videos
+                {n === ALL ? "All videos" : `${n.toLocaleString()} videos`}
               </option>
             ))}
           </select>
@@ -174,23 +183,26 @@ export default function ImportVideosPanel() {
         </label>
       </div>
       <div className="form-check">
+        {/* A channel's uploads list only comes newest first, so it stays ticked then. */}
         <input
           id="imp-newest"
           type="checkbox"
           className="form-check-input"
-          checked={newestFirst}
+          checked={hasChannel || newestFirst}
           onChange={(e) => setNewestFirst(e.target.checked)}
-          disabled={busy}
+          disabled={busy || hasChannel}
         />
         <label className="form-check-label small" htmlFor="imp-newest">
-          Newest uploads first (good for re-importing a channel to catch new videos)
+          Newest uploads first
+          {hasChannel && <span className="text-muted"> (always, for a channel)</span>}
         </label>
       </div>
       <div className="form-text">
         Fill in a channel, a title, or both. With a title, only videos whose own
-        title contains those words are saved. Each 50 videos checked use 100 of
-        YouTube's 10,000 free daily search units, and at most 500 are checked per
-        import.
+        title contains those words are saved.{" "}
+        {hasChannel
+          ? "A channel is read in full, newest first: each 50 videos checked use about 2 of YouTube's 10,000 free daily units."
+          : "Without a channel, YouTube search is used: each 50 videos checked use 100 of YouTube's 10,000 free daily units, and at most 500 are checked per import."}
       </div>
 
       <div className="d-flex gap-2 mt-3">

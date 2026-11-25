@@ -19,9 +19,13 @@
 //          { name, channel?, channelId?, title?, pageToken?, offset?, any?, noShorts?, newest? }
 //          channel = only videos of that channel; title = only videos whose title
 //          contains all the words of this text (at least one of the two is needed);
-//          noShorts = skip YouTube Shorts (1 more quota unit per page);
-//          newest = newest uploads first instead of YouTube's relevance order
+//          any = also keep videos that can't play embedded;
+//          noShorts = skip YouTube Shorts;
+//          newest = newest first (search only; a channel is always newest first)
 //          -> { fetched, added, nextPageToken?, channelId?, channelTitle? }
+//     With a channel, the channel's uploads playlist is read: every upload,
+//     newest first, 1 quota unit per page (+1 for the details lookup). Without
+//     one, YouTube search is used: 100 units per page and about 500 results at most.
 //     The browser calls POST repeatedly until it has enough videos, so no
 //     single request runs long.
 import { getAppFlags } from "./flags.js";
@@ -37,6 +41,7 @@ import {
 
 const SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 const VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos";
+const PLAYLIST_ITEMS_URL = "https://www.googleapis.com/youtube/v3/playlistItems";
 // Shorts are up to 3 minutes long and vertical. The API has no "is a Short" flag.
 const SHORT_MAX_SECONDS = 180;
 const ALWAYS_SHORT_SECONDS = 60;
@@ -81,24 +86,43 @@ export function looksLikeShort(item) {
 }
 
 /**
- * Returns the set of ids (of up to 50) that are Shorts. Costs 1 quota unit.
- * `null` means the quota is used up; any other failure keeps every video.
+ * Looks up up to 50 videos. Costs 1 quota unit. Returns { quota: true }, or
+ * { details } (a Map id -> { embeddable, short }; videos that are private or
+ * deleted are missing from it), or {} when the lookup failed.
  */
-async function findShorts(fetchFn, apiKey, ids) {
-  const shorts = new Set();
-  if (ids.length === 0) return shorts;
+async function getDetails(fetchFn, apiKey, ids) {
+  if (ids.length === 0) return { details: new Map() };
   const params = new URLSearchParams({
-    part: "contentDetails,player",
+    part: "status,contentDetails,player",
     id: ids.slice(0, 50).join(","),
     maxWidth: "200", // makes YouTube send the player's width and height
     key: apiKey,
   });
   const res = await fetchFn(`${VIDEOS_URL}?${params}`);
-  if (res.status === 403) return null;
-  if (!res.ok) return shorts;
+  if (res.status === 403) return { quota: true };
+  if (!res.ok) return {};
   const data = await res.json();
-  for (const item of data.items ?? []) if (looksLikeShort(item)) shorts.add(item.id);
-  return shorts;
+  const details = new Map();
+  for (const item of data.items ?? []) {
+    details.set(item.id, {
+      embeddable: item.status?.embeddable !== false,
+      short: looksLikeShort(item),
+    });
+  }
+  return { details };
+}
+
+/** A playlistItems.list item in the same shape as a search result. */
+function fromPlaylistItem(item) {
+  const snippet = item?.snippet;
+  return {
+    id: { videoId: snippet?.resourceId?.videoId },
+    snippet: {
+      title: snippet?.title,
+      channelTitle: snippet?.videoOwnerChannelTitle ?? snippet?.channelTitle,
+      thumbnails: snippet?.thumbnails,
+    },
+  };
 }
 
 const fail = (status, error) => ({ status, body: { error } });
@@ -158,13 +182,15 @@ export async function handleDelete(catalog, owner, query, flags) {
   return { status: 200, body: { deleted: result.deletedCount } };
 }
 
-/** Calls the YouTube search API. `fetchFn` is injectable for tests. */
-async function youtubeSearch(fetchFn, params) {
-  const res = await fetchFn(`${SEARCH_URL}?${new URLSearchParams(params)}`);
+/** Calls a YouTube API. `fetchFn` is injectable for tests. */
+async function youtubeGet(fetchFn, url, params) {
+  const res = await fetchFn(`${url}?${new URLSearchParams(params)}`);
   if (res.status === 403) return { quota: true };
+  if (res.status === 404) return { notFound: true };
   if (!res.ok) return { failed: true };
   return { data: await res.json() };
 }
+const youtubeSearch = (fetchFn, params) => youtubeGet(fetchFn, SEARCH_URL, params);
 
 /** Saves one video the user searched for and queued into the "My Searches" list. */
 export async function handleSaveSearched(catalog, owner, body) {
@@ -213,7 +239,7 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
         key: apiKey,
       });
       if (found.quota) return fail(429, "quota");
-      if (found.failed) return fail(502, "YouTube channel lookup failed");
+      if (found.failed || found.notFound) return fail(502, "YouTube channel lookup failed");
       const item = found.data.items?.[0];
       if (!item) return fail(404, `No channel found for "${channel}"`);
       channelId = item.id.channelId;
@@ -221,28 +247,54 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
     }
   }
 
-  const params = { part: "snippet", type: "video", maxResults: "50", key: apiKey };
-  if (title) params.q = title; // helps YouTube find them; the title check below is the real filter
-  if (channelId) params.channelId = channelId;
-  if (body?.any !== true) params.videoEmbeddable = "true";
-  if (body?.newest === true) params.order = "date";
-  if (pageToken) params.pageToken = pageToken;
+  const embeddableOnly = body?.any !== true;
+  const noShorts = body?.noShorts === true;
 
-  const result = await youtubeSearch(fetchFn, params);
-  if (result.quota) return fail(429, "quota");
-  if (result.failed) return fail(502, "YouTube search failed");
-
-  const items = result.data.items ?? [];
-  let shorts = new Set();
-  if (body?.noShorts === true) {
-    shorts = await findShorts(fetchFn, apiKey, items.map((item) => item?.id?.videoId).filter(Boolean));
-    if (shorts === null) return fail(429, "quota");
+  let result;
+  let items;
+  if (channelId) {
+    // Every channel's uploads playlist id is its channel id with "UU" for "UC".
+    const params = {
+      part: "snippet",
+      playlistId: `UU${channelId.slice(2)}`,
+      maxResults: "50",
+      key: apiKey,
+    };
+    if (pageToken) params.pageToken = pageToken;
+    result = await youtubeGet(fetchFn, PLAYLIST_ITEMS_URL, params);
+    if (result.notFound) result = { data: {} }; // a channel with no uploads
+    items = (result.data?.items ?? []).map(fromPlaylistItem);
+  } else {
+    const params = { part: "snippet", type: "video", maxResults: "50", key: apiKey };
+    params.q = title; // helps YouTube find them; the title check below is the real filter
+    if (embeddableOnly) params.videoEmbeddable = "true";
+    if (body?.newest === true) params.order = "date";
+    if (pageToken) params.pageToken = pageToken;
+    result = await youtubeSearch(fetchFn, params);
+    items = result.data?.items ?? [];
   }
+  if (result.quota) return fail(429, "quota");
+  if (result.failed || result.notFound) return fail(502, "YouTube request failed");
+
+  // Search already filtered embeddable videos; the playlist did not.
+  let details = null;
+  if (noShorts || (channelId && embeddableOnly)) {
+    const ids = items.map((item) => item?.id?.videoId).filter(Boolean);
+    const lookup = await getDetails(fetchFn, apiKey, ids);
+    if (lookup.quota) return fail(429, "quota");
+    details = lookup.details ?? null; // a failed lookup keeps every video
+  }
+
   const operations = [];
   items.forEach((item) => {
     const video = slimVideo(item);
     if (!video) return;
-    if (shorts.has(video.id.videoId)) return;
+    if (details) {
+      const info = details.get(video.id.videoId);
+      if (!info) return; // private or deleted
+      if (noShorts && info.short) return;
+      if (channelId && embeddableOnly && !info.embeddable) return;
+    }
     // Only videos whose own title contains the text (YouTube also matches descriptions).
     if (title && !titleMatches(video.snippet.title, title)) return;
     operations.push({
