@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import useLocalStorage from "./useLocalStorage";
 import { slimVideo } from "../lib/library";
+import { PROGRESS_KEY } from "../lib/progress";
 
 const POLL_MS = 3000;
 // A hidden tab with nothing playing has no need to follow remote changes quickly.
@@ -35,6 +36,14 @@ async function callQueueApi(body, signal) {
 }
 
 /**
+ * Sends where the player is in the video, for the other devices' "Now playing"
+ * card. Best effort: a lost update is corrected by the next one.
+ */
+export function pushProgress({ id, queueId, position, duration, playing }) {
+  return callQueueApi({ progress: { id, queueId, position, duration, playing } }).catch(() => {});
+}
+
+/**
  * Keeps the queue, pause and repeat state identical on every device that
  * uses the same sync code. The state lives in MongoDB (/api/queue): each device
  * saves its changes and polls for the other devices' changes every few
@@ -51,6 +60,7 @@ export default function useRemoteSync() {
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
   const [isRepeat, setIsRepeat] = useLocalStorage("isRepeat", false);
+  const [, setProgress] = useLocalStorage(PROGRESS_KEY, null);
   const [status, setStatus] = useState("off");
 
   const stateRef = useRef({ queue, isPaused, isRepeat });
@@ -98,12 +108,32 @@ export default function useRemoteSync() {
     };
     pushNowRef.current = push;
 
+    // The player's latest position, placed on this device's clock. A newer
+    // snapshot already here (this device may be the player) is kept.
+    const adoptProgress = (remote) => {
+      if (!remote?.id) return;
+      const at = Date.now() - (remote.age ?? 0);
+      setProgress((local) =>
+        local?.id === remote.id || (local && local.at >= at)
+          ? local
+          : {
+              id: remote.id,
+              queueId: remote.queueId,
+              position: remote.position,
+              duration: remote.duration,
+              playing: remote.playing,
+              at,
+            }
+      );
+    };
+
     const poll = async () => {
       // Do not overwrite local changes that have not been saved yet.
       if (!busyRef.current) {
         try {
           const result = await callQueueApi({ rev: revRef.current }, controller.signal);
           if (cancelled) return;
+          adoptProgress(result.progress);
           if (!result.exists) {
             // Nothing saved yet for this code: seed it with this device's state.
             await push();
@@ -138,7 +168,7 @@ export default function useRemoteSync() {
       controller.abort();
       pushNowRef.current = null;
     };
-  }, [syncCode, setQueue, setIsPaused, setIsRepeat]);
+  }, [syncCode, setQueue, setIsPaused, setIsRepeat, setProgress]);
 
   // Save local changes shortly after they happen.
   useEffect(() => {

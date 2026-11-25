@@ -41,6 +41,7 @@ const VideoPlayer = ({
   onPlayerPause,
   onPlayerPlay,
   onEmbedBlocked,
+  onProgress,
 }) => {
   const queueId = video?.queueId;
   const videoId = video?.id.videoId;
@@ -59,6 +60,8 @@ const VideoPlayer = ({
   playCallbackRef.current = onPlayerPlay;
   const blockedCallbackRef = useRef(onEmbedBlocked);
   blockedCallbackRef.current = onEmbedBlocked;
+  const progressCallbackRef = useRef(onProgress);
+  progressCallbackRef.current = onProgress;
   const wantsFullscreenRef = useRef(localStorage.getItem("isFullscreen") === "true");
 
   // The iframe is created once, with the song that is first in the queue. Every
@@ -207,10 +210,29 @@ const VideoPlayer = ({
     if (e.data === 101 || e.data === 150) blockedCallbackRef.current?.(loadedIdRef.current);
   }, []);
 
+  /** Tell the Queue tab where playback is (it only passes on real changes). */
+  const reportProgress = useCallback(() => {
+    const player = playerRef.current;
+    const queueEntry = shownQueueIdRef.current;
+    if (!player || !queueEntry) return;
+    try {
+      const state = player.getPlayerState?.();
+      progressCallbackRef.current?.({
+        queueId: queueEntry,
+        position: player.getCurrentTime?.() ?? 0,
+        duration: player.getDuration?.() ?? 0,
+        playing: state === 1 || state === 3, // buffering counts as playing
+      });
+    } catch {
+      // The player is being replaced; the next reading covers it.
+    }
+  }, []);
+
   const [playing, setPlaying] = useState(false);
   const handleStateChange = useCallback(
     (e) => {
       setPlaying(e.data === 1);
+      reportProgress();
 
       if (e.data === 2 && !isPausedRef.current && userIsInPlayer()) {
         pauseCallbackRef.current?.(); // paused in the player: the queue is paused too
@@ -222,7 +244,7 @@ const VideoPlayer = ({
         command((p) => p.playVideo());
       }
     },
-    [command]
+    [command, reportProgress]
   );
 
   // Watchdog: if the player has not been playing for a few checks in a row
@@ -280,9 +302,10 @@ const VideoPlayer = ({
       const duration = player?.getDuration?.() ?? 0;
       const remaining = duration - (player?.getCurrentTime?.() ?? 0);
       setEndingSoon(duration > 0 && remaining > 0 && remaining <= NEXT_BANNER_SECONDS);
+      reportProgress();
     }, 1000);
     return () => clearInterval(timer);
-  }, [queueId]);
+  }, [queueId, reportProgress]);
   const nextLabel = nextVideo ? decodeHtml(nextVideo.snippet.title) : null;
 
   // Only when the browser really blocked playback: say how to start it.

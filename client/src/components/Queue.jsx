@@ -2,6 +2,8 @@ import { memo, useCallback, useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import YoutubeOnlyBadge from "./YoutubeOnlyBadge";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { useNowPosition } from "../hooks/usePlayerProgress";
+import { formatClock } from "../lib/progress";
 import {
   FaTrash,
   FaGripVertical,
@@ -19,6 +21,31 @@ const thumbOf = (video) => {
   const { thumbnails } = video.snippet;
   return (thumbnails.medium ?? thumbnails.default).url;
 };
+
+/** Elapsed time, a bar, and the length, as reported by the player (wherever it runs). */
+function NowProgress({ queueId, isPaused }) {
+  const progress = useNowPosition(queueId, isPaused);
+  if (!progress) return null;
+  const { position, duration } = progress;
+  const percent = (position / duration) * 100;
+  return (
+    <div className="now-progress">
+      <span className="now-time">{formatClock(position)}</span>
+      <div
+        className="now-bar"
+        role="progressbar"
+        aria-label="Video progress"
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration)}
+        aria-valuenow={Math.round(position)}
+        aria-valuetext={`${formatClock(position)} of ${formatClock(duration)}`}
+      >
+        <div className="now-bar-fill" style={{ width: `${percent}%` }} />
+      </div>
+      <span className="now-time">{formatClock(duration)}</span>
+    </div>
+  );
+}
 
 /** The video playing now, with Pause / Repeat / Shuffle / Next. */
 const NowPlaying = memo(function NowPlaying({
@@ -59,6 +86,7 @@ const NowPlaying = memo(function NowPlaying({
           )}
         </div>
       </div>
+      <NowProgress queueId={video.queueId} isPaused={isPaused} />
       <div className="now-controls" role="group" aria-label="Playback">
         <button
           className="btn yq-btn-primary now-btn"

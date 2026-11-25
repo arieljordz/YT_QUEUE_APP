@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import VideoPlayer from "./VideoPlayer";
 import useLocalStorage from "../hooks/useLocalStorage";
+import { useProgressReporter } from "../hooks/usePlayerProgress";
 import useWakeLock from "../hooks/useWakeLock";
 import { useRecordPlayed } from "../hooks/useExtras";
 import { useEmbeddableCache } from "../hooks/useEmbeddable";
@@ -15,6 +16,8 @@ function PlayerPage({ roomName, onSignedOut }) {
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
   const [isRepeat] = useLocalStorage("isRepeat", false);
+
+  const reportProgress = useProgressReporter();
 
   const currentVideo = queue[0] ?? null;
   const nextVideo = queue[1] ?? null;
@@ -83,6 +86,7 @@ function PlayerPage({ roomName, onSignedOut }) {
         onPlayerPause={() => setIsPaused(true)}
         onPlayerPlay={() => setIsPaused(false)}
         onEmbedBlocked={(id) => recordEmbeddable([[id, false]])}
+        onProgress={reportProgress}
       />
       {!currentVideo && (
         <p className="text-center player-empty px-3">

@@ -4,6 +4,10 @@
 // POST body:
 //   { rev }                  -> poll: { rev, exists, changed, state? }
 //   { push: { queue, isPaused, isRepeat } } -> save: { rev }
+//   { progress: { id, queueId, position, duration, playing } } -> { ok }
+//     Where the player is in the current video. Saved apart from the queue
+//     (no new rev), and sent back with every poll as "progress", with "age"
+//     = how many ms ago it was saved, so each device can place it on its own clock.
 // Older copies of the app also send and expect a "played" list (the removed
 // re-queue feature): it is ignored on save and always answered as empty.
 import { getDb, getRooms, slimQueueItem } from "./_db.js";
@@ -27,8 +31,33 @@ function cleanState(push) {
   };
 }
 
+const MAX_SECONDS = 24 * 60 * 60;
+const isSeconds = (n) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= MAX_SECONDS;
+const isShortId = (v) => typeof v === "string" && v.length > 0 && v.length <= 64;
+
+function cleanProgress(p) {
+  if (!isShortId(p?.id) || !isShortId(p.queueId) || !isSeconds(p.position) || !isSeconds(p.duration) || typeof p.playing !== "boolean") {
+    return null;
+  }
+  return { id: p.id, queueId: p.queueId, position: p.position, duration: p.duration, playing: p.playing };
+}
+
+/** The saved progress as sent to devices, or undefined when there is none. */
+function progressOut(saved, now) {
+  if (!saved?.savedAt) return undefined;
+  const { savedAt, ...rest } = saved;
+  return { ...rest, age: Math.max(0, now - new Date(savedAt).getTime()) };
+}
+
 /** Core logic, separated from the HTTP layer so it can be tested with any collection. */
-export async function handleQueue(rooms, roomId, body) {
+export async function handleQueue(rooms, roomId, body, now = Date.now()) {
+  if (body?.progress !== undefined) {
+    const progress = cleanProgress(body.progress);
+    if (!progress) return { status: 400, body: { error: "Invalid progress" } };
+    await rooms.updateOne({ _id: roomId }, { $set: { progress: { ...progress, savedAt: new Date(now) } } });
+    return { status: 200, body: { ok: true } };
+  }
+
   if (body?.push !== undefined) {
     const state = cleanState(body.push);
     if (!state) return { status: 400, body: { error: "Invalid queue state" } };
@@ -44,13 +73,14 @@ export async function handleQueue(rooms, roomId, body) {
   const known = Number.isInteger(body?.rev) ? body.rev : -1;
   const doc = await rooms.findOne(
     { _id: roomId },
-    { projection: { queue: 1, isPaused: 1, isRepeat: 1, rev: 1 } }
+    { projection: { queue: 1, isPaused: 1, isRepeat: 1, rev: 1, progress: 1 } }
   );
   if (!doc || doc.queue === undefined) {
     return { status: 200, body: { exists: false, changed: false, rev: 0 } };
   }
+  const progress = progressOut(doc.progress, now);
   if (doc.rev === known) {
-    return { status: 200, body: { exists: true, changed: false, rev: doc.rev } };
+    return { status: 200, body: { exists: true, changed: false, rev: doc.rev, progress } };
   }
   return {
     status: 200,
@@ -58,6 +88,7 @@ export async function handleQueue(rooms, roomId, body) {
       exists: true,
       changed: true,
       rev: doc.rev,
+      progress,
       state: {
         queue: doc.queue,
         isPaused: doc.isPaused,
