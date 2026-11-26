@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { FaSearch, FaList } from "react-icons/fa";
 import VideoList from "../videos/VideoList";
-import { byTitle } from "../../lib/sort";
+import { playableFirstByTitle } from "../../lib/sort";
 
 // The list grows by this many rows each time the user scrolls near the bottom.
 const PAGE_SIZE = 100;
@@ -18,8 +18,8 @@ export default function VideoPicker({ library, selected, onChange, excludeIds = 
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const candidates = useMemo(
-    () => library.filter((v) => !excludeIds.has(v.id.videoId)).sort(byTitle),
-    [library, excludeIds]
+    () => library.filter((v) => !excludeIds.has(v.id.videoId)).sort(playableFirstByTitle(youtubeOnlyIds)),
+    [library, excludeIds, youtubeOnlyIds]
   );
   const shown = useMemo(() => {
     const needle = filter.trim().toLowerCase();

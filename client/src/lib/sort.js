@@ -9,3 +9,12 @@ export const byTitle = (a, b) =>
     numeric: true,
     ignorePunctuation: true,
   });
+
+/**
+ * Compare by title, but put videos that only play on YouTube (ids in
+ * `youtubeOnlyIds`) after the ones that play here.
+ */
+export const playableFirstByTitle = (youtubeOnlyIds) => {
+  const ytOnly = (v) => (youtubeOnlyIds?.has(v.id.videoId) ? 1 : 0);
+  return (a, b) => ytOnly(a) - ytOnly(b) || byTitle(a, b);
+};

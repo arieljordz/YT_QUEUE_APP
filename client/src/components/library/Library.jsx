@@ -5,7 +5,7 @@ import { MdPlaylistAdd } from "react-icons/md";
 import VideoList from "../videos/VideoList";
 import useLocalStorage from "../../hooks/useLocalStorage";
 import useFeatureFlags from "../../hooks/useFeatureFlags";
-import { byTitle } from "../../lib/sort";
+import { playableFirstByTitle } from "../../lib/sort";
 import { useFavorites } from "../../hooks/useExtras";
 import { notify } from "../../lib/notify";
 
@@ -107,8 +107,7 @@ function Library({
     if (view === "recent") return matches;
     if (sort === "newest") return matches.reverse();
     // A-Z: playable videos first, then the YouTube-only ones, each group by title.
-    const ytOnly = (v) => (youtubeOnlyIds?.has(v.id.videoId) ? 1 : 0);
-    return matches.sort((a, b) => ytOnly(a) - ytOnly(b) || byTitle(a, b));
+    return matches.sort(playableFirstByTitle(youtubeOnlyIds));
   }, [view, recent, favorites, library, filter, sort, youtubeOnlyIds]);
 
   const visible = useMemo(() => shown.slice(0, visibleCount), [shown, visibleCount]);
