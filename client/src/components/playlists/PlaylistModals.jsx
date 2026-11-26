@@ -47,7 +47,7 @@ export function PlaylistFormModal({ show, playlist, library, youtubeOnlyIds, onS
               value={name}
               maxLength={MAX_NAME}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Friday night karaoke"
+              placeholder="Playlist name"
               autoFocus
               required
             />
