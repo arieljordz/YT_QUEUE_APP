@@ -167,82 +167,98 @@ export default function AddLibraryPanel() {
     );
   }
 
+  const number = (n) => n.toLocaleString();
+
   return (
     <>
-    {refreshing && <p className="text-muted small mb-2">Checking for updates…</p>}
-    <ul className="list-group">
-      {lists.map(({ name, count, mine }) => {
-        // Unknown until the list's ids have loaded: then only the count shows.
-        const ids = idsByName[name]?.count === count ? idsByName[name].ids : null;
-        const inLibrary = ids ? ids.filter((id) => libraryIds.has(id)).length : 0;
-        const missing = ids ? count - inLibrary : count;
-        return (
-          <li
-            key={name}
-            className="list-group-item d-flex flex-wrap align-items-center gap-2"
-          >
-            <div className="flex-grow-1 min-w-0">
-              <div className="fw-semibold text-break">
-                {name}{" "}
-                {!mine && (
-                  <span
-                    className="badge text-bg-info fw-normal"
-                    title="Imported by another room and shared with everyone"
+      <div className="d-flex align-items-center justify-content-between gap-2 mb-2 small text-muted">
+        <span>
+          {lists.length} saved {lists.length === 1 ? "list" : "lists"}
+        </span>
+        {/* Kept in place (not added and removed) so the list does not jump. */}
+        <span className={refreshing ? "" : "invisible"} aria-live="polite">
+          {refreshing ? "Checking for updates…" : ""}
+        </span>
+      </div>
+      <ul
+        className={`list-group add-library-list ${
+          flags.deleteListButton && lists.some((l) => l.mine) ? "has-delete" : ""
+        }`}
+      >
+        {lists.map(({ name, count, mine }) => {
+          // Unknown until the list's ids have loaded: then only the count shows.
+          const ids = idsByName[name]?.count === count ? idsByName[name].ids : null;
+          const inLibrary = ids ? ids.filter((id) => libraryIds.has(id)).length : 0;
+          const missing = ids ? count - inLibrary : count;
+          const confirming = confirmDelete === name;
+          return (
+            <li key={name} className="list-group-item add-library-item">
+              <div className="add-library-info">
+                <div className="fw-semibold text-break">
+                  {name}{" "}
+                  {!mine && (
+                    <span
+                      className="badge text-bg-info fw-normal"
+                      title="Imported by another room and shared with everyone"
+                    >
+                      Shared
+                    </span>
+                  )}
+                </div>
+                <small className="text-muted">
+                  {number(count)} {count === 1 ? "video" : "videos"}
+                  {!ids
+                    ? " · checking your library…"
+                    : missing === 0
+                      ? " · all in your library"
+                      : inLibrary > 0
+                        ? ` · ${number(inLibrary)} already in your library`
+                        : ""}
+                </small>
+              </div>
+              <div className="add-library-actions">
+                {missing === 0 ? (
+                  <button
+                    className="btn btn-sm btn-outline-success add-library-add"
+                    disabled
+                    title="Every video of this list is already in your library"
                   >
-                    Shared
-                  </span>
+                    <FaCheck aria-hidden="true" /> Added
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-sm btn-success add-library-add"
+                    onClick={() => addToLibrary(name, count)}
+                    disabled={workingOn !== null}
+                  >
+                    <FaBookOpen aria-hidden="true" />
+                    {workingOn === name
+                      ? "Working…"
+                      : inLibrary > 0
+                        ? `Add ${number(missing)} missing`
+                        : "Add to library"}
+                  </button>
+                )}
+                {mine && flags.deleteListButton && (
+                  <button
+                    className={`btn btn-sm add-library-delete ${
+                      confirming ? "btn-danger is-confirming" : "btn-outline-danger"
+                    }`}
+                    onClick={() => removeList(name)}
+                    onBlur={() => setConfirmDelete(null)}
+                    disabled={workingOn !== null}
+                    title="Delete your part of this saved list (your library is not changed)"
+                    aria-label={confirming ? `Confirm deleting ${name}` : `Delete ${name}`}
+                  >
+                    <FaTrash aria-hidden="true" />
+                    {confirming && "Sure?"}
+                  </button>
                 )}
               </div>
-              <small className="text-muted">
-                {count} videos
-                {missing === 0
-                  ? " · all in your library"
-                  : inLibrary > 0
-                    ? ` · ${inLibrary} already in your library`
-                    : ""}
-              </small>
-            </div>
-            <div className="d-flex gap-2 flex-grow-1 flex-sm-grow-0 justify-content-end">
-              {missing === 0 ? (
-                <button
-                  className="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center gap-1 flex-grow-1 flex-sm-grow-0"
-                  disabled
-                  title="Every video of this list is already in your library"
-                >
-                  <FaCheck /> Added
-                </button>
-              ) : (
-                <button
-                  className="btn btn-sm btn-success d-flex align-items-center justify-content-center gap-1 flex-grow-1 flex-sm-grow-0"
-                  onClick={() => addToLibrary(name, count)}
-                  disabled={workingOn !== null}
-                >
-                  <FaBookOpen />{" "}
-                  {workingOn === name
-                    ? "Working…"
-                    : inLibrary > 0
-                      ? `Add ${missing} missing`
-                      : "Add to library"}
-                </button>
-              )}
-              {mine && flags.deleteListButton && (
-                <button
-                  className={`btn btn-sm d-flex align-items-center gap-1 ${
-                    confirmDelete === name ? "btn-danger" : "btn-outline-danger"
-                  }`}
-                  onClick={() => removeList(name)}
-                  onBlur={() => setConfirmDelete(null)}
-                  disabled={workingOn !== null}
-                  title="Delete your part of this saved list (your library is not changed)"
-                >
-                  <FaTrash /> {confirmDelete === name ? "Sure?" : ""}
-                </button>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+            </li>
+          );
+        })}
+      </ul>
     </>
   );
 }

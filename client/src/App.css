@@ -859,6 +859,12 @@
   padding-left: 0.4rem;
   padding-right: 0.4rem;
 }
+/* Below lg the Settings dialog is only 500px wide (landscape phones, tablets):
+   the full names do not fit there, so the short ones stay. */
+@media (min-width: 576px) and (max-width: 991.98px) {
+  .settings-tabs .tab-label .d-sm-inline { display: none !important; }
+  .settings-tabs .tab-label .d-sm-none { display: inline !important; }
+}
 
 /* ==== Toasts: one card style; the type sets the color (lib/notify.jsx has the messages) ==== */
 :root,
@@ -1122,4 +1128,74 @@
   .queue-panel .row-action span { display: none !important; }
   .queue-panel .queue-row .yq-meta { font-size: 0.75rem; }
   .queue-panel .yq-empty { padding: 1.5rem 0.5rem; }
+}
+
+/* ==== Settings > Add Library ==== */
+/* Phones: name and counts on top, the buttons in a full-width row under them,
+   big enough to tap. Wider screens: one line, buttons on the right. */
+.add-library-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.add-library-info {
+  min-width: 0;
+}
+.add-library-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.add-library-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+.add-library-add {
+  flex: 1 1 auto;
+}
+.add-library-delete {
+  flex: 0 0 44px;
+  padding-left: 0;
+  padding-right: 0;
+}
+.add-library-delete.is-confirming {
+  flex-basis: auto;
+  padding-left: 0.9rem;
+  padding-right: 0.9rem;
+}
+
+@media (min-width: 576px) {
+  .add-library-item {
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+  }
+  .add-library-info {
+    flex: 1 1 auto;
+  }
+  .add-library-actions {
+    flex: 0 0 auto;
+  }
+  .add-library-actions .btn {
+    min-height: 34px;
+    font-size: 0.875rem;
+  }
+  /* Same width on every row, so the buttons line up. */
+  .add-library-add {
+    flex: 0 0 auto;
+    min-width: 10.5rem;
+  }
+  .add-library-delete {
+    flex-basis: 36px;
+  }
+  /* When some rows have a delete button, rows without one (shared lists) keep
+     its space, so every Add button lines up. */
+  .add-library-list.has-delete .add-library-actions:not(:has(.add-library-delete))::after {
+    content: "";
+    flex: 0 0 36px;
+  }
 }
