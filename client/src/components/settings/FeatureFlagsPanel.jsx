@@ -40,6 +40,12 @@ const SECTIONS = [
       { name: "deleteListButton", label: "Delete list button", description: "Show the trash button on each saved list in Add Library." },
     ],
   },
+  {
+    title: "Playlists",
+    flags: [
+      { name: "personalPlaylists", label: "Personal playlists", description: "Show the Playlists tab, where each room makes, edits and plays its own playlists from the Library." },
+    ],
+  },
 ];
 
 /**

@@ -9,6 +9,9 @@ import { TAB_ICONS } from "../../lib/tabIcons";
 import VideoList from "../videos/VideoList";
 import Queue from "../queue/Queue";
 import Library from "../library/Library";
+import Playlists from "../playlists/Playlists";
+import useFeatureFlags from "../../hooks/useFeatureFlags";
+import usePlaylists from "../../hooks/usePlaylists";
 import PlayerPage from "../player/PlayerPage";
 import PlayerBoundary from "../player/PlayerBoundary";
 import { isInstalledApp } from "../../lib/display";
@@ -53,7 +56,11 @@ function Home({ libraryApi, roomName, onSignedOut }) {
   const [hasSearched, setHasSearched] = useState(false);
   const [lastQuery, setLastQuery] = useState("");
   const [details, setDetails] = useState(() => new Map());
-  const [tab, setTab] = useState("library");
+  const [selectedTab, setTab] = useState("library");
+  const { flags } = useFeatureFlags();
+  const { playlists } = usePlaylists();
+  // The Playlists tab goes away when its flag is switched off (here or on another device).
+  const tab = selectedTab === "playlists" && !flags.personalPlaylists ? "library" : selectedTab;
   // In the installed app the player is a tab of its own (a separate window
   // can't be reached with Back). Once opened it stays loaded, hidden, so the
   // music keeps playing while the other tabs are used.
@@ -224,6 +231,24 @@ function Home({ libraryApi, roomName, onSignedOut }) {
     [removeManyFromLibrary]
   );
 
+  // Play playlist: the queue becomes the playlist's videos, in its order. The
+  // queue gets copies (with their own queueIds), so changing the queue later
+  // never changes the saved playlist.
+  const playPlaylist = useCallback(
+    (name, list) => {
+      if (list.length === 0) {
+        notify.playlists.nothingToPlay();
+        return;
+      }
+      const before = queue;
+      setQueue(list.map(toQueueItem));
+      setIsPaused(false);
+      setTab("queue");
+      notify.playlists.playing(name, list.length, () => setQueue(before));
+    },
+    [queue, setQueue, setIsPaused]
+  );
+
   const toggleRepeat = useCallback(() => setIsRepeat((repeat) => !repeat), [setIsRepeat]);
   const queuedIds = useMemo(() => new Set(queue.map((v) => v.id.videoId)), [queue]);
   const togglePaused = useCallback(
@@ -244,6 +269,9 @@ function Home({ libraryApi, roomName, onSignedOut }) {
         onSelect={selectTab}
         tabs={[
           { key: "library", label: "Library", icon: TAB_ICONS.library, count: library.length },
+          ...(flags.personalPlaylists
+            ? [{ key: "playlists", label: "Playlists", icon: TAB_ICONS.playlists, count: playlists.length }]
+            : []),
           { key: "queue", label: "Queue", icon: TAB_ICONS.queue, count: queue.length },
           { key: "search", label: "Search", icon: TAB_ICONS.search },
           {
@@ -302,6 +330,16 @@ function Home({ libraryApi, roomName, onSignedOut }) {
           youtubeOnlyIds={youtubeOnlyIds}
           syncCode={syncCode}
           downloading={libraryApi.downloading}
+        />
+      )}
+
+      {tab === "playlists" && (
+        <Playlists
+          library={library}
+          queuedIds={queuedIds}
+          youtubeOnlyIds={youtubeOnlyIds}
+          onPlay={playPlaylist}
+          onQueue={addAllToQueue}
         />
       )}
 

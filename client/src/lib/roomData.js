@@ -13,6 +13,7 @@ const ROOM_DATA = {
   featureFlags: {},
   favoriteIds: [],
   recentlyPlayed: [],
+  playlists: [],
 };
 
 /**

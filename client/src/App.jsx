@@ -8,6 +8,7 @@ import useRemoteSync from "./hooks/useRemoteSync";
 import useLibrary from "./hooks/useLibrary";
 import { useFeatureFlagsSync } from "./hooks/useFeatureFlags";
 import { useExtrasSync } from "./hooks/useExtras";
+import { usePlaylistsSync } from "./hooks/usePlaylists";
 import { useEmbeddableLookup } from "./hooks/useEmbeddable";
 import RoomSelect from "./components/rooms/RoomSelect";
 import PinEntry from "./components/rooms/PinEntry";
@@ -59,6 +60,8 @@ function App() {
   useFeatureFlagsSync();
   // Keeps favorites and recently played identical on every device on the same sync code.
   useExtrasSync();
+  // Keeps the room's personal playlists identical on every device in the room.
+  usePlaylistsSync();
   // Finds out which saved and queued videos can only be watched on YouTube.
   useEmbeddableLookup();
 

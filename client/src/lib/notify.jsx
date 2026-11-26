@@ -60,6 +60,16 @@ export const notify = {
     selectedDeleteFailed: () => toast.error("Could not delete the selected videos. Please try again."),
   },
 
+  playlists: {
+    created: (name) => toast.success(`Created the playlist "${name}"`),
+    deleted: (name) => toast.success(`Deleted the playlist "${name}"`),
+    videosAdded: (count, name) => toast.success(`Added ${plural(count, "video")} to "${name}"`),
+    videoRemoved: (undo) => undoable("Removed from the playlist", undo),
+    playing: (name, count, undo) => undoable(`Playing "${name}" (${plural(count, "video")})`, undo),
+    nothingToPlay: () => toast.info("None of this playlist's videos are in your library anymore."),
+    saveFailed: (err) => toast.error(errorText(err, "Could not save the playlist. Please try again.")),
+  },
+
   catalog: {
     loadFailed: (err) => toast.error(errorText(err), { toastId: "catalog-list-error" }),
     added: (count, name) =>

@@ -11,6 +11,7 @@ export const FEATURE_FLAGS = {
   deleteListButton: false,
   librarySelection: false,
   deleteSelectedButton: false,
+  personalPlaylists: false,
 };
 
 const REFRESH_MS = 30000;

@@ -123,6 +123,7 @@ function VideoList({
               </button>
             )}
             <div className="d-flex gap-1 flex-shrink-0">
+              {onAdd && (
               <button
                 className="btn btn-sm yq-btn-primary row-action d-flex align-items-center justify-content-center gap-1 flex-shrink-0"
                 onClick={() => onAdd(video)}
@@ -132,6 +133,7 @@ function VideoList({
                 <MdPlaylistAdd size={18} aria-hidden="true" />
                 <span className="d-none d-sm-inline">Queue</span>
               </button>
+              )}
               {onRemove && (
                 <button
                   className={`btn btn-sm row-action d-flex align-items-center justify-content-center gap-1 flex-shrink-0 ${

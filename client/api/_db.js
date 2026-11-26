@@ -28,6 +28,11 @@ export async function getCatalog() {
   return (await getDb()).collection("catalog_videos");
 }
 
+/** Each room's personal playlists, one document per playlist (see playlists.js). */
+export async function getPlaylists() {
+  return (await getDb()).collection("room_playlists");
+}
+
 /** Each room's library, one document per video (see library.js). */
 export async function getLibraryVideos() {
   return (await getDb()).collection("library_videos");
