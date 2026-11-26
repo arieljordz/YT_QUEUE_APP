@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { notify } from "../../lib/notify";
-import { FaBookOpen, FaCheck, FaTrash } from "react-icons/fa";
+import { FaBookOpen, FaCheck, FaSearch, FaTrash } from "react-icons/fa";
 import useLocalStorage from "../../hooks/useLocalStorage";
 import useFeatureFlags from "../../hooks/useFeatureFlags";
 import { mergeLibrary } from "../../lib/library";
@@ -69,6 +69,8 @@ export default function AddLibraryPanel() {
   // null = loading (nothing cached yet)
   const [lists, setLists] = useState(() => (syncCode ? readCachedLists(syncCode) : null));
   const [refreshing, setRefreshing] = useState(false);
+  // Search by list name.
+  const [filter, setFilter] = useState("");
   // name -> { count, ids } of the lists whose ids are known
   const [idsByName, setIdsByName] = useState({});
   // { name, action: "add" | "delete" } while a list is being added or deleted
@@ -221,23 +223,69 @@ export default function AddLibraryPanel() {
   const videos = (n) => `${number(n)} ${n === 1 ? "video" : "videos"}`;
   const busy = workingOn !== null;
 
+  // Every word typed must appear in the name, in any order and any case:
+  // "opm love" finds "Karaoke Hits OPM Classics and Love Songs".
+  const query = filter.trim();
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const shown =
+    words.length === 0
+      ? lists
+      : lists.filter((l) => {
+          const name = l.name.toLowerCase();
+          return words.every((w) => name.includes(w));
+        });
+
   return (
     <>
+      <div className="lib-toolbar mb-2">
+      <div className="lib-search">
+        <FaSearch aria-hidden="true" />
+        <input
+          type="search"
+          className="form-control"
+          placeholder="Search saved lists by name"
+          aria-label="Search saved lists by name"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          onKeyDown={(e) => {
+            // Escape clears the search instead of closing Settings.
+            if (e.key === "Escape" && filter) {
+              e.stopPropagation();
+              setFilter("");
+            }
+          }}
+          enterKeyHint="search"
+          autoComplete="off"
+        />
+      </div>
+      </div>
       <div className="d-flex align-items-center justify-content-between gap-2 mb-2 small text-muted">
-        <span>
-          {lists.length} saved {lists.length === 1 ? "list" : "lists"}
+        <span aria-live="polite">
+          {query
+            ? `${shown.length} of ${lists.length} ${lists.length === 1 ? "list" : "lists"} match “${query}”`
+            : `${lists.length} saved ${lists.length === 1 ? "list" : "lists"}`}
         </span>
         {/* Kept in place (not added and removed) so the list does not jump. */}
-        <span className={refreshing ? "" : "invisible"} aria-live="polite">
+        <span className={`text-nowrap ${refreshing ? "" : "invisible"}`}>
           {refreshing ? "Checking for updates…" : ""}
         </span>
       </div>
+      {shown.length === 0 && (
+        <div className="yq-empty">
+          <FaSearch aria-hidden="true" />
+          <div className="yq-empty-title">No matches</div>
+          <div>No saved list is named like “{query}”. Try another name.</div>
+          <button className="btn btn-sm btn-outline-secondary mt-2" onClick={() => setFilter("")}>
+            Clear search
+          </button>
+        </div>
+      )}
       <ul
-        className={`list-group add-library-list ${
+        className={`list-group add-library-list ${shown.length === 0 ? "d-none" : ""} ${
           flags.deleteListButton && lists.some((l) => l.mine) ? "has-delete" : ""
         }`}
       >
-        {lists.map(({ name, count, mine, mineCount, others }) => {
+        {shown.map(({ name, count, mine, mineCount, others }) => {
           // Unknown until the list's ids have loaded: then only the count shows.
           const ids = idsByName[name]?.count === count ? idsByName[name].ids : null;
           const inLibrary = ids ? ids.filter((id) => libraryIds.has(id)).length : 0;
