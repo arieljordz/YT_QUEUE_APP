@@ -232,7 +232,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
   );
 
   return (
-    <div className="container-xl py-1">
+    <div className="container-xl">
       {!online && (
         <div className="alert alert-warning py-2 small" role="status">
           You are offline. Your library and queue are still here; searching, importing
