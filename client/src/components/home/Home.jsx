@@ -66,15 +66,16 @@ function Home({ libraryApi, roomName, onSignedOut }) {
   const { flags } = useFeatureFlags();
   const { playlists } = usePlaylists();
   const wideScreen = useMediaQuery(QUEUE_PANEL_QUERY);
-  // The user can hide the queue panel (remembered on this device); the queue is then a tab again.
+  // On a wide screen the queue lives in the queue panel, never in a tab. The
+  // user can hide the panel (remembered on this device) and show it again.
   const [panelOpen, setPanelOpen] = useLocalStorage("queuePanelOpen", true);
   const queuePanel = wideScreen && panelOpen;
-  const queuePanelRef = useRef(queuePanel);
-  queuePanelRef.current = queuePanel;
+  const wideScreenRef = useRef(wideScreen);
+  wideScreenRef.current = wideScreen;
   // The Playlists tab goes away when its flag is switched off (here or on another device),
-  // and the Queue tab while the queue panel shows the queue.
+  // and the Queue tab on a wide screen.
   const tab =
-    (selectedTab === "playlists" && !flags.personalPlaylists) || (selectedTab === "queue" && queuePanel)
+    (selectedTab === "playlists" && !flags.personalPlaylists) || (selectedTab === "queue" && wideScreen)
       ? "library"
       : selectedTab;
   // The player can run inside this page, in the Player tab. Once opened it
@@ -281,8 +282,8 @@ function Home({ libraryApi, roomName, onSignedOut }) {
       const before = queue;
       setQueue(list.map(toQueueItem));
       setIsPaused(false);
-      // When the queue panel is showing it already shows the queue: stay on this tab.
-      if (!queuePanelRef.current) setTab("queue");
+      // On a wide screen the queue is in the panel, not a tab: stay on this tab.
+      if (!wideScreenRef.current) setTab("queue");
       notify.playlists.playing(name, list.length, () => setQueue(before));
     },
     [queue, setQueue, setIsPaused]
@@ -330,7 +331,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
               ...(flags.personalPlaylists
                 ? [{ key: "playlists", label: "Playlists", icon: TAB_ICONS.playlists, count: playlists.length }]
                 : []),
-              ...(queuePanel ? [] : [{ key: "queue", label: "Queue", icon: TAB_ICONS.queue, count: queue.length }]),
+              ...(wideScreen ? [] : [{ key: "queue", label: "Queue", icon: TAB_ICONS.queue, count: queue.length }]),
               { key: "search", label: "Search", icon: TAB_ICONS.search },
               {
                 key: "player",
@@ -438,7 +439,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
               onClick={() => setPanelOpen(false)}
               aria-expanded="true"
               aria-controls="queue-panel"
-              title="Hide the queue panel (the queue moves to a tab)"
+              title="Hide the queue panel (Show queue brings it back)"
             >
               <span>Hide</span> <FaChevronRight aria-hidden="true" />
             </button>
