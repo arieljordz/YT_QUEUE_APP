@@ -19,6 +19,7 @@ import useMediaQuery from "../../hooks/useMediaQuery";
 const QUEUE_PANEL_QUERY = "(min-width: 1400px)";
 import PlayerPage from "../player/PlayerPage";
 import PlayerBoundary from "../player/PlayerBoundary";
+import PlayerChoiceModal from "../player/PlayerChoiceModal";
 import { isInstalledApp } from "../../lib/display";
 import useLocalStorage from "../../hooks/useLocalStorage";
 import { searchVideos, getVideoDetails, QuotaError } from "../../api/youtube";
@@ -76,15 +77,37 @@ function Home({ libraryApi, roomName, onSignedOut }) {
     (selectedTab === "playlists" && !flags.personalPlaylists) || (selectedTab === "queue" && queuePanel)
       ? "library"
       : selectedTab;
-  // In the installed app the player is a tab of its own (a separate window
-  // can't be reached with Back). Once opened it stays loaded, hidden, so the
-  // music keeps playing while the other tabs are used.
-  const [playerInApp] = useState(isInstalledApp);
+  // The player can run inside this page, in the Player tab. Once opened it
+  // stays loaded, hidden, so the music keeps playing while the other tabs are
+  // used. The installed app always plays here (a separate window can't be
+  // reached with Back); in a browser the Player tab first asks whether to play
+  // here or in a new browser tab.
+  const [installed] = useState(isInstalledApp);
+  const [playerHere, setPlayerHere] = useState(installed);
   const [playerOpened, setPlayerOpened] = useState(false);
-  const selectTab = useCallback((key) => {
-    if (key === "player") setPlayerOpened(true);
-    setTab(key);
+  const [choosingPlayer, setChoosingPlayer] = useState(false);
+  const openPlayerHere = useCallback(() => {
+    setChoosingPlayer(false);
+    setPlayerHere(true);
+    setPlayerOpened(true);
+    setTab("player");
   }, []);
+  // The choice is a link that opens /player in a new tab; this only closes the question.
+  const openPlayerTab = useCallback(() => setChoosingPlayer(false), []);
+  const selectTab = useCallback(
+    (key) => {
+      if (key === "player") {
+        // Already playing here (or the installed app): just show it. Otherwise ask.
+        if (!playerHere) {
+          setChoosingPlayer(true);
+          return;
+        }
+        setPlayerOpened(true);
+      }
+      setTab(key);
+    },
+    [playerHere]
+  );
   const online = useOnlineStatus();
   const { record: recordEmbeddable, youtubeOnlyIds } = useEmbeddableCache();
   const { library, addToLibrary, syncCode, clearLibrary, removeFromLibrary, removeManyFromLibrary } = libraryApi;
@@ -313,12 +336,9 @@ function Home({ libraryApi, roomName, onSignedOut }) {
                 key: "player",
                 label: "Player",
                 icon: TAB_ICONS.player,
-                ...(playerInApp
-                  ? { title: "Watch here; it keeps playing while you use the other tabs" }
-                  : {
-                      href: "/player",
-                      title: "Open the player in a new browser tab, so videos keep playing while you search",
-                    }),
+                title: playerHere
+                  ? "Watch here; it keeps playing while you use the other tabs"
+                  : "Play in a new browser tab or here in this page",
               },
             ]}
           />
@@ -336,7 +356,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
           )}
         </div>
 
-        {playerInApp && playerOpened && (
+        {playerHere && playerOpened && (
           <div className={`inapp-player${tab === "player" ? "" : " is-hidden"}`} aria-hidden={tab !== "player"}>
             <PlayerBoundary>
               <PlayerPage roomName={roomName} onSignedOut={onSignedOut} />
@@ -396,6 +416,15 @@ function Home({ libraryApi, roomName, onSignedOut }) {
           {tab === "queue" && queueView}
         </div>
       </div>
+
+      {!installed && (
+        <PlayerChoiceModal
+          show={choosingPlayer}
+          onNewTab={openPlayerTab}
+          onHere={openPlayerHere}
+          onClose={() => setChoosingPlayer(false)}
+        />
+      )}
 
       {queuePanel && (
         <aside className="queue-panel" id="queue-panel" aria-label="Queue">

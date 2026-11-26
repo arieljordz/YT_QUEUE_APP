@@ -757,7 +757,30 @@
   background: #f6121d;
 }
 
-/* The player as a tab of the installed app (see Home). */
+/* The browser's Player tab asks where to play: two large options. */
+.player-choice { display: flex; flex-direction: column; gap: 0.6rem; }
+.player-choice-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border: 1px solid var(--yq-border);
+  border-radius: 10px;
+  background: var(--yq-surface);
+  color: var(--yq-text);
+  transition: background 0.15s, border-color 0.15s;
+}
+.player-choice-option:hover { background: var(--yq-hover); border-color: var(--yq-accent); color: var(--yq-text); }
+.player-choice-option { text-decoration: none; }
+.player-choice-option:focus-visible { outline: 2px solid var(--yq-accent); outline-offset: 2px; }
+.player-choice-icon { font-size: 1.6rem; color: var(--yq-accent); flex-shrink: 0; margin-top: 0.1rem; }
+.player-choice-title { display: block; font-weight: 700; margin-bottom: 0.15rem; }
+.player-choice-text { display: block; color: var(--yq-muted); font-size: 0.85rem; line-height: 1.35; }
+@media (prefers-reduced-motion: reduce) { .player-choice-option { transition: none; } }
+
+/* The player inside the page, in the Player tab (see Home). */
 .inapp-player {
   border-radius: 8px;
   overflow: hidden;
