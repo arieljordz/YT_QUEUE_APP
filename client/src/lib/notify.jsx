@@ -91,7 +91,16 @@ export const notify = {
   },
 
   import: {
-    saved: (count, name) => toast.success(`Saved ${plural(count, "video")} to "${name}"`),
+    // from = the YouTube channel read, when there was one.
+    saved: (count, name, from) =>
+      count === 0
+        ? toast.warning(
+            `No videos were saved${from ? ` from "${from}"` : ""}. ` +
+              "None matched: check the title words and the options."
+          )
+        : toast.success(
+            `Saved ${plural(count, "video")}${from ? ` from "${from}"` : ""} to "${name}"`
+          ),
     failed: (err, savedCount = 0) =>
       toast.error(
         savedCount > 0

@@ -21,7 +21,8 @@
 //   POST   /api/catalog { save: video } -> adds one video to the "My Searches" list
 //   POST   /api/catalog               -> collects ONE page (50) of YouTube
 //          { name, channel?, channelId?, title?, pageToken?, offset?, any?, noShorts?, newest? }
-//          channel = only videos of that channel; title = only videos whose title
+//          channel = only videos of that channel (a name, @handle, link or id;
+//          "Topic" channels are skipped, see resolveChannel); title = only videos whose title
 //          contains all the words of this text (at least one of the two is needed);
 //          any = also keep videos that can't play embedded;
 //          noShorts = skip YouTube Shorts;
@@ -46,6 +47,7 @@ import {
 const SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 const VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos";
 const PLAYLIST_ITEMS_URL = "https://www.googleapis.com/youtube/v3/playlistItems";
+const CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels";
 // Shorts are up to 3 minutes long and vertical. The API has no "is a Short" flag.
 const SHORT_MAX_SECONDS = 180;
 const ALWAYS_SHORT_SECONDS = 60;
@@ -240,6 +242,91 @@ async function youtubeGet(fetchFn, url, params) {
 }
 const youtubeSearch = (fetchFn, params) => youtubeGet(fetchFn, SEARCH_URL, params);
 
+// YouTube's auto-generated music channels ("Artist - Topic"): their uploads
+// list cannot be read, so importing one always gave 0 videos.
+const isTopicChannel = (title) => /\s-\sTopic$/i.test(title ?? "");
+// "Simple Plan", "SimplePlan" and "simple-plan" are the same name.
+const sameName = (a, b) => {
+  const squash = (s) => decodeEntities(s ?? "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+  return squash(a) !== "" && squash(a) === squash(b);
+};
+const HANDLE = /^@[\w.-]{3,30}$/;
+
+/** What the user typed in Channel: an id, a link, an @handle, or a name. */
+export function parseChannelInput(text) {
+  const link = /youtube\.com\/(?:channel\/(UC[\w-]{20,})|(@[\w.-]+))/i.exec(text);
+  if (link) return link[1] ? { id: link[1] } : { handle: link[2] };
+  if (CHANNEL_ID.test(text)) return { id: text };
+  if (text.startsWith("@")) return { handle: text };
+  return { name: text };
+}
+
+/** One channel by id or @handle (1 quota unit). */
+async function getChannel(fetchFn, apiKey, by) {
+  const found = await youtubeGet(fetchFn, CHANNELS_URL, { part: "snippet", ...by, key: apiKey });
+  if (found.quota) return { quota: true };
+  const item = found.data?.items?.[0];
+  return item ? { id: item.id, title: item.snippet?.title } : {};
+}
+
+/**
+ * Finds the channel to import: { id, title } or { error }.
+ * - an id, a /channel/ link or an @handle is looked up exactly (1 unit);
+ * - a name first tries the @handle spelled the same, kept only when the
+ *   channel's name matches too (1 unit); otherwise a channel search (100 units)
+ *   whose "Topic" channels are skipped and whose exact name match wins.
+ */
+async function resolveChannel(fetchFn, apiKey, input) {
+  const quota = { error: fail(429, "quota") };
+  const parsed = parseChannelInput(input);
+
+  if (parsed.id || parsed.handle) {
+    const found = await getChannel(
+      fetchFn,
+      apiKey,
+      parsed.id ? { id: parsed.id } : { forHandle: parsed.handle }
+    );
+    if (found.quota) return quota;
+    if (!found.id) return { error: fail(404, `No channel found for "${input}"`) };
+    return found;
+  }
+
+  const handle = `@${parsed.name.replace(/\s+/g, "")}`;
+  if (HANDLE.test(handle)) {
+    const found = await getChannel(fetchFn, apiKey, { forHandle: handle });
+    if (found.quota) return quota;
+    if (found.id && sameName(found.title, parsed.name)) return found;
+  }
+
+  const search = await youtubeSearch(fetchFn, {
+    part: "snippet",
+    q: parsed.name,
+    type: "channel",
+    maxResults: "5",
+    key: apiKey,
+  });
+  if (search.quota) return quota;
+  if (search.failed || search.notFound) return { error: fail(502, "YouTube channel lookup failed") };
+  const items = (search.data.items ?? []).map((item) => ({
+    id: item.id?.channelId,
+    title: item.snippet?.title,
+  }));
+  const usable = items.filter((c) => c.id && !isTopicChannel(c.title));
+  if (usable.length === 0) {
+    if (items.length > 0) {
+      return {
+        error: fail(
+          404,
+          `Only "${items[0].title}" was found: an auto-generated YouTube channel whose videos ` +
+            `cannot be listed. Enter the artist's own channel name or @handle instead.`
+        ),
+      };
+    }
+    return { error: fail(404, `No channel found for "${input}"`) };
+  }
+  return usable.find((c) => sameName(c.title, parsed.name)) ?? usable[0];
+}
+
 /** Saves one video the user searched for and queued into the "My Searches" list. */
 export async function handleSaveSearched(catalog, owner, body) {
   const video = slimVideo(body?.save);
@@ -273,26 +360,14 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
   const pageToken = PAGE_TOKEN.test(text(body?.pageToken)) ? text(body.pageToken) : "";
   if (!apiKey) return fail(500, "The YouTube API key is not configured on the server");
 
-  // Turn a channel name into its id the first time (the browser passes it back after).
+  // Turn a channel name, @handle or link into its id the first time (the
+  // browser passes the id back after).
   let channelTitle;
   if (!channelId && channel) {
-    if (CHANNEL_ID.test(channel)) {
-      channelId = channel;
-    } else {
-      const found = await youtubeSearch(fetchFn, {
-        part: "snippet",
-        q: channel,
-        type: "channel",
-        maxResults: "1",
-        key: apiKey,
-      });
-      if (found.quota) return fail(429, "quota");
-      if (found.failed || found.notFound) return fail(502, "YouTube channel lookup failed");
-      const item = found.data.items?.[0];
-      if (!item) return fail(404, `No channel found for "${channel}"`);
-      channelId = item.id.channelId;
-      channelTitle = item.snippet.title;
-    }
+    const found = await resolveChannel(fetchFn, apiKey, channel);
+    if (found.error) return found.error;
+    channelId = found.id;
+    channelTitle = found.title;
   }
 
   const embeddableOnly = body?.any !== true;
@@ -310,7 +385,19 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
     };
     if (pageToken) params.pageToken = pageToken;
     result = await youtubeGet(fetchFn, PLAYLIST_ITEMS_URL, params);
-    if (result.notFound) result = { data: {} }; // a channel with no uploads
+    if (result.notFound) {
+      // On the first page this is not "0 videos": the channel has no uploads
+      // list YouTube will share. Say so instead of saving nothing in silence.
+      if (!pageToken) {
+        return fail(
+          404,
+          `YouTube has no uploads to list for ${channelTitle ? `"${channelTitle}"` : "that channel"}. ` +
+            `It has no public videos, or it is an auto-generated "Topic" channel. ` +
+            `Enter the artist's own channel name or @handle instead.`
+        );
+      }
+      result = { data: {} };
+    }
     items = (result.data?.items ?? []).map(fromPlaylistItem);
   } else {
     const params = { part: "snippet", type: "video", maxResults: "50", key: apiKey };

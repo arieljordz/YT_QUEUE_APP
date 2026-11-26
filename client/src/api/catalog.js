@@ -24,8 +24,9 @@ async function request({ method = "GET", query, body } = {}) {
       "error"
     );
   }
-  // Local dev (plain vite) has no /api route and answers with HTML or 404.
-  if (!isJson || response.status === 404) {
+  // Local dev (plain vite) has no /api route and answers with HTML. A JSON 404
+  // is the server's own answer ("No channel found…") and is shown as it is.
+  if (!isJson) {
     throw new CatalogError("This only works on the deployed site.", "unavailable");
   }
 
