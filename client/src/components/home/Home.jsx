@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { notify } from "../../lib/notify";
 import SearchBar from "./SearchBar";
-import { FaSearch } from "react-icons/fa";
+import { FaSearch, FaChevronRight } from "react-icons/fa";
+import { MdQueueMusic } from "react-icons/md";
 import AppTabs from "../layout/AppTabs";
 import useOnlineStatus from "../../hooks/useOnlineStatus";
 import { useEmbeddableCache } from "../../hooks/useEmbeddable";
@@ -63,7 +64,12 @@ function Home({ libraryApi, roomName, onSignedOut }) {
   const [selectedTab, setTab] = useState("library");
   const { flags } = useFeatureFlags();
   const { playlists } = usePlaylists();
-  const queuePanel = useMediaQuery(QUEUE_PANEL_QUERY);
+  const wideScreen = useMediaQuery(QUEUE_PANEL_QUERY);
+  // The user can hide the queue panel (remembered on this device); the queue is then a tab again.
+  const [panelOpen, setPanelOpen] = useLocalStorage("queuePanelOpen", true);
+  const queuePanel = wideScreen && panelOpen;
+  const queuePanelRef = useRef(queuePanel);
+  queuePanelRef.current = queuePanel;
   // The Playlists tab goes away when its flag is switched off (here or on another device),
   // and the Queue tab while the queue panel shows the queue.
   const tab =
@@ -252,8 +258,8 @@ function Home({ libraryApi, roomName, onSignedOut }) {
       const before = queue;
       setQueue(list.map(toQueueItem));
       setIsPaused(false);
-      // On a wide screen the queue panel already shows it: stay on this tab.
-      if (!window.matchMedia(QUEUE_PANEL_QUERY).matches) setTab("queue");
+      // When the queue panel is showing it already shows the queue: stay on this tab.
+      if (!queuePanelRef.current) setTab("queue");
       notify.playlists.playing(name, list.length, () => setQueue(before));
     },
     [queue, setQueue, setIsPaused]
@@ -284,7 +290,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
   );
 
   return (
-    <div className={`container-xl${queuePanel ? " home-with-panel" : ""}`}>
+    <div className={`container-xl${wideScreen ? " home-wide" : ""}${queuePanel ? " has-queue-panel" : ""}`}>
       <div className="home-main">
         {!online && (
           <div className="alert alert-warning py-2 small" role="status">
@@ -292,29 +298,43 @@ function Home({ libraryApi, roomName, onSignedOut }) {
             and playing videos need a connection.
           </div>
         )}
-        <AppTabs
-          active={tab}
-          onSelect={selectTab}
-          tabs={[
-            { key: "library", label: "Library", icon: TAB_ICONS.library, count: library.length },
-            ...(flags.personalPlaylists
-              ? [{ key: "playlists", label: "Playlists", icon: TAB_ICONS.playlists, count: playlists.length }]
-              : []),
-            ...(queuePanel ? [] : [{ key: "queue", label: "Queue", icon: TAB_ICONS.queue, count: queue.length }]),
-            { key: "search", label: "Search", icon: TAB_ICONS.search },
-            {
-              key: "player",
-              label: "Player",
-              icon: TAB_ICONS.player,
-              ...(playerInApp
-                ? { title: "Watch here; it keeps playing while you use the other tabs" }
-                : {
-                    href: "/player",
-                    title: "Open the player in a new browser tab, so videos keep playing while you search",
-                  }),
-            },
-          ]}
-        />
+        <div className="home-tabs-row">
+          <AppTabs
+            active={tab}
+            onSelect={selectTab}
+            tabs={[
+              { key: "library", label: "Library", icon: TAB_ICONS.library, count: library.length },
+              ...(flags.personalPlaylists
+                ? [{ key: "playlists", label: "Playlists", icon: TAB_ICONS.playlists, count: playlists.length }]
+                : []),
+              ...(queuePanel ? [] : [{ key: "queue", label: "Queue", icon: TAB_ICONS.queue, count: queue.length }]),
+              { key: "search", label: "Search", icon: TAB_ICONS.search },
+              {
+                key: "player",
+                label: "Player",
+                icon: TAB_ICONS.player,
+                ...(playerInApp
+                  ? { title: "Watch here; it keeps playing while you use the other tabs" }
+                  : {
+                      href: "/player",
+                      title: "Open the player in a new browser tab, so videos keep playing while you search",
+                    }),
+              },
+            ]}
+          />
+          {wideScreen && !panelOpen && (
+            <button
+              type="button"
+              className="btn btn-sm yq-btn-toggle queue-panel-toggle"
+              onClick={() => setPanelOpen(true)}
+              aria-expanded="false"
+              aria-controls="queue-panel"
+              title="Show the queue beside the other tabs"
+            >
+              <MdQueueMusic aria-hidden="true" /> <span>Show queue</span>
+            </button>
+          )}
+        </div>
 
         {playerInApp && playerOpened && (
           <div className={`inapp-player${tab === "player" ? "" : " is-hidden"}`} aria-hidden={tab !== "player"}>
@@ -378,7 +398,22 @@ function Home({ libraryApi, roomName, onSignedOut }) {
       </div>
 
       {queuePanel && (
-        <aside className="queue-panel" aria-label="Queue">
+        <aside className="queue-panel" id="queue-panel" aria-label="Queue">
+          <div className="queue-panel-bar">
+            <h2 className="queue-panel-title">
+              <MdQueueMusic aria-hidden="true" /> Queue <span className="lib-chip-count">{queue.length}</span>
+            </h2>
+            <button
+              type="button"
+              className="btn btn-sm yq-btn-toggle queue-panel-toggle"
+              onClick={() => setPanelOpen(false)}
+              aria-expanded="true"
+              aria-controls="queue-panel"
+              title="Hide the queue panel (the queue moves to a tab)"
+            >
+              <span>Hide</span> <FaChevronRight aria-hidden="true" />
+            </button>
+          </div>
           {queueView}
         </aside>
       )}

@@ -1028,21 +1028,34 @@
   .pl-actions .btn { flex: 1 1 auto; justify-content: center; }
 }
 
+/* The tab bar, with room on its right for the "Show queue" button on wide screens. */
+.home-tabs-row { display: flex; align-items: center; gap: 0.75rem; }
+.home-tabs-row > .app-tabs { flex: 1 1 auto; min-width: 0; }
+.queue-panel-toggle { display: inline-flex; align-items: center; gap: 0.4rem; flex-shrink: 0; white-space: nowrap; }
+.home-tabs-row > .queue-panel-toggle { margin-bottom: 1rem; } /* level with the tabs (they have a bottom margin) */
+
+/* The queue panel's own header: its title and the Hide button. */
+.queue-panel-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.6rem; }
+.queue-panel-title { display: flex; align-items: center; gap: 0.4rem; margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--yq-text); }
+.queue-panel-title svg { color: var(--yq-accent); font-size: 1.15rem; }
+
 /* ==== Wide screens: two panels, the tabs on the left and the queue on the right ==== */
 @media (min-width: 1400px) {
   /* The whole width, and exactly the screen's height under the header: the page
      itself does not scroll, each panel scrolls inside. */
-  .container-xl.home-with-panel {
+  .container-xl.home-wide {
     max-width: none;
     padding: 0.75rem 1.5rem 1rem;
     height: calc(100vh - var(--app-header-height, 52px));
     height: calc(100dvh - var(--app-header-height, 52px));
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 420px;
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.25rem;
   }
+  /* The queue panel takes the right column while it is open (it can be hidden). */
+  .container-xl.home-wide.has-queue-panel { grid-template-columns: minmax(0, 1fr) 420px; }
   /* Both columns get the same frame. */
-  .home-with-panel .home-main,
+  .home-wide .home-main,
   .queue-panel {
     min-width: 0;
     min-height: 0;
@@ -1051,15 +1064,15 @@
     border: 1px solid var(--yq-border);
     border-radius: 12px;
   }
-  .home-with-panel .home-main { padding: 0.25rem 1rem 1rem; }
+  .home-wide .home-main { padding: 0.25rem 1rem 1rem; }
   .queue-panel { padding: 0.75rem; }
-  .home-with-panel .home-main > * { flex-shrink: 0; }
-  .home-with-panel .home-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .home-wide .home-main > * { flex-shrink: 0; }
+  .home-wide .home-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
   /* The Library fills its panel: the list takes all the height that is left. */
-  .home-with-panel .home-content > .library-view { height: 100%; display: flex; flex-direction: column; }
+  .home-wide .home-content > .library-view { height: 100%; display: flex; flex-direction: column; }
   .library-view > * { flex-shrink: 0; }
-  .home-with-panel .library-view > .library-scroll { flex: 1 1 auto; min-height: 0; max-height: none; }
+  .home-wide .library-view > .library-scroll { flex: 1 1 auto; min-height: 0; max-height: none; }
 
   .queue-panel > section { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
   .queue-panel .queue-scroll { flex: 1 1 auto; min-height: 0; max-height: none; }
