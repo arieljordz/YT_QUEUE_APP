@@ -22,6 +22,36 @@ import {
 const ID_FETCHES = 2;
 
 /**
+ * The confirmation that replaces a list's buttons: what will happen, then the
+ * action on the left and Cancel where the right-hand button was, so a double
+ * tap cancels instead of going ahead.
+ */
+function ConfirmBox({ tone, message, label, busyLabel, icon, running, busy, onConfirm, onCancel }) {
+  return (
+    <div className={`add-library-confirm is-${tone}`} data-confirm-box role="alert">
+      <p className="mb-2 small">{message}</p>
+      <div className="add-library-actions">
+        <button
+          className={`btn btn-sm btn-${tone} add-library-add`}
+          onClick={onConfirm}
+          disabled={busy}
+        >
+          {running ? <span className="spinner-border spinner-border-sm" aria-hidden="true" /> : icon}
+          {running ? busyLabel : label}
+        </button>
+        <button
+          className="btn btn-sm btn-outline-secondary add-library-cancel"
+          onClick={onCancel}
+          disabled={running}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Menu > Add Library: the lists saved by Import Videos. Shows how much of each
  * list is already in the library, and adds only what is missing.
  *
@@ -43,19 +73,20 @@ export default function AddLibraryPanel() {
   const [idsByName, setIdsByName] = useState({});
   // { name, action: "add" | "delete" } while a list is being added or deleted
   const [workingOn, setWorkingOn] = useState(null);
-  // The list whose delete is waiting to be confirmed.
-  const [confirmDelete, setConfirmDelete] = useState(null);
+  // { name, action: "add" | "delete" } waiting to be confirmed: both ask first,
+  // so a stray tap neither fills the library nor deletes a list.
+  const [confirming, setConfirming] = useState(null);
 
   // A tap anywhere outside the confirmation, or Escape, cancels it. (onBlur
   // alone is not enough: Safari does not focus a button that is tapped, so it
-  // never blurs and the delete would stay armed.)
+  // never blurs and the action would stay armed.)
   useEffect(() => {
-    if (confirmDelete === null) return;
+    if (confirming === null) return;
     const onPointerDown = (event) => {
-      if (!event.target.closest?.("[data-confirm-delete]")) setConfirmDelete(null);
+      if (!event.target.closest?.("[data-confirm-box]")) setConfirming(null);
     };
     const onKeyDown = (event) => {
-      if (event.key === "Escape") setConfirmDelete(null);
+      if (event.key === "Escape") setConfirming(null);
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -63,7 +94,7 @@ export default function AddLibraryPanel() {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [confirmDelete]);
+  }, [confirming]);
 
   const refreshLists = useCallback(async () => {
     setRefreshing(true);
@@ -154,7 +185,9 @@ export default function AddLibraryPanel() {
       const missing = videos.filter((v) => !libraryIds.has(v.id.videoId));
       setLibrary((prev) => mergeLibrary(prev, missing));
       notify.catalog.added(missing.length, name);
+      setConfirming(null);
     } catch (err) {
+      // The box stays open, so trying again is one tap.
       notify.catalog.addFailed(err);
     } finally {
       setWorkingOn(null);
@@ -166,7 +199,7 @@ export default function AddLibraryPanel() {
     try {
       const { deleted = 0, remaining = 0 } = (await deleteCatalog(name)) ?? {};
       notify.catalog.deleted(name, deleted, remaining);
-      setConfirmDelete(null);
+      setConfirming(null);
       await refreshLists();
     } catch (err) {
       notify.catalog.deleteFailed(err);
@@ -212,9 +245,71 @@ export default function AddLibraryPanel() {
           // Lists cached before these fields existed: assume the simple case.
           const shared = others ?? !mine;
           const yours = mineCount ?? count;
-          const adding = workingOn?.name === name && workingOn.action === "add";
-          const deleting = workingOn?.name === name && workingOn.action === "delete";
-          const confirming = confirmDelete === name;
+          const runs = (action) => workingOn?.name === name && workingOn.action === action;
+          const asking = confirming?.name === name ? confirming.action : null;
+          const ask = (action) => setConfirming({ name, action });
+
+          let box = null;
+          if (asking === "add") {
+            box = (
+              <ConfirmBox
+                tone="success"
+                icon={<FaBookOpen aria-hidden="true" />}
+                label="Add"
+                busyLabel="Adding…"
+                running={runs("add")}
+                busy={busy}
+                onCancel={() => setConfirming(null)}
+                onConfirm={() => addToLibrary(name, count)}
+                message={
+                  !ids ? (
+                    <>
+                      Add the videos of this list (<strong>{videos(count)}</strong>) to your
+                      library? Any already there are skipped.
+                    </>
+                  ) : inLibrary > 0 ? (
+                    <>
+                      Add the <strong>{videos(missing)}</strong> of this list that are missing
+                      from your library? The {number(inLibrary)} already there are skipped.
+                    </>
+                  ) : (
+                    <>
+                      Add all <strong>{videos(count)}</strong> of this list to your library?
+                    </>
+                  )
+                }
+              />
+            );
+          } else if (asking === "delete") {
+            box = (
+              <ConfirmBox
+                tone="danger"
+                icon={<FaTrash aria-hidden="true" />}
+                label="Delete"
+                busyLabel="Deleting…"
+                running={runs("delete")}
+                busy={busy}
+                onCancel={() => setConfirming(null)}
+                onConfirm={() => deleteList(name)}
+                message={
+                  <>
+                    {shared && mine ? (
+                      <>
+                        Delete the <strong>{videos(yours)}</strong> your room imported into this
+                        list? The videos other rooms imported stay.
+                      </>
+                    ) : (
+                      <>
+                        Delete this list and its <strong>{videos(count)}</strong>?
+                      </>
+                    )}{" "}
+                    This cannot be undone. Your library is not changed.
+                  </>
+                }
+              />
+            );
+          }
+
           return (
             <li key={name} className="list-group-item add-library-item">
               <div className="add-library-info">
@@ -245,46 +340,7 @@ export default function AddLibraryPanel() {
                 </small>
               </div>
 
-              {confirming ? (
-                <div className="add-library-confirm" data-confirm-delete role="alert">
-                  <p className="mb-2 small">
-                    {shared && mine ? (
-                      <>
-                        Delete the <strong>{videos(yours)}</strong> your room imported into this
-                        list? The videos other rooms imported stay.
-                      </>
-                    ) : (
-                      <>
-                        Delete this list and its <strong>{videos(count)}</strong>?
-                      </>
-                    )}{" "}
-                    This cannot be undone. Your library is not changed.
-                  </p>
-                  <div className="add-library-actions">
-                    {/* Delete on the left, Cancel where the trash button was: a
-                        double tap on the trash cancels instead of deleting. */}
-                    <button
-                      className="btn btn-sm btn-danger add-library-add"
-                      onClick={() => deleteList(name)}
-                      disabled={busy}
-                    >
-                      {deleting ? (
-                        <span className="spinner-border spinner-border-sm" aria-hidden="true" />
-                      ) : (
-                        <FaTrash aria-hidden="true" />
-                      )}
-                      {deleting ? "Deleting…" : "Delete"}
-                    </button>
-                    <button
-                      className="btn btn-sm btn-outline-secondary add-library-cancel"
-                      onClick={() => setConfirmDelete(null)}
-                      disabled={deleting}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
+              {box ?? (
                 <div className="add-library-actions">
                   {missing === 0 ? (
                     <button
@@ -297,25 +353,17 @@ export default function AddLibraryPanel() {
                   ) : (
                     <button
                       className="btn btn-sm btn-success add-library-add"
-                      onClick={() => addToLibrary(name, count)}
+                      onClick={() => ask("add")}
                       disabled={busy}
                     >
-                      {adding ? (
-                        <span className="spinner-border spinner-border-sm" aria-hidden="true" />
-                      ) : (
-                        <FaBookOpen aria-hidden="true" />
-                      )}
-                      {adding
-                        ? "Adding…"
-                        : inLibrary > 0
-                          ? `Add ${number(missing)} missing`
-                          : "Add to library"}
+                      <FaBookOpen aria-hidden="true" />
+                      {inLibrary > 0 ? `Add ${number(missing)} missing` : "Add to library"}
                     </button>
                   )}
                   {mine && flags.deleteListButton && (
                     <button
                       className="btn btn-sm btn-outline-danger add-library-delete"
-                      onClick={() => setConfirmDelete(name)}
+                      onClick={() => ask("delete")}
                       disabled={busy}
                       title="Delete your part of this saved list (your library is not changed)"
                       aria-label={`Delete ${name}`}
