@@ -130,7 +130,18 @@ const VideoPlayer = ({
   // itself, the end handler already loaded it and these refs match.)
   useEffect(() => {
     const player = playerRef.current;
-    if (!ready || !player || !videoId) return;
+    if (!ready || !player) return;
+
+    // The queue was cleared (or its song plays on YouTube instead): stop, and
+    // forget the song, so the next one added is loaded fresh.
+    if (!videoId) {
+      if (loadedIdRef.current) {
+        loadedIdRef.current = null;
+        shownQueueIdRef.current = null;
+        command((p) => p.stopVideo?.());
+      }
+      return;
+    }
 
     if (loadedIdRef.current !== videoId) {
       loadedIdRef.current = videoId;
@@ -163,7 +174,8 @@ const VideoPlayer = ({
   /** Start the player if it should be playing but is not (never against a user pause). */
   const startIfStalled = useCallback(() => {
     const player = playerRef.current;
-    if (!player || isPausedRef.current) return;
+    // Nothing to play (the queue is empty): a stopped player stays stopped.
+    if (!player || isPausedRef.current || !loadedIdRef.current) return;
     const state = player.getPlayerState?.();
     // 1 playing, 3 buffering: fine. 2 paused after the user clicked in the player: leave it.
     if (state === 1 || state === 3) return;
@@ -240,7 +252,8 @@ const VideoPlayer = ({
         playCallbackRef.current?.(); // resumed in the player
       }
       // -1 unstarted / 5 cued: the next video was loaded but not started.
-      if ((e.data === -1 || e.data === 5) && !isPausedRef.current) {
+      // Not after the queue was emptied: stopping the player also reports "cued".
+      if ((e.data === -1 || e.data === 5) && !isPausedRef.current && loadedIdRef.current) {
         command((p) => p.playVideo());
       }
     },
