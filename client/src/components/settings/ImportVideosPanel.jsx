@@ -3,7 +3,14 @@ import { ProgressBar } from "react-bootstrap";
 import { notify } from "../../lib/notify";
 import { FaDownload, FaStop } from "react-icons/fa";
 import useLocalStorage from "../../hooks/useLocalStorage";
-import { CatalogError, collectPage, isSearchesList, SEARCHES_LIST } from "../../api/catalog";
+import {
+  CatalogError,
+  collectPage,
+  isSearchesList,
+  SAVE_BATCH,
+  saveListVideos,
+  SEARCHES_LIST,
+} from "../../api/catalog";
 
 // A list holds at most 8,000 videos (MAX_VIDEOS on the server).
 const ALL = 8000;
@@ -30,7 +37,9 @@ export default function ImportVideosPanel() {
   const [newestFirst, setNewestFirst] = useState(true);
 
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState({ saved: 0, target: 0 });
+  // phase "reading" (oldest first: the whole channel is read before saving) or
+  // "saving"; checked / found count the uploads read and matched while reading.
+  const [progress, setProgress] = useState({ phase: "saving", saved: 0, target: 0, checked: 0, found: 0 });
   // The YouTube channel the import reads, once the server has found it.
   const [channelFound, setChannelFound] = useState(null);
   const cancelRef = useRef(false);
@@ -38,6 +47,9 @@ export default function ImportVideosPanel() {
   const hasChannel = Boolean(channel.trim());
   const maxOptions = hasChannel ? CHANNEL_OPTIONS : SEARCH_OPTIONS;
   const limit = Math.min(max, maxOptions[maxOptions.length - 1]);
+  // YouTube lists a channel's uploads newest first only: oldest first means
+  // reading the whole channel, then keeping its oldest videos.
+  const oldestFirst = hasChannel && !newestFirst;
   const listName = customName ?? (channel.trim() || title.trim());
   const reservedName = isSearchesList(listName);
   const canStart =
@@ -55,18 +67,22 @@ export default function ImportVideosPanel() {
   const startImport = async () => {
     cancelRef.current = false;
     setBusy(true);
-    setProgress({ saved: 0, target: limit });
+    setProgress({ phase: oldestFirst ? "reading" : "saving", saved: 0, target: limit, checked: 0, found: 0 });
     setChannelFound(null);
 
     const maxPages = hasChannel ? CHANNEL_MAX_PAGES : SEARCH_MAX_PAGES;
     let pages = 0;
     let saved = 0;
+    let checked = 0;
     let pageToken;
     let channelId;
     let channelTitle;
+    // Oldest first: every match, as YouTube lists them (newest first).
+    const matched = [];
     try {
-      // Keep reading pages until enough videos matched, YouTube has no more, or the page cap.
-      while (saved < limit && pages < maxPages && !cancelRef.current) {
+      // Keep reading pages until enough videos matched (oldest first: until the
+      // channel's last upload), YouTube has no more, or the page cap.
+      while ((oldestFirst || saved < limit) && pages < maxPages && !cancelRef.current) {
         const page = await collectPage({
           name: listName,
           channel: channelId ? undefined : channel.trim(),
@@ -77,17 +93,40 @@ export default function ImportVideosPanel() {
           any: !embeddableOnly,
           noShorts: skipShorts,
           newest: !hasChannel && newestFirst,
+          readOnly: oldestFirst || undefined,
         });
         pages += 1;
+        checked += page.fetched;
         channelId = page.channelId ?? channelId;
         if (page.channelTitle && !channelTitle) {
           channelTitle = page.channelTitle;
           setChannelFound(channelTitle);
         }
         pageToken = page.nextPageToken;
-        saved += page.added;
-        setProgress({ saved, target: limit });
+        if (oldestFirst) {
+          matched.push(...(page.videos ?? []));
+          setProgress((p) => ({ ...p, checked, found: matched.length }));
+        } else {
+          saved += page.added;
+          setProgress((p) => ({ ...p, saved }));
+        }
         if (!pageToken || page.fetched === 0) break;
+      }
+
+      if (oldestFirst) {
+        // Stopped before the end: the oldest uploads were never reached.
+        if (cancelRef.current) {
+          notify.import.stoppedEarly();
+          return;
+        }
+        // The oldest `limit` matches, oldest first, saved in batches.
+        const chosen = matched.slice(-limit).reverse();
+        setProgress((p) => ({ ...p, phase: "saving", saved: 0, target: chosen.length }));
+        for (let i = 0; i < chosen.length; i += SAVE_BATCH) {
+          const { added } = await saveListVideos(listName, chosen.slice(i, i + SAVE_BATCH), i);
+          saved += added;
+          setProgress((p) => ({ ...p, saved }));
+        }
       }
       notify.import.saved(saved, listName, channelTitle);
     } catch (err) {
@@ -191,26 +230,31 @@ export default function ImportVideosPanel() {
         </label>
       </div>
       <div className="form-check">
-        {/* A channel's uploads list only comes newest first, so it stays ticked then. */}
         <input
           id="imp-newest"
           type="checkbox"
           className="form-check-input"
-          checked={hasChannel || newestFirst}
+          checked={newestFirst}
           onChange={(e) => setNewestFirst(e.target.checked)}
-          disabled={busy || hasChannel}
+          disabled={busy}
         />
         <label className="form-check-label small" htmlFor="imp-newest">
           Newest uploads first
-          {hasChannel && <span className="text-muted"> (always, for a channel)</span>}
+          {!newestFirst && (
+            <span className="text-muted">
+              {hasChannel ? " (off: the oldest first)" : " (off: the most relevant first)"}
+            </span>
+          )}
         </label>
       </div>
       <div className="form-text">
         Fill in a channel, a title, or both. A channel can be its name, its
         @handle or a link to it; the @handle is the surest. With a title, only
         videos whose own title contains those words are saved.{" "}
-        {hasChannel
-          ? "A channel is read in full, newest first: each 50 videos checked use about 2 of YouTube's 10,000 free daily units."
+        {oldestFirst
+          ? "Oldest first: YouTube lists a channel newest first only, so the whole channel is read before anything is saved (about 2 of YouTube's 10,000 free daily units per 50 uploads), then its oldest videos are kept."
+          : hasChannel
+          ? "A channel is read newest first until enough videos are saved: each 50 videos checked use about 2 of YouTube's 10,000 free daily units."
           : "Without a channel, YouTube search is used: each 50 videos checked use 100 of YouTube's 10,000 free daily units, and at most 500 are checked per import."}
       </div>
 
@@ -234,13 +278,23 @@ export default function ImportVideosPanel() {
       {busy && (
         <>
           {/* The count goes under the bar: inside it, a short bar cut it off. */}
+          {/* While reading oldest first the total is unknown: a moving bar. */}
           <ProgressBar
             className="mt-3"
-            now={Math.min(100, (progress.saved / progress.target) * 100)}
+            now={
+              progress.phase === "reading"
+                ? 100
+                : Math.min(100, (progress.saved / Math.max(1, progress.target)) * 100)
+            }
+            striped={progress.phase === "reading"}
+            animated={progress.phase === "reading"}
             aria-label="Import progress"
           />
           <div className="form-text" aria-live="polite">
-            {progress.saved.toLocaleString()} of up to {progress.target.toLocaleString()} saved
+            {progress.phase === "reading"
+              ? `Reading the uploads: ${progress.checked.toLocaleString()} checked, ` +
+                `${progress.found.toLocaleString()} match`
+              : `${progress.saved.toLocaleString()} of up to ${progress.target.toLocaleString()} saved`}
             {channelFound && (
               <>
                 {" "}· from <strong>{channelFound}</strong>

@@ -62,8 +62,18 @@ export async function getCatalogVideos(name) {
 export const deleteCatalog = (name) =>
   request({ method: "DELETE", query: { name } });
 
-/** Collects one page (50) of YouTube results into the list `body.name`. */
+/**
+ * Collects one page (50) of YouTube results into the list `body.name`. With
+ * `readOnly: true` nothing is saved and the matching `videos` come back.
+ */
 export const collectPage = (body) => request({ method: "POST", body });
+
+/** Saves videos read with readOnly pages into a list, in order from `offset`. */
+export const saveListVideos = (name, videos, offset) =>
+  request({ method: "POST", body: { name, videos, offset } });
+
+// Videos per saveListVideos call (SAVE_BATCH on the server).
+export const SAVE_BATCH = 500;
 
 // Must match SEARCHES_LIST on the server.
 export const SEARCHES_LIST = "My Searches";

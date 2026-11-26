@@ -101,6 +101,8 @@ export const notify = {
         : toast.success(
             `Saved ${plural(count, "video")}${from ? ` from "${from}"` : ""} to "${name}"`
           ),
+    stoppedEarly: () =>
+      toast.info("Stopped before the oldest uploads were reached: nothing was saved."),
     failed: (err, savedCount = 0) =>
       toast.error(
         savedCount > 0

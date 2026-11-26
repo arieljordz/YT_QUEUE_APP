@@ -20,14 +20,18 @@
 //                                        "deleteListButton" feature flag)
 //   POST   /api/catalog { save: video } -> adds one video to the "My Searches" list
 //   POST   /api/catalog               -> collects ONE page (50) of YouTube
-//          { name, channel?, channelId?, title?, pageToken?, offset?, any?, noShorts?, newest? }
+//          { name, channel?, channelId?, title?, pageToken?, offset?, any?, noShorts?, newest?, readOnly? }
 //          channel = only videos of that channel (a name, @handle, link or id;
 //          "Topic" channels are skipped, see resolveChannel); title = only videos whose title
 //          contains all the words of this text (at least one of the two is needed);
 //          any = also keep videos that can't play embedded;
 //          noShorts = skip YouTube Shorts;
-//          newest = newest first (search only; a channel is always newest first)
-//          -> { fetched, added, nextPageToken?, channelId?, channelTitle? }
+//          newest = newest first (search only; YouTube lists a channel newest first);
+//          readOnly = save nothing, return the matching videos instead
+//          -> { fetched, added | videos, nextPageToken?, channelId?, channelTitle? }
+//   POST   /api/catalog { name, videos, offset } -> saves up to 500 videos read with
+//          readOnly (a channel imported oldest first: the browser reads it to the end,
+//          keeps the oldest ones and saves them in that order) -> { added }
 //     With a channel, the channel's uploads playlist is read: every upload,
 //     newest first, 1 quota unit per page (+1 for the details lookup). Without
 //     one, YouTube search is used: 100 units per page and about 500 results at most.
@@ -54,6 +58,7 @@ const ALWAYS_SHORT_SECONDS = 60;
 const MAX_VIDEOS = 8000; // the most videos one list holds
 const LIST_PAGE_SIZE = 1000; // videos per GET ?name= response
 const MAX_NAME = 60;
+const SAVE_BATCH = 500; // videos per POST { name, videos }
 const CHANNEL_ID = /^UC[\w-]{20,}$/;
 const PAGE_TOKEN = /^[\w-]{1,200}$/;
 
@@ -420,7 +425,7 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
     details = lookup.details ?? null; // a failed lookup keeps every video
   }
 
-  const operations = [];
+  const kept = [];
   items.forEach((item) => {
     const video = slimVideo(item);
     if (!video) return;
@@ -432,26 +437,55 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
     }
     // Only videos whose own title contains the text (YouTube also matches descriptions).
     if (title && !titleMatches(video.snippet.title, title)) return;
-    operations.push({
+    kept.push(video);
+  });
+
+  const page = {
+    fetched: items.length,
+    nextPageToken: result.data.nextPageToken,
+    channelId: channelId || undefined,
+    channelTitle,
+  };
+  // Read only: the matching videos go back to the browser, which picks the
+  // ones to keep and saves them with POST { name, videos } (oldest first).
+  if (body?.readOnly === true) return { status: 200, body: { ...page, videos: kept } };
+
+  await saveVideos(catalog, owner, name, kept, offset);
+  return { status: 200, body: { ...page, added: kept.length } };
+}
+
+/** Upserts videos into this room's list `name`, in order from `offset`. */
+async function saveVideos(catalog, owner, name, videos, offset) {
+  if (videos.length === 0) return;
+  await catalog.bulkWrite(
+    videos.map((video, i) => ({
       updateOne: {
         filter: { _id: `${owner}:${name}:${video.id.videoId}` },
-        update: { $set: { owner, catalog: name, video, order: offset + operations.length } },
+        update: { $set: { owner, catalog: name, video, order: offset + i } },
         upsert: true,
       },
-    });
-  });
-  if (operations.length > 0) await catalog.bulkWrite(operations);
+    }))
+  );
+}
 
-  return {
-    status: 200,
-    body: {
-      fetched: items.length,
-      added: operations.length,
-      nextPageToken: result.data.nextPageToken,
-      channelId: channelId || undefined,
-      channelTitle,
-    },
-  };
+/**
+ * POST { name, videos, offset }: saves videos the browser already read with
+ * readOnly pages (an oldest-first channel import), SAVE_BATCH at a time.
+ */
+export async function handleSaveList(catalog, owner, body) {
+  const name = cleanName(body?.name);
+  if (!name) return fail(400, `Give the list a name (up to ${MAX_NAME} characters)`);
+  if (isSearchesList(name)) {
+    return fail(400, `"${SEARCHES_LIST}" is reserved for videos you search and queue. Pick another name.`);
+  }
+  if (!Array.isArray(body.videos) || body.videos.length > SAVE_BATCH) {
+    return fail(400, `Send up to ${SAVE_BATCH} videos at a time`);
+  }
+  const offset = Number.isInteger(body?.offset) && body.offset >= 0 ? body.offset : 0;
+  if (offset + body.videos.length > MAX_VIDEOS) return fail(400, "That list is full");
+  const videos = body.videos.map(slimVideo).filter(Boolean);
+  await saveVideos(catalog, owner, name, videos, offset);
+  return { status: 200, body: { added: videos.length } };
 }
 
 let indexReady = false;
@@ -483,10 +517,9 @@ export default async function handler(req, res) {
     }
     else if (req.method === "POST") {
       const apiKey = process.env.YT_API_KEY || process.env.VITE_YT_API_KEY;
-      result =
-        req.body?.save !== undefined
-          ? await handleSaveSearched(catalog, owner, req.body)
-          : await handleCollect(catalog, owner, req.body, { apiKey });
+      if (req.body?.save !== undefined) result = await handleSaveSearched(catalog, owner, req.body);
+      else if (req.body?.videos !== undefined) result = await handleSaveList(catalog, owner, req.body);
+      else result = await handleCollect(catalog, owner, req.body, { apiKey });
     } else {
       res.setHeader("Allow", "GET, POST, DELETE");
       return res.status(405).json({ error: "Method not allowed" });
