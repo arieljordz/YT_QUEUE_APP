@@ -1,12 +1,12 @@
 import { useState, useCallback } from "react";
 import { Dropdown } from "react-bootstrap";
 import { useLocation } from "react-router-dom";
-import useInstallPrompt from "../hooks/useInstallPrompt";
-import useTheme from "../hooks/useTheme";
+import useInstallPrompt from "../../hooks/useInstallPrompt";
+import useTheme from "../../hooks/useTheme";
 import { FaBars, FaDoorOpen, FaQrcode, FaPalette, FaCog, FaCoffee } from "react-icons/fa";
-import { InviteModal, AppearanceModal, LeaveRoomModal } from "./MenuModals";
-import SettingsModal from "./SettingsModal";
-import SupportModal from "./SupportModal";
+import { InviteModal, AppearanceModal, LeaveRoomModal } from "../modals/MenuModals";
+import SettingsModal from "../modals/SettingsModal";
+import SupportModal from "../modals/SupportModal";
 import AppLogo from "./AppLogo";
 
 // The user menu. Everyone gets these five; Settings asks for the admin password.

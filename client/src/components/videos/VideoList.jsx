@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { FaTrash, FaStar, FaRegStar, FaYoutube } from "react-icons/fa";
 import { MdPlaylistAdd } from "react-icons/md";
-import { describeVideo } from "../lib/format";
+import { describeVideo } from "../../lib/format";
 import YoutubeOnlyBadge from "./YoutubeOnlyBadge";
 
 function VideoList({

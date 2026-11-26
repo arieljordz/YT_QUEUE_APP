@@ -1,4 +1,4 @@
-import { AVATARS } from "../lib/avatars";
+import { AVATARS } from "../../lib/avatars";
 
 export default function Avatar({ avatar, size = 72 }) {
   const { Icon, color } = AVATARS[avatar] ?? AVATARS["avatar-1"];

@@ -1,10 +1,10 @@
 import { memo, useCallback, useState } from "react";
 import { Modal, Button } from "react-bootstrap";
-import YoutubeOnlyBadge from "./YoutubeOnlyBadge";
+import YoutubeOnlyBadge from "../videos/YoutubeOnlyBadge";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { useNowPosition } from "../hooks/usePlayerProgress";
-import { formatClock } from "../lib/progress";
-import { plural } from "../lib/notify";
+import { useNowPosition } from "../../hooks/usePlayerProgress";
+import { formatClock } from "../../lib/progress";
+import { plural } from "../../lib/notify";
 import { MdPlaylistRemove } from "react-icons/md";
 import {
   FaTrash,

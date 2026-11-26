@@ -1,20 +1,20 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { notify } from "../lib/notify";
+import { notify } from "../../lib/notify";
 import SearchBar from "./SearchBar";
 import { FaSearch } from "react-icons/fa";
-import AppTabs from "./AppTabs";
-import useOnlineStatus from "../hooks/useOnlineStatus";
-import { useEmbeddableCache } from "../hooks/useEmbeddable";
-import { TAB_ICONS } from "../lib/tabIcons";
-import VideoList from "./VideoList";
-import Queue from "./Queue";
-import Library from "./Library";
-import PlayerPage from "./PlayerPage";
-import PlayerBoundary from "./PlayerBoundary";
-import { isInstalledApp } from "../lib/display";
-import useLocalStorage from "../hooks/useLocalStorage";
-import { searchVideos, getVideoDetails, QuotaError } from "../api/youtube";
-import { saveSearchedVideo } from "../api/catalog";
+import AppTabs from "../layout/AppTabs";
+import useOnlineStatus from "../../hooks/useOnlineStatus";
+import { useEmbeddableCache } from "../../hooks/useEmbeddable";
+import { TAB_ICONS } from "../../lib/tabIcons";
+import VideoList from "../videos/VideoList";
+import Queue from "../queue/Queue";
+import Library from "../library/Library";
+import PlayerPage from "../player/PlayerPage";
+import PlayerBoundary from "../player/PlayerBoundary";
+import { isInstalledApp } from "../../lib/display";
+import useLocalStorage from "../../hooks/useLocalStorage";
+import { searchVideos, getVideoDetails, QuotaError } from "../../api/youtube";
+import { saveSearchedVideo } from "../../api/catalog";
 
 // Queue entries get their own id so the same video can appear more than once
 // and still have a stable React / drag-and-drop key.

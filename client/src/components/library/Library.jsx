@@ -2,12 +2,12 @@ import { useState, useMemo, useCallback, memo } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { FaTrash, FaStar, FaHistory, FaList, FaSearch } from "react-icons/fa";
 import { MdPlaylistAdd } from "react-icons/md";
-import VideoList from "./VideoList";
-import useLocalStorage from "../hooks/useLocalStorage";
-import useFeatureFlags from "../hooks/useFeatureFlags";
-import { byTitle } from "../lib/sort";
-import { useFavorites } from "../hooks/useExtras";
-import { notify } from "../lib/notify";
+import VideoList from "../videos/VideoList";
+import useLocalStorage from "../../hooks/useLocalStorage";
+import useFeatureFlags from "../../hooks/useFeatureFlags";
+import { byTitle } from "../../lib/sort";
+import { useFavorites } from "../../hooks/useExtras";
+import { notify } from "../../lib/notify";
 
 // The list grows by this many rows each time the user scrolls near the bottom.
 const PAGE_SIZE = 100;

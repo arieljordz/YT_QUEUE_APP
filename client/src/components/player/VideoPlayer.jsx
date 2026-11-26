@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import YouTube from "react-youtube";
-import { decodeHtml } from "../lib/text";
+import { decodeHtml } from "../../lib/text";
 
 const PLAYER_OPTS = { width: "100%", playerVars: { autoplay: 1 } };
 // The "Next:" banner shows during the last seconds of a song.

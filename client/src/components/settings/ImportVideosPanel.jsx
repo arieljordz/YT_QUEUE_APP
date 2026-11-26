@@ -1,9 +1,9 @@
 import { useState, useRef } from "react";
 import { ProgressBar } from "react-bootstrap";
-import { notify } from "../lib/notify";
+import { notify } from "../../lib/notify";
 import { FaDownload, FaStop } from "react-icons/fa";
-import useLocalStorage from "../hooks/useLocalStorage";
-import { CatalogError, collectPage, isSearchesList, SEARCHES_LIST } from "../api/catalog";
+import useLocalStorage from "../../hooks/useLocalStorage";
+import { CatalogError, collectPage, isSearchesList, SEARCHES_LIST } from "../../api/catalog";
 
 // A list holds at most 8,000 videos (MAX_VIDEOS on the server).
 const ALL = 8000;

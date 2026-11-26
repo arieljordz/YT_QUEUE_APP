@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { notify } from "../lib/notify";
-import useFeatureFlags from "../hooks/useFeatureFlags";
+import { notify } from "../../lib/notify";
+import useFeatureFlags from "../../hooks/useFeatureFlags";
 
 function Flag({ id, label, description, checked, disabled, onChange }) {
   return (

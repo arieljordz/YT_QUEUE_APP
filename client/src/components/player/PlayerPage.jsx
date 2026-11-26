@@ -1,15 +1,15 @@
 import { useCallback, useEffect } from "react";
 import VideoPlayer from "./VideoPlayer";
-import useLocalStorage from "../hooks/useLocalStorage";
-import { useProgressReporter } from "../hooks/usePlayerProgress";
-import useWakeLock from "../hooks/useWakeLock";
-import { useRecordPlayed } from "../hooks/useExtras";
-import { useEmbeddableCache } from "../hooks/useEmbeddable";
-import usePlayerLease from "../hooks/usePlayerLease";
-import { decodeHtml } from "../lib/text";
+import useLocalStorage from "../../hooks/useLocalStorage";
+import { useProgressReporter } from "../../hooks/usePlayerProgress";
+import useWakeLock from "../../hooks/useWakeLock";
+import { useRecordPlayed } from "../../hooks/useExtras";
+import { useEmbeddableCache } from "../../hooks/useEmbeddable";
+import usePlayerLease from "../../hooks/usePlayerLease";
+import { decodeHtml } from "../../lib/text";
 import PlayerNotice from "./PlayerNotice";
 import ExternalPlaybackPanel from "./ExternalPlaybackPanel";
-import useExternalPlayback from "../hooks/useExternalPlayback";
+import useExternalPlayback from "../../hooks/useExternalPlayback";
 
 // Player tab: shares the queue with the search tab through localStorage and is
 // the only place that advances it, so playback keeps going while the user

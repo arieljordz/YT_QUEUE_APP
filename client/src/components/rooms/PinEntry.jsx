@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-import AppLogo from "./AppLogo";
-import { enterRoom } from "../api/rooms";
+import AppLogo from "../layout/AppLogo";
+import { enterRoom } from "../../api/rooms";
 import Avatar from "./RoomAvatar";
 
 const EMPTY = ["", "", "", ""];

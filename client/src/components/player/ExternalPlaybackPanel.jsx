@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { FaYoutube } from "react-icons/fa";
-import { decodeHtml } from "../lib/text";
-import { formatDuration } from "../lib/format";
-import { formatClock } from "../lib/progress";
-import YoutubeOnlyBadge from "./YoutubeOnlyBadge";
+import { decodeHtml } from "../../lib/text";
+import { formatDuration } from "../../lib/format";
+import { formatClock } from "../../lib/progress";
+import YoutubeOnlyBadge from "../videos/YoutubeOnlyBadge";
 
 /** Seconds left until `endsAt` (ms), counted down once a second. */
 function useSecondsLeft(endsAt) {

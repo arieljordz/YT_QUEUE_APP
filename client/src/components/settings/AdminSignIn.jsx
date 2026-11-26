@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FaUserShield } from "react-icons/fa";
-import { changeAdminPassword, loginAdmin, setupAdmin } from "../api/admin";
+import { changeAdminPassword, loginAdmin, setupAdmin } from "../../api/admin";
 
 const MIN_PASSWORD = 6;
 

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { FaLock, FaPencilAlt, FaPlus } from "react-icons/fa";
-import AppLogo from "./AppLogo";
-import { listRooms } from "../api/rooms";
-import { MAX_ROOMS } from "../lib/avatars";
+import AppLogo from "../layout/AppLogo";
+import { listRooms } from "../../api/rooms";
+import { MAX_ROOMS } from "../../lib/avatars";
 import Avatar from "./RoomAvatar";
 import RoomEditor from "./RoomEditor";
-import AdminSignIn from "./AdminSignIn";
-import useAdmin from "../hooks/useAdmin";
+import AdminSignIn from "../settings/AdminSignIn";
+import useAdmin from "../../hooks/useAdmin";
 
 /**
  * "Who's Watching?" screen: always shows every room the server returns.

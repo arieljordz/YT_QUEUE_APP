@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Modal } from "react-bootstrap";
-import { createRoom, deleteRoom, updateRoom } from "../api/rooms";
-import { AVATARS } from "../lib/avatars";
+import { createRoom, deleteRoom, updateRoom } from "../../api/rooms";
+import { AVATARS } from "../../lib/avatars";
 import Avatar from "./RoomAvatar";
 
 /** A 4-digit PIN field. Only digits are kept. */

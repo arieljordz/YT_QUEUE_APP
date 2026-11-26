@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { notify } from "../lib/notify";
+import { notify } from "../../lib/notify";
 import { FaBookOpen, FaCheck, FaTrash } from "react-icons/fa";
-import useLocalStorage from "../hooks/useLocalStorage";
-import useFeatureFlags from "../hooks/useFeatureFlags";
-import { mergeLibrary } from "../lib/library";
-import { deleteCatalog, getCatalogVideos, listCatalogs } from "../api/catalog";
+import useLocalStorage from "../../hooks/useLocalStorage";
+import useFeatureFlags from "../../hooks/useFeatureFlags";
+import { mergeLibrary } from "../../lib/library";
+import { deleteCatalog, getCatalogVideos, listCatalogs } from "../../api/catalog";
 
 /**
  * Menu > Add Library: the lists saved by Import Videos. Shows how much of each

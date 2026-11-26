@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
-import { notify } from "../lib/notify";
+import { notify } from "../../lib/notify";
 import { FaCog } from "react-icons/fa";
 import { MdFileDownload, MdLibraryAdd, MdToggleOn, MdLock } from "react-icons/md";
-import AppTabs from "./AppTabs";
-import useAdmin from "../hooks/useAdmin";
-import { logoutAdmin } from "../api/admin";
-import AdminSignIn from "./AdminSignIn";
-import ImportVideosPanel from "./ImportVideosPanel";
-import AddLibraryPanel from "./AddLibraryPanel";
-import FeatureFlagsPanel from "./FeatureFlagsPanel";
+import AppTabs from "../layout/AppTabs";
+import useAdmin from "../../hooks/useAdmin";
+import { logoutAdmin } from "../../api/admin";
+import AdminSignIn from "../settings/AdminSignIn";
+import ImportVideosPanel from "../settings/ImportVideosPanel";
+import AddLibraryPanel from "../settings/AddLibraryPanel";
+import FeatureFlagsPanel from "../settings/FeatureFlagsPanel";
 
 /**
  * Settings: Import Videos, Add Library, Feature Flags and the admin password.
