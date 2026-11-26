@@ -8,9 +8,10 @@
 // that imported a list can delete its part of it. "My Searches" is private to
 // the room that saved it.
 //
-//   GET    /api/catalog               -> { catalogs: [{ name, count, ids, mine }] }
-//                                        (ids = the video ids in the list; mine =
-//                                         this room imported part of it)
+//   GET    /api/catalog               -> { catalogs: [{ name, count, mine }] }
+//                                        (count = distinct videos; mine = this room
+//                                         imported part of it)
+//   GET    /api/catalog?name=X&ids=1  -> { ids }  (the list's distinct video ids)
 //   GET    /api/catalog?name=X&after=N -> { videos: [...], next }  (up to 1,000 videos;
 //                                        next = the `after` for the next page, or null)
 //   DELETE /api/catalog?name=X        -> { deleted }   (this room's part only; needs the
@@ -135,30 +136,46 @@ export async function handleList(catalog, owner, query) {
 
   const name = cleanName(query?.name);
   if (!name) {
+    // Only names and counts: sending every list's video ids made this response
+    // grow with every import. The ids of one list come from ?name=X&ids=1.
     const rows = await catalog
-      .aggregate([
-        { $match: visible },
-        {
-          $group: {
-            _id: "$catalog",
-            ids: { $addToSet: "$video.id.videoId" },
-            mine: { $max: { $cond: [{ $eq: ["$owner", owner] }, 1, 0] } },
+      .aggregate(
+        [
+          { $match: visible },
+          // One row per distinct video of a list (two rooms may import the same one).
+          {
+            $group: {
+              _id: { catalog: "$catalog", videoId: "$video.id.videoId" },
+              mine: { $max: { $cond: [{ $eq: ["$owner", owner] }, 1, 0] } },
+            },
           },
-        },
-        { $sort: { _id: 1 } },
-      ])
+          {
+            $group: {
+              _id: "$_id.catalog",
+              count: { $sum: 1 },
+              mine: { $max: "$mine" },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        { allowDiskUse: true }
+      )
       .toArray();
     return {
       status: 200,
       body: {
-        catalogs: rows.map((r) => ({
-          name: r._id,
-          count: r.ids.length,
-          ids: r.ids,
-          mine: r.mine === 1,
-        })),
+        catalogs: rows.map((r) => ({ name: r._id, count: r.count, mine: r.mine === 1 })),
       },
     };
+  }
+
+  const filter = name === SEARCHES_LIST ? { owner, catalog: name } : { catalog: name };
+
+  // Just the video ids of one list, so the browser can tell how much of it is
+  // already in the library without downloading every video.
+  if (query?.ids !== undefined) {
+    const ids = await catalog.distinct("video.id.videoId", filter);
+    return { status: 200, body: { ids } };
   }
 
   // Big lists come in pages: sending thousands of videos at once takes longer
@@ -166,7 +183,6 @@ export async function handleList(catalog, owner, query) {
   const after = Number(query?.after);
   const skip = Number.isInteger(after) && after > 0 ? Math.min(after, MAX_VIDEOS) : 0;
   const limit = Math.min(LIST_PAGE_SIZE, MAX_VIDEOS - skip);
-  const filter = name === SEARCHES_LIST ? { owner, catalog: name } : { catalog: name };
   const docs =
     limit > 0
       ? await catalog
@@ -345,6 +361,8 @@ export default async function handler(req, res) {
     if (!indexReady) {
       await catalog.createIndex({ owner: 1, catalog: 1, order: 1 });
       await catalog.createIndex({ catalog: 1, order: 1 });
+      // Counting a list's distinct videos and listing its ids.
+      await catalog.createIndex({ catalog: 1, "video.id.videoId": 1 });
       indexReady = true;
     }
 

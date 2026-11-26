@@ -39,7 +39,12 @@ async function request({ method = "GET", query, body } = {}) {
   return data;
 }
 
+/** The saved lists: [{ name, count, mine }]. */
 export const listCatalogs = () => request().then((d) => d.catalogs);
+
+/** The distinct video ids of one saved list. */
+export const getCatalogIds = (name) =>
+  request({ query: { name, ids: 1 } }).then((d) => d.ids);
 
 /** Every video of a saved list, fetched a page at a time. */
 export async function getCatalogVideos(name) {
