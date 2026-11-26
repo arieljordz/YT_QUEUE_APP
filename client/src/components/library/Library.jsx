@@ -251,7 +251,7 @@ function Library({
   ];
 
   return (
-    <div>
+    <div className="library-view">
       <div className="lib-chips" role="group" aria-label="Library view">
         {views.map(([key, label, count, icon]) => (
           <button

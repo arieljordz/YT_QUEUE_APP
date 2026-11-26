@@ -324,54 +324,57 @@ function Home({ libraryApi, roomName, onSignedOut }) {
           </div>
         )}
 
-        {tab === "search" && (
-          <>
-            <SearchBar onSearch={handleSearch} isLoading={isSearching} />
-            {hasSearched && !isSearching && videos.length > 0 && (
-              <p className="lib-summary" aria-live="polite">
-                {videos.length} results for “{lastQuery}”
-              </p>
-            )}
-            <VideoList
-              videos={videos}
+        {/* On wide screens this area scrolls inside its panel (see .home-content). */}
+        <div className="home-content">
+          {tab === "search" && (
+            <>
+              <SearchBar onSearch={handleSearch} isLoading={isSearching} />
+              {hasSearched && !isSearching && videos.length > 0 && (
+                <p className="lib-summary" aria-live="polite">
+                  {videos.length} results for “{lastQuery}”
+                </p>
+              )}
+              <VideoList
+                videos={videos}
+                queuedIds={queuedIds}
+                details={details}
+                onAdd={addFromSearch}
+                isLoading={isSearching}
+                hasSearched={hasSearched}
+                emptyIcon={<FaSearch aria-hidden="true" />}
+                emptyTitle="No results"
+                emptyText={`Nothing found for “${lastQuery}”. Try other words or the artist's name.`}
+              />
+            </>
+          )}
+
+          {tab === "library" && (
+            <Library
+              library={library}
+              onAdd={addToQueue}
+              onAddAll={addAllToQueue}
+              onClearLibrary={handleClearLibrary}
+              onDeleteMatches={handleDeleteMatches}
+              onRemove={removeFromLibrary}
               queuedIds={queuedIds}
-              details={details}
-              onAdd={addFromSearch}
-              isLoading={isSearching}
-              hasSearched={hasSearched}
-              emptyIcon={<FaSearch aria-hidden="true" />}
-              emptyTitle="No results"
-              emptyText={`Nothing found for “${lastQuery}”. Try other words or the artist's name.`}
+              youtubeOnlyIds={youtubeOnlyIds}
+              syncCode={syncCode}
+              downloading={libraryApi.downloading}
             />
-          </>
-        )}
+          )}
 
-        {tab === "library" && (
-          <Library
-            library={library}
-            onAdd={addToQueue}
-            onAddAll={addAllToQueue}
-            onClearLibrary={handleClearLibrary}
-            onDeleteMatches={handleDeleteMatches}
-            onRemove={removeFromLibrary}
-            queuedIds={queuedIds}
-            youtubeOnlyIds={youtubeOnlyIds}
-            syncCode={syncCode}
-            downloading={libraryApi.downloading}
-          />
-        )}
+          {tab === "playlists" && (
+            <Playlists
+              library={library}
+              queuedIds={queuedIds}
+              youtubeOnlyIds={youtubeOnlyIds}
+              onPlay={playPlaylist}
+              onQueue={addAllToQueue}
+            />
+          )}
 
-        {tab === "playlists" && (
-          <Playlists
-            library={library}
-            queuedIds={queuedIds}
-            youtubeOnlyIds={youtubeOnlyIds}
-            onPlay={playPlaylist}
-            onQueue={addAllToQueue}
-          />
-        )}
-
-        {tab === "queue" && queueView}
+          {tab === "queue" && queueView}
+        </div>
       </div>
 
       {queuePanel && (

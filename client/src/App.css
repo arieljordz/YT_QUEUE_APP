@@ -1028,37 +1028,45 @@
   .pl-actions .btn { flex: 1 1 auto; justify-content: center; }
 }
 
-/* ==== Queue panel: wide screens show the queue beside the current tab ==== */
+/* ==== Wide screens: two panels, the tabs on the left and the queue on the right ==== */
 @media (min-width: 1400px) {
+  /* The whole width, and exactly the screen's height under the header: the page
+     itself does not scroll, each panel scrolls inside. */
   .container-xl.home-with-panel {
-    max-width: 1760px;
+    max-width: none;
+    padding: 0.75rem 1.5rem 1rem;
+    height: calc(100vh - var(--app-header-height, 52px));
+    height: calc(100dvh - var(--app-header-height, 52px));
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 400px;
-    gap: 1.5rem;
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr) 420px;
+    gap: 1.25rem;
   }
-  .home-main { min-width: 0; }
-
-  /* Stays in view under the header while the page scrolls; Up next scrolls inside it. */
+  /* Both columns get the same frame. */
+  .home-with-panel .home-main,
   .queue-panel {
-    --panel-top: calc(var(--app-header-height, 52px) + 0.75rem);
-    position: sticky;
-    top: var(--panel-top);
-    max-height: calc(100vh - var(--panel-top) - 1rem);
-    max-height: calc(100dvh - var(--panel-top) - 1rem);
+    min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    padding: 0.75rem;
     border: 1px solid var(--yq-border);
     border-radius: 12px;
-    background: var(--yq-surface);
   }
+  .home-with-panel .home-main { padding: 0.25rem 1rem 1rem; }
+  .queue-panel { padding: 0.75rem; }
+  .home-with-panel .home-main > * { flex-shrink: 0; }
+  .home-with-panel .home-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+  /* The Library fills its panel: the list takes all the height that is left. */
+  .home-with-panel .home-content > .library-view { height: 100%; display: flex; flex-direction: column; }
+  .library-view > * { flex-shrink: 0; }
+  .home-with-panel .library-view > .library-scroll { flex: 1 1 auto; min-height: 0; max-height: none; }
+
   .queue-panel > section { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
   .queue-panel .queue-scroll { flex: 1 1 auto; min-height: 0; max-height: none; }
   .queue-panel .queue-scroll .queue-row { min-height: 0; }
 
   /* The panel is narrow: the compact card and rows used on phones. */
-  .queue-panel .now-card { padding: 0.6rem 0.7rem; margin-bottom: 0.9rem; background: var(--yq-surface-2); }
+  .queue-panel .now-card { padding: 0.6rem 0.7rem; margin-bottom: 0.9rem; }
   .queue-panel .now-media { gap: 0.65rem; }
   .queue-panel .now-thumb { width: 96px; border-radius: 6px; }
   .queue-panel .now-label { font-size: 0.66rem; margin-bottom: 0.1rem; white-space: nowrap; overflow: hidden; }
