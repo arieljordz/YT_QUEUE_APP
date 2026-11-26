@@ -12,6 +12,7 @@ export const FEATURE_FLAGS = {
   librarySelection: false,
   deleteSelectedButton: false,
   personalPlaylists: false,
+  librarySearchAutofocus: false,
 };
 
 const REFRESH_MS = 30000;

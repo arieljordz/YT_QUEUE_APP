@@ -19,6 +19,7 @@ export const DEFAULT_FLAGS = {
   librarySelection: false,
   deleteSelectedButton: false,
   personalPlaylists: false,
+  librarySearchAutofocus: false,
 };
 const FLAGS_ID = "flags";
 

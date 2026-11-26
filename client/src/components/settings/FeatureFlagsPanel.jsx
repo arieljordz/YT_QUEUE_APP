@@ -33,6 +33,7 @@ const SECTIONS = [
   {
     title: "Library",
     flags: [
+      { name: "librarySearchAutofocus", label: "Focus the search box", description: "Put the cursor in the Library search box when the Library tab opens. Off: nothing is focused (no keyboard popping up on phones)." },
       { name: "removeButton", label: "Remove button", description: "Show the Remove button on each video in the Library." },
       { name: "deleteAllButton", label: "Delete all button", description: "Show the Delete all button above the Library list." },
       { name: "librarySelection", label: "Library video selection", description: "Show a checkbox on each video in the Library, plus Select all." },
