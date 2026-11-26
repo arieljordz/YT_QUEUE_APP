@@ -1162,10 +1162,17 @@
   padding-left: 0;
   padding-right: 0;
 }
-.add-library-delete.is-confirming {
-  flex-basis: auto;
-  padding-left: 0.9rem;
-  padding-right: 0.9rem;
+.add-library-cancel {
+  flex: 0 0 auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+/* The delete confirmation: a tinted box under the list's name. */
+.add-library-confirm {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(var(--bs-danger-rgb), 0.08);
+  border: 1px solid rgba(var(--bs-danger-rgb), 0.35);
 }
 
 @media (min-width: 576px) {
@@ -1173,6 +1180,15 @@
     flex-direction: row;
     align-items: center;
     gap: 1rem;
+  }
+  /* While confirming, the box gets the full width under the name. */
+  .add-library-item:has(.add-library-confirm) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+  .add-library-confirm .add-library-actions {
+    justify-content: flex-end;
   }
   .add-library-info {
     flex: 1 1 auto;
@@ -1194,7 +1210,7 @@
   }
   /* When some rows have a delete button, rows without one (shared lists) keep
      its space, so every Add button lines up. */
-  .add-library-list.has-delete .add-library-actions:not(:has(.add-library-delete))::after {
+  .add-library-list.has-delete .add-library-item > .add-library-actions:not(:has(.add-library-delete))::after {
     content: "";
     flex: 0 0 36px;
   }

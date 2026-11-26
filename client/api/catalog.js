@@ -8,13 +8,15 @@
 // that imported a list can delete its part of it. "My Searches" is private to
 // the room that saved it.
 //
-//   GET    /api/catalog               -> { catalogs: [{ name, count, mine }] }
+//   GET    /api/catalog               -> { catalogs: [{ name, count, mine, mineCount, others }] }
 //                                        (count = distinct videos; mine = this room
-//                                         imported part of it)
+//                                         imported part of it, mineCount of them;
+//                                         others = other rooms imported part of it)
 //   GET    /api/catalog?name=X&ids=1  -> { ids }  (the list's distinct video ids)
 //   GET    /api/catalog?name=X&after=N -> { videos: [...], next }  (up to 1,000 videos;
 //                                        next = the `after` for the next page, or null)
-//   DELETE /api/catalog?name=X        -> { deleted }   (this room's part only; needs the
+//   DELETE /api/catalog?name=X        -> { deleted, remaining }  (this room's part only;
+//                                        remaining = other rooms' videos left; needs the
 //                                        "deleteListButton" feature flag)
 //   POST   /api/catalog { save: video } -> adds one video to the "My Searches" list
 //   POST   /api/catalog               -> collects ONE page (50) of YouTube
@@ -147,13 +149,15 @@ export async function handleList(catalog, owner, query) {
             $group: {
               _id: { catalog: "$catalog", videoId: "$video.id.videoId" },
               mine: { $max: { $cond: [{ $eq: ["$owner", owner] }, 1, 0] } },
+              others: { $max: { $cond: [{ $ne: ["$owner", owner] }, 1, 0] } },
             },
           },
           {
             $group: {
               _id: "$_id.catalog",
               count: { $sum: 1 },
-              mine: { $max: "$mine" },
+              mineCount: { $sum: "$mine" },
+              others: { $max: "$others" },
             },
           },
           { $sort: { _id: 1 } },
@@ -164,7 +168,13 @@ export async function handleList(catalog, owner, query) {
     return {
       status: 200,
       body: {
-        catalogs: rows.map((r) => ({ name: r._id, count: r.count, mine: r.mine === 1 })),
+        catalogs: rows.map((r) => ({
+          name: r._id,
+          count: r.count,
+          mine: r.mineCount > 0,
+          mineCount: r.mineCount, // videos this room imported (what Delete removes)
+          others: r.others === 1, // other rooms imported part of it too
+        })),
       },
     };
   }
@@ -211,7 +221,13 @@ export async function handleDelete(catalog, owner, query, flags) {
   const name = cleanName(query?.name);
   if (!name) return fail(400, "Missing list name");
   const result = await catalog.deleteMany({ owner, catalog: name });
-  return { status: 200, body: { deleted: result.deletedCount } };
+  // Other rooms' part of the list stays: say how much, so the browser can tell
+  // the list was not removed for everyone.
+  // Distinct videos, counted like the list counts them.
+  const remaining = isSearchesList(name)
+    ? 0
+    : (await catalog.distinct("video.id.videoId", { catalog: name })).length;
+  return { status: 200, body: { deleted: result.deletedCount, remaining } };
 }
 
 /** Calls a YouTube API. `fetchFn` is injectable for tests. */

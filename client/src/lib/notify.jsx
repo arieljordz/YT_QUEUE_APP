@@ -77,7 +77,16 @@ export const notify = {
         ? toast.info(`All videos from "${name}" are already in your library`)
         : toast.success(`Added ${plural(count, "video")} from "${name}" to your library`),
     addFailed: (err) => toast.error(errorText(err)),
-    deleted: (name) => toast.success(`Deleted the list "${name}"`),
+    // remaining = videos other rooms imported into the list, which stay.
+    deleted: (name, deleted, remaining) =>
+      deleted === 0
+        ? toast.info(`Nothing to delete: "${name}" was already removed`)
+        : remaining > 0
+          ? toast.success(
+              `Deleted your ${plural(deleted, "video")} from "${name}". ` +
+                `Other rooms' ${plural(remaining, "video")} stay in the list.`
+            )
+          : toast.success(`Deleted the list "${name}"`),
     deleteFailed: (err) => toast.error(errorText(err)),
   },
 
