@@ -12,6 +12,10 @@ import Library from "../library/Library";
 import Playlists from "../playlists/Playlists";
 import useFeatureFlags from "../../hooks/useFeatureFlags";
 import usePlaylists from "../../hooks/usePlaylists";
+import useMediaQuery from "../../hooks/useMediaQuery";
+
+// From this width the queue sits in a panel beside the other tabs instead of in a tab of its own.
+const QUEUE_PANEL_QUERY = "(min-width: 1400px)";
 import PlayerPage from "../player/PlayerPage";
 import PlayerBoundary from "../player/PlayerBoundary";
 import { isInstalledApp } from "../../lib/display";
@@ -59,8 +63,13 @@ function Home({ libraryApi, roomName, onSignedOut }) {
   const [selectedTab, setTab] = useState("library");
   const { flags } = useFeatureFlags();
   const { playlists } = usePlaylists();
-  // The Playlists tab goes away when its flag is switched off (here or on another device).
-  const tab = selectedTab === "playlists" && !flags.personalPlaylists ? "library" : selectedTab;
+  const queuePanel = useMediaQuery(QUEUE_PANEL_QUERY);
+  // The Playlists tab goes away when its flag is switched off (here or on another device),
+  // and the Queue tab while the queue panel shows the queue.
+  const tab =
+    (selectedTab === "playlists" && !flags.personalPlaylists) || (selectedTab === "queue" && queuePanel)
+      ? "library"
+      : selectedTab;
   // In the installed app the player is a tab of its own (a separate window
   // can't be reached with Back). Once opened it stays loaded, hidden, so the
   // music keeps playing while the other tabs are used.
@@ -243,7 +252,8 @@ function Home({ libraryApi, roomName, onSignedOut }) {
       const before = queue;
       setQueue(list.map(toQueueItem));
       setIsPaused(false);
-      setTab("queue");
+      // On a wide screen the queue panel already shows it: stay on this tab.
+      if (!window.matchMedia(QUEUE_PANEL_QUERY).matches) setTab("queue");
       notify.playlists.playing(name, list.length, () => setQueue(before));
     },
     [queue, setQueue, setIsPaused]
@@ -256,108 +266,118 @@ function Home({ libraryApi, roomName, onSignedOut }) {
     [setIsPaused]
   );
 
+  const queueView = (
+    <Queue
+      queue={queue}
+      isPaused={isPaused}
+      isRepeat={isRepeat}
+      onToggleRepeat={toggleRepeat}
+      onTogglePause={togglePaused}
+      onSkip={handleSkip}
+      onPlay={handlePlay}
+      onMove={handleMove}
+      onRemove={handleRemove}
+      onClear={handleClear}
+      youtubeOnlyIds={youtubeOnlyIds}
+      onShuffle={handleShuffle}
+    />
+  );
+
   return (
-    <div className="container-xl">
-      {!online && (
-        <div className="alert alert-warning py-2 small" role="status">
-          You are offline. Your library and queue are still here; searching, importing
-          and playing videos need a connection.
-        </div>
-      )}
-      <AppTabs
-        active={tab}
-        onSelect={selectTab}
-        tabs={[
-          { key: "library", label: "Library", icon: TAB_ICONS.library, count: library.length },
-          ...(flags.personalPlaylists
-            ? [{ key: "playlists", label: "Playlists", icon: TAB_ICONS.playlists, count: playlists.length }]
-            : []),
-          { key: "queue", label: "Queue", icon: TAB_ICONS.queue, count: queue.length },
-          { key: "search", label: "Search", icon: TAB_ICONS.search },
-          {
-            key: "player",
-            label: "Player",
-            icon: TAB_ICONS.player,
-            ...(playerInApp
-              ? { title: "Watch here; it keeps playing while you use the other tabs" }
-              : {
-                  href: "/player",
-                  title: "Open the player in a new browser tab, so videos keep playing while you search",
-                }),
-          },
-        ]}
-      />
+    <div className={`container-xl${queuePanel ? " home-with-panel" : ""}`}>
+      <div className="home-main">
+        {!online && (
+          <div className="alert alert-warning py-2 small" role="status">
+            You are offline. Your library and queue are still here; searching, importing
+            and playing videos need a connection.
+          </div>
+        )}
+        <AppTabs
+          active={tab}
+          onSelect={selectTab}
+          tabs={[
+            { key: "library", label: "Library", icon: TAB_ICONS.library, count: library.length },
+            ...(flags.personalPlaylists
+              ? [{ key: "playlists", label: "Playlists", icon: TAB_ICONS.playlists, count: playlists.length }]
+              : []),
+            ...(queuePanel ? [] : [{ key: "queue", label: "Queue", icon: TAB_ICONS.queue, count: queue.length }]),
+            { key: "search", label: "Search", icon: TAB_ICONS.search },
+            {
+              key: "player",
+              label: "Player",
+              icon: TAB_ICONS.player,
+              ...(playerInApp
+                ? { title: "Watch here; it keeps playing while you use the other tabs" }
+                : {
+                    href: "/player",
+                    title: "Open the player in a new browser tab, so videos keep playing while you search",
+                  }),
+            },
+          ]}
+        />
 
-      {playerInApp && playerOpened && (
-        <div className={`inapp-player${tab === "player" ? "" : " is-hidden"}`} aria-hidden={tab !== "player"}>
-          <PlayerBoundary>
-            <PlayerPage roomName={roomName} onSignedOut={onSignedOut} />
-          </PlayerBoundary>
-        </div>
-      )}
+        {playerInApp && playerOpened && (
+          <div className={`inapp-player${tab === "player" ? "" : " is-hidden"}`} aria-hidden={tab !== "player"}>
+            <PlayerBoundary>
+              <PlayerPage roomName={roomName} onSignedOut={onSignedOut} />
+            </PlayerBoundary>
+          </div>
+        )}
 
-      {tab === "search" && (
-        <>
-          <SearchBar onSearch={handleSearch} isLoading={isSearching} />
-          {hasSearched && !isSearching && videos.length > 0 && (
-            <p className="lib-summary" aria-live="polite">
-              {videos.length} results for “{lastQuery}”
-            </p>
-          )}
-          <VideoList
-            videos={videos}
+        {tab === "search" && (
+          <>
+            <SearchBar onSearch={handleSearch} isLoading={isSearching} />
+            {hasSearched && !isSearching && videos.length > 0 && (
+              <p className="lib-summary" aria-live="polite">
+                {videos.length} results for “{lastQuery}”
+              </p>
+            )}
+            <VideoList
+              videos={videos}
+              queuedIds={queuedIds}
+              details={details}
+              onAdd={addFromSearch}
+              isLoading={isSearching}
+              hasSearched={hasSearched}
+              emptyIcon={<FaSearch aria-hidden="true" />}
+              emptyTitle="No results"
+              emptyText={`Nothing found for “${lastQuery}”. Try other words or the artist's name.`}
+            />
+          </>
+        )}
+
+        {tab === "library" && (
+          <Library
+            library={library}
+            onAdd={addToQueue}
+            onAddAll={addAllToQueue}
+            onClearLibrary={handleClearLibrary}
+            onDeleteMatches={handleDeleteMatches}
+            onRemove={removeFromLibrary}
             queuedIds={queuedIds}
-            details={details}
-            onAdd={addFromSearch}
-            isLoading={isSearching}
-            hasSearched={hasSearched}
-            emptyIcon={<FaSearch aria-hidden="true" />}
-            emptyTitle="No results"
-            emptyText={`Nothing found for “${lastQuery}”. Try other words or the artist's name.`}
+            youtubeOnlyIds={youtubeOnlyIds}
+            syncCode={syncCode}
+            downloading={libraryApi.downloading}
           />
-        </>
-      )}
+        )}
 
-      {tab === "library" && (
-        <Library
-          library={library}
-          onAdd={addToQueue}
-          onAddAll={addAllToQueue}
-          onClearLibrary={handleClearLibrary}
-          onDeleteMatches={handleDeleteMatches}
-          onRemove={removeFromLibrary}
-          queuedIds={queuedIds}
-          youtubeOnlyIds={youtubeOnlyIds}
-          syncCode={syncCode}
-          downloading={libraryApi.downloading}
-        />
-      )}
+        {tab === "playlists" && (
+          <Playlists
+            library={library}
+            queuedIds={queuedIds}
+            youtubeOnlyIds={youtubeOnlyIds}
+            onPlay={playPlaylist}
+            onQueue={addAllToQueue}
+          />
+        )}
 
-      {tab === "playlists" && (
-        <Playlists
-          library={library}
-          queuedIds={queuedIds}
-          youtubeOnlyIds={youtubeOnlyIds}
-          onPlay={playPlaylist}
-          onQueue={addAllToQueue}
-        />
-      )}
+        {tab === "queue" && queueView}
+      </div>
 
-      {tab === "queue" && (
-        <Queue
-          queue={queue}
-          isPaused={isPaused}
-          isRepeat={isRepeat}
-          onToggleRepeat={toggleRepeat}
-          onTogglePause={togglePaused}
-          onSkip={handleSkip}
-          onPlay={handlePlay}
-          onMove={handleMove}
-          onRemove={handleRemove}
-          onClear={handleClear}
-          youtubeOnlyIds={youtubeOnlyIds}
-          onShuffle={handleShuffle}
-        />
+      {queuePanel && (
+        <aside className="queue-panel" aria-label="Queue">
+          {queueView}
+        </aside>
       )}
     </div>
   );
