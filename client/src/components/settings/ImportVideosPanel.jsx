@@ -42,7 +42,7 @@ export default function ImportVideosPanel() {
   const [busy, setBusy] = useState(false);
   // phase "reading" (oldest first: the whole channel is read before saving) or
   // "saving"; checked / found count the uploads read and matched while reading.
-  const [progress, setProgress] = useState({ phase: "saving", saved: 0, target: 0, checked: 0, found: 0 });
+  const [progress, setProgress] = useState({ phase: "saving", saved: 0, added: 0, target: 0, checked: 0, found: 0 });
   // The YouTube channel the import reads, once the server has found it.
   const [channelFound, setChannelFound] = useState(null);
   const cancelRef = useRef(false);
@@ -70,7 +70,7 @@ export default function ImportVideosPanel() {
   const startImport = async () => {
     cancelRef.current = false;
     setBusy(true);
-    setProgress({ phase: oldestFirst ? "reading" : "saving", saved: 0, target: limit, checked: 0, found: 0 });
+    setProgress({ phase: oldestFirst ? "reading" : "saving", saved: 0, added: 0, target: limit, checked: 0, found: 0 });
     setChannelFound(null);
 
     const maxPages = hasChannel
@@ -79,7 +79,11 @@ export default function ImportVideosPanel() {
         ? SEARCH_ALL_MAX_PAGES
         : SEARCH_MAX_PAGES;
     let pages = 0;
+    // saved = matching videos saved this import (what "Up to" counts);
+    // added = those new to the list, existing = those it already had.
     let saved = 0;
+    let added = 0;
+    let existing = 0;
     let checked = 0;
     let pageToken;
     let channelId;
@@ -114,8 +118,10 @@ export default function ImportVideosPanel() {
           matched.push(...(page.videos ?? []));
           setProgress((p) => ({ ...p, checked, found: matched.length }));
         } else {
-          saved += page.added;
-          setProgress((p) => ({ ...p, saved }));
+          added += page.added ?? 0;
+          existing += page.existing ?? 0;
+          saved = added + existing;
+          setProgress((p) => ({ ...p, saved, added }));
         }
         if (!pageToken || page.fetched === 0) break;
       }
@@ -128,16 +134,18 @@ export default function ImportVideosPanel() {
         }
         // The oldest `limit` matches, oldest first, saved in batches.
         const chosen = matched.slice(-limit).reverse();
-        setProgress((p) => ({ ...p, phase: "saving", saved: 0, target: chosen.length }));
+        setProgress((p) => ({ ...p, phase: "saving", saved: 0, added: 0, target: chosen.length }));
         for (let i = 0; i < chosen.length; i += SAVE_BATCH) {
-          const { added } = await saveListVideos(listName, chosen.slice(i, i + SAVE_BATCH), i);
-          saved += added;
-          setProgress((p) => ({ ...p, saved }));
+          const batch = await saveListVideos(listName, chosen.slice(i, i + SAVE_BATCH), i);
+          added += batch.added ?? 0;
+          existing += batch.existing ?? 0;
+          saved = added + existing;
+          setProgress((p) => ({ ...p, saved, added }));
         }
       }
-      notify.import.saved(saved, listName, channelTitle);
+      notify.import.saved(added, existing, listName, channelTitle);
     } catch (err) {
-      notify.import.failed(err, err instanceof CatalogError ? saved : 0);
+      notify.import.failed(err, err instanceof CatalogError ? added : 0);
     } finally {
       setBusy(false);
     }
@@ -304,7 +312,10 @@ export default function ImportVideosPanel() {
             {progress.phase === "reading"
               ? `Reading the uploads: ${progress.checked.toLocaleString()} checked, ` +
                 `${progress.found.toLocaleString()} match`
-              : `${progress.saved.toLocaleString()} of up to ${progress.target.toLocaleString()} saved`}
+              : `${progress.saved.toLocaleString()} of up to ${progress.target.toLocaleString()} saved` +
+                (progress.saved > (progress.added ?? progress.saved)
+                  ? ` (${(progress.added ?? 0).toLocaleString()} new)`
+                  : "")}
             {channelFound && (
               <>
                 {" "}· from <strong>{channelFound}</strong>

@@ -28,10 +28,12 @@
 //          noShorts = skip YouTube Shorts;
 //          newest = newest first (search only; YouTube lists a channel newest first);
 //          readOnly = save nothing, return the matching videos instead
-//          -> { fetched, added | videos, nextPageToken?, channelId?, channelTitle? }
+//          -> { fetched, added + existing | videos, nextPageToken?, channelId?, channelTitle? }
+//          (added = new to the list, put after its last video; existing = already
+//           in the list, which keep their place: see saveVideos)
 //   POST   /api/catalog { name, videos, offset } -> saves up to 500 videos read with
 //          readOnly (a channel imported oldest first: the browser reads it to the end,
-//          keeps the oldest ones and saves them in that order) -> { added }
+//          keeps the oldest ones and saves them in that order) -> { added, existing }
 //     With a channel, the channel's uploads playlist is read: every upload,
 //     newest first, 1 quota unit per page (+1 for the details lookup). Without
 //     one, YouTube search is used: 100 units per page and about 500 results at most.
@@ -464,22 +466,43 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
   // ones to keep and saves them with POST { name, videos } (oldest first).
   if (body?.readOnly === true) return { status: 200, body: { ...page, videos: kept } };
 
-  await saveVideos(catalog, owner, name, kept, offset);
-  return { status: 200, body: { ...page, added: kept.length } };
+  const saved = await saveVideos(catalog, owner, name, kept);
+  return { status: 200, body: { ...page, ...saved } };
 }
 
-/** Upserts videos into this room's list `name`, in order from `offset`. */
-async function saveVideos(catalog, owner, name, videos, offset) {
-  if (videos.length === 0) return;
+/**
+ * Saves videos into this room's list `name` and returns { added, existing }:
+ * how many were new and how many the list already had. A video already in the
+ * list keeps its place (only its title and thumbnails are refreshed); new ones
+ * go after the list's last video, in the order given. So importing into the
+ * same list again never duplicates a video nor reshuffles the list.
+ */
+async function saveVideos(catalog, owner, name, videos) {
+  // The same video twice in one batch counts once.
+  const byId = new Map(videos.map((v) => [`${owner}:${name}:${v.id.videoId}`, v]));
+  if (byId.size === 0) return { added: 0, existing: 0 };
+
+  const ids = [...byId.keys()];
+  const [found, last] = await Promise.all([
+    catalog.find({ _id: { $in: ids } }, { projection: { _id: 1 } }).toArray(),
+    catalog
+      .find({ owner, catalog: name }, { projection: { order: 1 } })
+      .sort({ order: -1 })
+      .limit(1)
+      .toArray(),
+  ]);
+  const already = new Set(found.map((d) => d._id));
+  let next = Number.isFinite(last[0]?.order) ? last[0].order + 1 : 0;
+
   await catalog.bulkWrite(
-    videos.map((video, i) => ({
-      updateOne: {
-        filter: { _id: `${owner}:${name}:${video.id.videoId}` },
-        update: { $set: { owner, catalog: name, video, order: offset + i } },
-        upsert: true,
-      },
-    }))
+    ids.map((_id) => {
+      const update = { $set: { owner, catalog: name, video: byId.get(_id) } };
+      // Only a new video gets a place: an existing one keeps the one it has.
+      if (!already.has(_id)) update.$setOnInsert = { order: next++ };
+      return { updateOne: { filter: { _id }, update, upsert: true } };
+    })
   );
+  return { added: ids.length - already.size, existing: already.size };
 }
 
 /**
@@ -498,8 +521,7 @@ export async function handleSaveList(catalog, owner, body) {
   const offset = Number.isInteger(body?.offset) && body.offset >= 0 ? body.offset : 0;
   if (offset + body.videos.length > MAX_VIDEOS) return fail(400, "That list is full");
   const videos = body.videos.map(slimVideo).filter(Boolean);
-  await saveVideos(catalog, owner, name, videos, offset);
-  return { status: 200, body: { added: videos.length } };
+  return { status: 200, body: await saveVideos(catalog, owner, name, videos) };
 }
 
 export default async function handler(req, res) {

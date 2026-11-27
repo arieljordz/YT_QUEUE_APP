@@ -91,16 +91,27 @@ export const notify = {
   },
 
   import: {
+    // added = new to the list, existing = matched but already in it;
     // from = the YouTube channel read, when there was one.
-    saved: (count, name, from) =>
-      count === 0
-        ? toast.warning(
-            `No videos were saved${from ? ` from "${from}"` : ""}. ` +
-              "None matched: check the title words and the options."
-          )
-        : toast.success(
-            `Saved ${plural(count, "video")}${from ? ` from "${from}"` : ""} to "${name}"`
-          ),
+    saved: (added, existing, name, from) => {
+      const source = from ? ` from "${from}"` : "";
+      if (added === 0 && existing === 0) {
+        return toast.warning(
+          `No videos were saved${source}. None matched: check the title words and the options.`
+        );
+      }
+      if (added === 0) {
+        return toast.info(
+          `Nothing new${source}: all ${plural(existing, "matching video")} ${
+            existing === 1 ? "was" : "were"
+          } already in "${name}".`
+        );
+      }
+      return toast.success(
+        `Added ${plural(added, existing > 0 ? "new video" : "video")}${source} to "${name}"` +
+          (existing > 0 ? ` (${existing.toLocaleString()} already in it)` : "")
+      );
+    },
     stoppedEarly: () =>
       toast.info("Stopped before the oldest uploads were reached: nothing was saved."),
     failed: (err, savedCount = 0) =>
