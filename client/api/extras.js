@@ -19,36 +19,85 @@ const validIds = (list) =>
   list.length <= MAX_IDS_PER_REQUEST &&
   list.every((id) => typeof id === "string" && id.length > 0 && id.length <= 40);
 
+/*
+ * Changes are made inside the database, in one update of the stored lists (an
+ * update pipeline), never by reading a list, changing it here and writing it
+ * back: two devices starring songs, or two songs ending, at the same moment
+ * would otherwise lose one change. Values sent by the browser go in through
+ * $literal, so a title starting with "$" stays text.
+ */
+
+/** favorites = (stored - remove) + the added ids not there yet, unless that is more than MAX_FAVORITES. */
+function favoritesStage(add, remove) {
+  const stored = { $ifNull: ["$favorites", []] };
+  const kept = { $filter: { input: stored, cond: { $not: [{ $in: ["$$this", { $literal: remove }] }] } } };
+  const changed = {
+    $let: {
+      vars: { kept },
+      in: {
+        $concatArrays: [
+          "$$kept",
+          { $filter: { input: { $literal: add }, cond: { $not: [{ $in: ["$$this", "$$kept"] }] } } },
+        ],
+      },
+    },
+  };
+  // Too many: the list stays as it was (the handler then answers 400).
+  return {
+    $set: {
+      favorites: {
+        $let: { vars: { next: changed }, in: { $cond: [{ $gt: [{ $size: "$$next" }, MAX_FAVORITES] }, stored, "$$next"] } },
+      },
+    },
+  };
+}
+
+/** history = this video, then the others without it, newest first, at most MAX_HISTORY. */
+function historyStage(video) {
+  const others = {
+    $filter: {
+      input: { $ifNull: ["$history", []] },
+      cond: { $ne: ["$$this.id.videoId", { $literal: video.id.videoId }] },
+    },
+  };
+  return { $set: { history: { $slice: [{ $concatArrays: [[{ $literal: video }], others] }, MAX_HISTORY] } } };
+}
+
 /** Core logic, separated from the HTTP layer so it can be tested with any collection. */
 export async function handleExtras(rooms, roomId, body) {
-  const doc = await rooms.findOne({ _id: roomId }, { projection: { favorites: 1, history: 1 } });
-  let favorites = doc?.favorites ?? [];
-  let history = doc?.history ?? [];
-  const set = {};
+  const projection = { favorites: 1, history: 1 };
+  const stages = [];
+  let add = [];
+  let remove = [];
 
   if (body?.favorites !== undefined) {
-    const add = body.favorites?.add ?? [];
-    const remove = body.favorites?.remove ?? [];
+    add = body.favorites?.add ?? [];
+    remove = body.favorites?.remove ?? [];
     if (!validIds(add) || !validIds(remove)) return fail(400, "Invalid favorites");
-    const gone = new Set(remove);
-    favorites = [...new Set([...favorites, ...add])].filter((id) => !gone.has(id));
-    if (favorites.length > MAX_FAVORITES) return fail(400, "Too many favorites");
-    set.favorites = favorites;
+    // An id both added and removed ends up removed, as before.
+    const removing = new Set(remove);
+    add = [...new Set(add)].filter((id) => !removing.has(id));
+    stages.push(favoritesStage(add, [...removing]));
   }
 
   if (body?.played !== undefined) {
     const video = slimVideo(body.played);
     if (!video) return fail(400, "Invalid video");
-    history = [video, ...history.filter((v) => v.id.videoId !== video.id.videoId)].slice(
-      0,
-      MAX_HISTORY
-    );
-    set.history = history;
+    stages.push(historyStage(video));
   }
 
-  if (Object.keys(set).length > 0) {
-    await rooms.updateOne({ _id: roomId }, { $set: set }, { upsert: true });
-  }
+  const doc =
+    stages.length > 0
+      ? await rooms.findOneAndUpdate({ _id: roomId }, stages, { upsert: true, returnDocument: "after", projection })
+      : await rooms.findOne({ _id: roomId }, { projection });
+  const favorites = doc?.favorites ?? [];
+  const history = doc?.history ?? [];
+
+  // The favorites stage leaves the list as it was when it would get too long.
+  const gone = new Set(remove);
+  const have = new Set(favorites);
+  if (add.some((id) => !gone.has(id) && !have.has(id))) return fail(400, "Too many favorites");
+
   return { status: 200, body: { favorites, history } };
 }
 
