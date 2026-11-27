@@ -127,6 +127,12 @@ export const notify = {
     failed: (err) => toast.error(errorText(err)),
   },
 
+  player: {
+    // The in-app player was behind another tab when another device took over.
+    moved: () =>
+      toast.info("Playback moved to another device, so the player here stopped.", { toastId: "player-moved" }),
+  },
+
   external: {
     tabMayBeOpen: () =>
       toast.info("The queue moved on. The YouTube tab may still be open; close it there.", {

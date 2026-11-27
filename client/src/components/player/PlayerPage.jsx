@@ -7,6 +7,7 @@ import { useRecordPlayed } from "../../hooks/useExtras";
 import { useEmbeddableCache } from "../../hooks/useEmbeddable";
 import usePlayerLease from "../../hooks/usePlayerLease";
 import { decodeHtml } from "../../lib/text";
+import { notify } from "../../lib/notify";
 import PlayerNotice from "./PlayerNotice";
 import ExternalPlaybackPanel from "./ExternalPlaybackPanel";
 import useExternalPlayback from "../../hooks/useExternalPlayback";
@@ -14,7 +15,8 @@ import useExternalPlayback from "../../hooks/useExternalPlayback";
 // Player tab: shares the queue with the search tab through localStorage and is
 // the only place that advances it, so playback keeps going while the user
 // works in another tab.
-function PlayerPage({ roomName, onSignedOut }) {
+// `inBackground`: the in-app player is hidden behind another tab of the page.
+function PlayerPage({ roomName, onSignedOut, inBackground = false }) {
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
   const [isRepeat] = useLocalStorage("isRepeat", false);
@@ -27,6 +29,14 @@ function PlayerPage({ roomName, onSignedOut }) {
   // Only one device plays a room at a time; the others wait or take over.
   const { status, takeOver } = usePlayerLease(onSignedOut);
   const active = status === "active";
+
+  // Hidden behind another tab, the "moved" notice below can't be seen: say it in a toast.
+  const moved = status === "moved";
+  useEffect(() => {
+    if (moved && inBackground) notify.player.moved();
+    // Only when it moves, not when the user later switches tabs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moved]);
 
   // The screen stays on while a song is playing.
   useWakeLock(active && Boolean(currentVideo) && !isPaused);

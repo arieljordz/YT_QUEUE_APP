@@ -360,7 +360,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
         {playerHere && playerOpened && (
           <div className={`inapp-player${tab === "player" ? "" : " is-hidden"}`} aria-hidden={tab !== "player"}>
             <PlayerBoundary>
-              <PlayerPage roomName={roomName} onSignedOut={onSignedOut} />
+              <PlayerPage roomName={roomName} onSignedOut={onSignedOut} inBackground={tab !== "player"} />
             </PlayerBoundary>
           </div>
         )}

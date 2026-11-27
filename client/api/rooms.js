@@ -6,7 +6,7 @@
 //   POST { action: "create", name, avatar, description?, newPin }       -> creates a room
 //   POST { action: "update", roomId, name?, avatar?, description?, newPin? }
 //   POST { action: "delete", roomId }
-//   POST { action: "player", playerId, takeover?, release? } -> { active } (one playing device per room)
+//   POST { action: "player", playerId, takeover?, hidden?, release? } -> { active } (one playing device per room)
 // Create/update/delete need the admin cookie (see admin.js).
 import { getCatalog, getLibraryVideos, getPlaylists } from "./_db.js";
 import { requireAdmin } from "./_admin.js";
@@ -86,11 +86,15 @@ export default async function handler(req, res) {
     if (action === "player") {
       const roomId = await resolveSession(cols, token);
       if (!roomId) return res.status(401).json({ error: "No session" });
-      const { playerId, takeover, release } = req.body;
+      const { playerId, takeover, hidden, release } = req.body;
       if (!isPlayerId(playerId)) return res.status(400).json({ error: "Invalid player id" });
       const result = release
         ? await releasePlayer(cols.rooms, roomId, playerId)
-        : await claimPlayer(cols.rooms, roomId, { playerId, takeover: takeover === true });
+        : await claimPlayer(cols.rooms, roomId, {
+            playerId,
+            takeover: takeover === true,
+            hidden: hidden === true,
+          });
       return res.status(result.status).json(result.body);
     }
     if (action === "leave") {
