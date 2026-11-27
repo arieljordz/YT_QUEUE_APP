@@ -96,8 +96,8 @@ export async function updateRoom({ rooms, sessions, presence }, input) {
   return { status: 200, body: { room: publicRoom({ ...room, ...fields }), signedOut } };
 }
 
-/** Deletes a room, its sessions, library, playlists and own searches. Shared imported lists stay. */
-export async function deleteRoom({ rooms, sessions, attempts, presence }, input, catalog, libraryVideos, playlists) {
+/** Deletes a room, its sessions, queue, library, playlists and own searches. Shared imported lists stay. */
+export async function deleteRoom({ rooms, sessions, attempts, presence }, input, catalog, libraryVideos, playlists, queues) {
   const room = await findRoom(rooms, input.roomId);
   if (!room) return missingRoom;
   await rooms.deleteOne({ _id: room._id });
@@ -107,5 +107,6 @@ export async function deleteRoom({ rooms, sessions, attempts, presence }, input,
   await catalog.deleteMany({ owner: room._id, catalog: SEARCHES_LIST });
   if (libraryVideos) await libraryVideos.deleteMany({ roomId: room._id });
   if (playlists) await playlists.deleteMany({ roomId: room._id });
+  if (queues) await queues.deleteOne({ _id: room._id });
   return { status: 200, body: { ok: true } };
 }

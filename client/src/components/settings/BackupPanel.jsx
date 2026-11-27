@@ -5,12 +5,18 @@ import { clearDatabase, createBackup, readBackupFile, restoreBackup } from "../.
 
 // What each part of the database is, in the app's words.
 const PARTS = {
-  rooms: "Rooms (names, PINs, queues)",
-  library_videos: "Library videos",
+  rooms: "Rooms (names, PINs)",
+  room_queues: "Queues",
+  room_library: "Library videos",
   room_playlists: "Playlists",
-  catalog_videos: "Saved lists (Import Videos)",
+  saved_list_videos: "Saved lists (Import Videos)",
   app_settings: "App settings (feature flags)",
+  // The names in backup files made before the collections were renamed.
+  library_videos: "Library videos",
+  catalog_videos: "Saved lists (Import Videos)",
 };
+// Cleared by emptying them, not deleting: not counted as deleted documents.
+const KEPT_WHEN_CLEARED = new Set(["rooms", "room_queues"]);
 const partName = (name) => PARTS[name] ?? name;
 
 const fileStamp = (date) => {
@@ -110,7 +116,7 @@ export default function BackupPanel({ onAdminRequired }) {
       const cleared = await clearDatabase();
       setAskClear(false);
       setTyped("");
-      notify.backup.cleared(Object.entries(cleared).reduce((sum, [name, n]) => (name === "rooms" ? sum : sum + n), 0));
+      notify.backup.cleared(Object.entries(cleared).reduce((sum, [name, n]) => (KEPT_WHEN_CLEARED.has(name) ? sum : sum + n), 0));
     } catch (err) {
       failed(err);
     } finally {

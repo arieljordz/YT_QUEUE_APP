@@ -1,5 +1,6 @@
-// Vercel serverless function: the shared queue state for one sync code, stored
-// in MongoDB. Devices poll it (and push changes) so they stay identical.
+// Vercel serverless function: the shared queue state of one room, stored in
+// room_queues (one document per room, _id = the room id). Devices poll it (and
+// push changes) so they stay identical.
 //
 // POST body:
 //   { rev }                  -> poll: { rev, exists, changed, state? }
@@ -10,7 +11,7 @@
 //     = how many ms ago it was saved, so each device can place it on its own clock.
 // Older copies of the app also send and expect a "played" list (the removed
 // re-queue feature): it is ignored on save and always answered as empty.
-import { getDb, getRooms, slimQueueItem } from "./_db.js";
+import { getDb, getRoomQueues, slimQueueItem } from "./_db.js";
 import { readCookie, requireRoom, touchPresence } from "./_session.js";
 
 const MAX_ITEMS = 5000;
@@ -50,11 +51,11 @@ function progressOut(saved, now) {
 }
 
 /** Core logic, separated from the HTTP layer so it can be tested with any collection. */
-export async function handleQueue(rooms, roomId, body, now = Date.now()) {
+export async function handleQueue(queues, roomId, body, now = Date.now()) {
   if (body?.progress !== undefined) {
     const progress = cleanProgress(body.progress);
     if (!progress) return { status: 400, body: { error: "Invalid progress" } };
-    await rooms.updateOne({ _id: roomId }, { $set: { progress: { ...progress, savedAt: new Date(now) } } });
+    await queues.updateOne({ _id: roomId }, { $set: { progress: { ...progress, savedAt: new Date(now) } } });
     return { status: 200, body: { ok: true } };
   }
 
@@ -62,17 +63,17 @@ export async function handleQueue(rooms, roomId, body, now = Date.now()) {
     const state = cleanState(body.push);
     if (!state) return { status: 400, body: { error: "Invalid queue state" } };
 
-    const result = await rooms.findOneAndUpdate(
+    const result = await queues.findOneAndUpdate(
       { _id: roomId },
       { $set: { ...state, updatedAt: new Date() }, $unset: { played: "" }, $inc: { rev: 1 } },
-      // Only the new rev comes back: the whole room (with its library) can be megabytes.
+      // Only the new rev comes back, not the whole queue.
       { upsert: true, returnDocument: "after", projection: { rev: 1 } }
     );
     return { status: 200, body: { rev: result?.rev ?? 1 } };
   }
 
   const known = Number.isInteger(body?.rev) ? body.rev : -1;
-  const doc = await rooms.findOne(
+  const doc = await queues.findOne(
     { _id: roomId },
     { projection: { queue: 1, isPaused: 1, isRepeat: 1, rev: 1, progress: 1 } }
   );
@@ -108,7 +109,7 @@ export default async function handler(req, res) {
   try {
     const roomId = await requireRoom(req);
     if (!roomId) return res.status(401).json({ error: "Not in a room" });
-    const result = await handleQueue(await getRooms(), roomId, req.body);
+    const result = await handleQueue(await getRoomQueues(), roomId, req.body);
     // Counts this device as connected to the room (shown on the room screen).
     try {
       await touchPresence((await getDb()).collection("room_presence"), readCookie(req), roomId);

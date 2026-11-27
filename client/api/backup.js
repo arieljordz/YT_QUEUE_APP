@@ -22,11 +22,12 @@
 // now), and the admin password, which a restore keeps as it is, so restoring
 // an old backup never locks the admin out.
 import { BSON } from "mongodb";
-import { getDb, prepareDatabase } from "./_db.js";
+import { COLLECTIONS, OLD_NAMES, getDb, moveQueues, prepareDatabase } from "./_db.js";
 import { requireSettingsAccess } from "./flags.js";
 
 const { EJSON } = BSON;
-export const BACKUP_COLLECTIONS = ["rooms", "library_videos", "room_playlists", "catalog_videos", "app_settings"];
+const { rooms: ROOMS, queues: QUEUES, library: LIBRARY, playlists: PLAYLISTS, savedLists: SAVED_LISTS, settings: SETTINGS } = COLLECTIONS;
+export const BACKUP_COLLECTIONS = [ROOMS, QUEUES, LIBRARY, PLAYLISTS, SAVED_LISTS, SETTINGS];
 const ADMIN_DOC = "admin"; // in app_settings
 const PAGE_SIZE = 1000;
 // A page also stops at about this many bytes, well under the response limit.
@@ -36,8 +37,10 @@ const STAGING = (name) => `restore_staging_${name}`;
 
 const bad = (error) => ({ status: 400, body: { error } });
 const known = (name) => BACKUP_COLLECTIONS.includes(name);
+// Backup files made before the collections were renamed use the old names.
+const currentName = (name) => OLD_NAMES[name] ?? name;
 /** What the backup leaves out of a collection. */
-const skipFilter = (name) => (name === "app_settings" ? { _id: { $ne: ADMIN_DOC } } : {});
+const skipFilter = (name) => (name === SETTINGS ? { _id: { $ne: ADMIN_DOC } } : {});
 
 async function collectionNames(db) {
   return new Set((await db.listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name));
@@ -91,7 +94,8 @@ async function restoreStart(db) {
   return { status: 200, body: { ok: true } };
 }
 
-async function restoreChunk(db, { collection, docs }) {
+async function restoreChunk(db, { collection: fileName, docs }) {
+  const collection = currentName(fileName);
   if (!known(collection)) return bad("Unknown collection");
   if (!Array.isArray(docs) || docs.length === 0 || docs.length > MAX_CHUNK) return bad("Invalid documents");
   let parsed;
@@ -103,7 +107,7 @@ async function restoreChunk(db, { collection, docs }) {
   if (parsed.some((d) => !d || typeof d !== "object" || d._id === undefined)) {
     return bad("The backup file has a document without an _id.");
   }
-  if (collection === "app_settings") parsed = parsed.filter((d) => d._id !== ADMIN_DOC);
+  if (collection === SETTINGS) parsed = parsed.filter((d) => d._id !== ADMIN_DOC);
   if (!(await collectionNames(db)).has(STAGING(collection))) {
     return { status: 409, body: { error: "The restore was interrupted. Start it again." } };
   }
@@ -111,8 +115,10 @@ async function restoreChunk(db, { collection, docs }) {
   return { status: 200, body: { ok: true } };
 }
 
-async function restoreFinish(db, { counts }) {
-  if (!counts || typeof counts !== "object") return bad("Invalid counts");
+async function restoreFinish(db, { counts: fileCounts }) {
+  if (!fileCounts || typeof fileCounts !== "object") return bad("Invalid counts");
+  const counts = {};
+  for (const [name, n] of Object.entries(fileCounts)) counts[currentName(name)] = (counts[currentName(name)] ?? 0) + Number(n);
   const existing = await collectionNames(db);
   if (BACKUP_COLLECTIONS.some((name) => !existing.has(STAGING(name)))) {
     return { status: 409, body: { error: "The restore was interrupted. Start it again." } };
@@ -129,24 +135,40 @@ async function restoreFinish(db, { counts }) {
     restored[name] = staged;
   }
   // Keep the current admin password.
-  const admin = await db.collection("app_settings").findOne({ _id: ADMIN_DOC });
-  if (admin) await db.collection(STAGING("app_settings")).replaceOne({ _id: ADMIN_DOC }, admin, { upsert: true });
-  // The rooms' sync counters (queue rev, library epoch) as the devices know them now.
-  const before = new Map(
-    (await db.collection("rooms").find({}, { projection: { rev: 1, libraryEpoch: 1 } }).toArray()).map((r) => [String(r._id), r])
-  );
+  const admin = await db.collection(SETTINGS).findOne({ _id: ADMIN_DOC });
+  if (admin) await db.collection(STAGING(SETTINGS)).replaceOne({ _id: ADMIN_DOC }, admin, { upsert: true });
+  // The sync counters (queue rev, library epoch) as the devices know them now.
+  const counters = async () => {
+    const byRoom = new Map();
+    const note = (id, field, value) => {
+      const row = byRoom.get(String(id)) ?? {};
+      row[field] = Math.max(row[field] ?? 0, Number(value) || 0);
+      byRoom.set(String(id), row);
+    };
+    for (const r of await db.collection(ROOMS).find({}, { projection: { rev: 1, libraryEpoch: 1 } }).toArray()) {
+      note(r._id, "libraryEpoch", r.libraryEpoch);
+      note(r._id, "rev", r.rev); // a queue still kept in the room document
+    }
+    for (const q of await db.collection(QUEUES).find({}, { projection: { rev: 1 } }).toArray()) note(q._id, "rev", q.rev);
+    return byRoom;
+  };
+  const before = await counters();
   // $out swaps each collection in one step and keeps the indexes it already has.
   for (const name of BACKUP_COLLECTIONS) {
     await db.collection(STAGING(name)).aggregate([{ $out: name }]).toArray();
   }
+  // Backup files from before room_queues kept each queue in its room document.
+  await moveQueues(db);
   // Put each room's counters above both the old and the current values, so
   // every device takes the restored queue and library instead of keeping (or
   // sending back) its own.
-  const rooms = db.collection("rooms");
-  for (const room of await rooms.find({}, { projection: { rev: 1, libraryEpoch: 1 } }).toArray()) {
-    const now = before.get(String(room._id));
-    const above = (field) => Math.max(Number(room[field]) || 0, Number(now?.[field]) || 0) + 1;
-    await rooms.updateOne({ _id: room._id }, { $set: { rev: above("rev"), libraryEpoch: above("libraryEpoch") } });
+  const after = await counters();
+  const above = (id, field) => Math.max(after.get(id)?.[field] ?? 0, before.get(id)?.[field] ?? 0) + 1;
+  for (const r of await db.collection(ROOMS).find({}, { projection: { _id: 1 } }).toArray()) {
+    await db.collection(ROOMS).updateOne({ _id: r._id }, { $set: { libraryEpoch: above(String(r._id), "libraryEpoch") } });
+  }
+  for (const q of await db.collection(QUEUES).find({}, { projection: { _id: 1 } }).toArray()) {
+    await db.collection(QUEUES).updateOne({ _id: q._id }, { $set: { rev: above(String(q._id), "rev") } });
   }
   await dropStaging(db);
   // A collection the restore created from nothing has no indexes yet.
@@ -162,24 +184,31 @@ async function restoreFinish(db, { counts }) {
  * instead of sending it back. Feature flags go back to their defaults.
  */
 async function clearDatabase(db, { confirm }) {
-  if (confirm !== "CLEAR") return bad('Type CLEAR to confirm.');
+  if (confirm !== "CLEAR") return bad("Type CLEAR to confirm.");
   const now = new Date();
-  const rooms = await db.collection("rooms").updateMany(
+  const rooms = await db.collection(ROOMS).updateMany(
     { slot: { $exists: true } },
     {
-      $set: { queue: [], isPaused: true, isRepeat: false, favorites: [], history: [], libraryMoved: true, updatedAt: now },
-      $inc: { rev: 1, libraryEpoch: 1 },
+      $set: { favorites: [], history: [], libraryMoved: true, updatedAt: now },
+      $inc: { libraryEpoch: 1 },
       // library/removals: the old one-array library; flags: the old per-room flags.
-      $unset: { progress: "", played: "", library: "", removals: "", flags: "" },
+      $unset: { library: "", removals: "", flags: "" },
     }
+  );
+  // Queues are emptied, not deleted: `rev` goes up, so every device drops its
+  // copy instead of sending it back as a "new" queue.
+  const queues = await db.collection(QUEUES).updateMany(
+    {},
+    { $set: { queue: [], isPaused: true, isRepeat: false, updatedAt: now }, $inc: { rev: 1 }, $unset: { progress: "", played: "" } }
   );
   const count = async (name, filter = {}) => (await db.collection(name).deleteMany(filter)).deletedCount;
   const cleared = {
-    rooms: rooms.modifiedCount,
-    library_videos: await count("library_videos"),
-    room_playlists: await count("room_playlists"),
-    catalog_videos: await count("catalog_videos"),
-    app_settings: await count("app_settings", skipFilter("app_settings")),
+    [ROOMS]: rooms.modifiedCount,
+    [QUEUES]: queues.modifiedCount,
+    [LIBRARY]: await count(LIBRARY),
+    [PLAYLISTS]: await count(PLAYLISTS),
+    [SAVED_LISTS]: await count(SAVED_LISTS),
+    [SETTINGS]: await count(SETTINGS, skipFilter(SETTINGS)),
   };
   return { status: 200, body: { cleared } };
 }

@@ -1,7 +1,7 @@
 // Vercel serverless function: each room's saved video library, synced between
 // devices by sending changes only.
 //
-// Storage: one document per video in `library_videos`:
+// Storage: one document per video in `room_library`:
 //   { _id: "<roomId>:<videoId>", roomId, videoId, video, seq }        a video
 //   { _id: "<roomId>:<videoId>", roomId, videoId, removed: true, seq } a removal
 // Every add or removal takes the room's next sequence number (rooms.librarySeq),
@@ -25,7 +25,7 @@
 // heard about it can add it again normally. Removals (and Delete all) are
 // refused unless their feature flag (see flags.js) is on for the room. Videos
 // removed one by one are also deleted from this room's saved lists
-// (catalog_videos); deleting the whole library does not touch them.
+// (saved_list_videos); deleting the whole library does not touch them.
 //
 // Rooms from before this format kept the library as one array in the room
 // document (rooms.library). The first request moves it here inside the
@@ -34,7 +34,7 @@
 // once they update.
 import { getAppFlags } from "./flags.js";
 import { requireRoom } from "./_session.js";
-import { getCatalog, getLibraryVideos, getRooms, slimVideo } from "./_db.js";
+import { getSavedListVideos, getRoomLibrary, getRooms, slimVideo } from "./_db.js";
 
 export const PAGE_SIZE = 500;
 export const MAX_ITEMS = 20000;
@@ -43,7 +43,7 @@ const MAX_PER_REQUEST = 500;
 const docId = (roomId, videoId) => `${roomId}:${videoId}`;
 const isVideoId = (id) => typeof id === "string" && id.length > 0 && id.length <= 40;
 
-/** Copies an old-style room library (one array) into library_videos, inside the database. */
+/** Copies an old-style room library (one array) into room_library, inside the database. */
 export async function moveOldLibrary(rooms, videos, roomId) {
   const into = { into: videos.collectionName, on: "_id", whenMatched: "keepExisting", whenNotMatched: "insert" };
   const entry = (field, i, extra) => ({
@@ -224,7 +224,7 @@ export default async function handler(req, res) {
   try {
     const roomId = await requireRoom(req);
     if (!roomId) return res.status(401).json({ error: "Not in a room" });
-    const cols = { rooms: await getRooms(), videos: await getLibraryVideos(), catalog: await getCatalog() };
+    const cols = { rooms: await getRooms(), videos: await getRoomLibrary(), catalog: await getSavedListVideos() };
     const result = await handleLibrary(cols, roomId, req.body, await getAppFlags());
     return res.status(result.status).json(result.body);
   } catch (error) {

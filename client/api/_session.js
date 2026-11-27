@@ -107,10 +107,9 @@ export async function countOnline(presence, now = Date.now()) {
 }
 
 /**
- * The room fields the room screens need. A room document also holds its whole
- * library (thousands of videos, megabytes), so every read that does not need
- * the library must use this projection, or it can take longer than the
- * function's 10-second limit.
+ * The room fields the room screens need. A room document also holds its
+ * favorites (up to 5,000 ids) and history, so reads that don't need them use
+ * this projection. (The queue and library have collections of their own.)
  */
 export const ROOM_FIELDS = { name: 1, avatar: 1, slot: 1, description: 1, pinAuth: 1 };
 

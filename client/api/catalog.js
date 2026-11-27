@@ -43,7 +43,7 @@ import {
   SEARCHES_LIST,
   decodeEntities,
   CATALOG_OVERVIEW_INDEX,
-  getCatalog,
+  getSavedListVideos,
   isSearchesList,
   slimVideo,
 } from "./_db.js";
@@ -506,7 +506,7 @@ export default async function handler(req, res) {
   try {
     const owner = await requireRoom(req);
     if (!owner) return res.status(401).json({ error: "Not in a room" });
-    const catalog = await getCatalog(); // its indexes: prepareDatabase in _db.js
+    const catalog = await getSavedListVideos(); // its indexes: prepareDatabase in _db.js
 
     // Saving a searched video is part of normal use. Everything else (listing,
     // importing and deleting lists) is in Settings and needs the admin sign-in,

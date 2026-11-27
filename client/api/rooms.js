@@ -8,7 +8,7 @@
 //   POST { action: "delete", roomId }
 //   POST { action: "player", playerId, takeover?, hidden?, release? } -> { active } (one playing device per room)
 // Create/update/delete need the admin cookie (see admin.js).
-import { getCatalog, getLibraryVideos, getPlaylists } from "./_db.js";
+import { getPlaylists, getRoomLibrary, getRoomQueues, getSavedListVideos } from "./_db.js";
 import { requireAdmin } from "./_admin.js";
 import { createRoom, deleteRoom, updateRoom } from "./_manage.js";
 import { claimPlayer, isPlayerId, releasePlayer } from "./_player.js";
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
       };
       const result =
         action === "delete"
-          ? await deleteRoom(cols, input, await getCatalog(), await getLibraryVideos(), await getPlaylists())
+          ? await deleteRoom(cols, input, await getSavedListVideos(), await getRoomLibrary(), await getPlaylists(), await getRoomQueues())
           : await manage(cols, input);
       return res.status(result.status).json(result.body);
     }
