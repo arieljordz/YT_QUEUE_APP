@@ -59,15 +59,25 @@ function ConfirmBox({ tone, message, label, busyLabel, icon, running, busy, onCo
  * background. The server sends only names and counts; each list's video ids
  * (for "N already in your library") are fetched one list at a time afterwards
  * and cached until the list's count changes.
+ *
+ * With the "shareSavedLists" flag off the server sends only this room's own
+ * lists, so they are cached apart from the shared view, and the panel starts
+ * over (key) when the flag changes while it is open.
  */
 export default function AddLibraryPanel() {
+  const { flags } = useFeatureFlags();
+  return <SavedLists key={flags.shareSavedLists ? "shared" : "own"} />;
+}
+
+function SavedLists() {
   const [syncCode] = useLocalStorage("syncCode", "");
   const { flags } = useFeatureFlags();
+  const cacheKey = flags.shareSavedLists || !syncCode ? syncCode : `${syncCode}:own`;
   const [library, setLibrary] = useLocalStorage("videoLibrary", []);
   const libraryIds = useMemo(() => new Set(library.map((v) => v.id.videoId)), [library]);
 
   // null = loading (nothing cached yet)
-  const [lists, setLists] = useState(() => (syncCode ? readCachedLists(syncCode) : null));
+  const [lists, setLists] = useState(() => (syncCode ? readCachedLists(cacheKey) : null));
   const [refreshing, setRefreshing] = useState(false);
   // Search by list name.
   const [filter, setFilter] = useState("");
@@ -103,15 +113,15 @@ export default function AddLibraryPanel() {
     try {
       const fresh = await listCatalogs();
       setLists(fresh);
-      writeCachedLists(syncCode, fresh);
-      pruneCachedIds(syncCode, fresh.map((l) => l.name));
+      writeCachedLists(cacheKey, fresh);
+      pruneCachedIds(cacheKey, fresh.map((l) => l.name));
     } catch (err) {
       setLists((prev) => prev ?? []);
       notify.catalog.loadFailed(err);
     } finally {
       setRefreshing(false);
     }
-  }, [syncCode]);
+  }, [cacheKey]);
 
   useEffect(() => {
     if (syncCode) refreshLists();
@@ -142,10 +152,10 @@ export default function AddLibraryPanel() {
     const loadOne = async (list) => {
       const { name, count } = list;
       try {
-        let ids = await readCachedIds(syncCode, name, count);
+        let ids = await readCachedIds(cacheKey, name, count);
         if (!ids && mounted.current) {
           ids = await getCatalogIds(name);
-          writeCachedIds(syncCode, name, count, ids);
+          writeCachedIds(cacheKey, name, count, ids);
         }
         if (ids && mounted.current) {
           setIdsByName((prev) => ({ ...prev, [name]: { count, ids } }));
@@ -164,7 +174,7 @@ export default function AddLibraryPanel() {
     // idsByName is read only to skip lists already known; listing it would
     // start this again after every list that loads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [syncCode, lists]);
+  }, [cacheKey, lists]);
 
   if (!syncCode) {
     return (
@@ -181,7 +191,7 @@ export default function AddLibraryPanel() {
       const videos = await getCatalogVideos(name);
       // The ids came along with the videos: no need to fetch them again.
       const ids = [...new Set(videos.map((v) => v.id.videoId))];
-      writeCachedIds(syncCode, name, count, ids);
+      writeCachedIds(cacheKey, name, count, ids);
       setIdsByName((prev) => ({ ...prev, [name]: { count, ids } }));
       // Only the videos that are not in the library yet.
       const missing = videos.filter((v) => !libraryIds.has(v.id.videoId));

@@ -8,6 +8,11 @@
 // that imported a list can delete its part of it. "My Searches" is private to
 // the room that saved it.
 //
+// With the "shareSavedLists" feature flag off, each room sees only the videos
+// it imported itself (its own lists, and its own part of a list another room
+// also imported). Nothing is moved or deleted: every video keeps its `owner`,
+// so turning the flag back on shows the other rooms' lists again.
+//
 //   GET    /api/catalog               -> { catalogs: [{ name, count, mine, mineCount, others }] }
 //                                        (count = distinct videos; mine = this room
 //                                         imported part of it, mineCount of them;
@@ -151,9 +156,14 @@ function fromPlaylistItem(item) {
 
 const fail = (status, error) => ({ status, body: { error } });
 
-export async function handleList(catalog, owner, query) {
-  // Imported lists are visible to every room; "My Searches" only to its own room.
-  const visible = { $or: [{ catalog: { $ne: SEARCHES_LIST } }, { owner }] };
+/** False when the "shareSavedLists" flag is off: each room sees only what it imported. */
+const isShared = (flags) => flags?.shareSavedLists !== false;
+
+export async function handleList(catalog, owner, query, flags) {
+  // Imported lists are visible to every room (unless sharing is off); "My
+  // Searches" only to its own room.
+  const shared = isShared(flags);
+  const visible = shared ? { $or: [{ catalog: { $ne: SEARCHES_LIST } }, { owner }] } : { owner };
 
   const name = cleanName(query?.name);
   if (!name) {
@@ -200,7 +210,7 @@ export async function handleList(catalog, owner, query) {
     };
   }
 
-  const filter = name === SEARCHES_LIST ? { owner, catalog: name } : { catalog: name };
+  const filter = name === SEARCHES_LIST || !shared ? { owner, catalog: name } : { catalog: name };
 
   // Just the video ids of one list, so the browser can tell how much of it is
   // already in the library without downloading every video.
@@ -244,8 +254,9 @@ export async function handleDelete(catalog, owner, query, flags) {
   const result = await catalog.deleteMany({ owner, catalog: name });
   // Other rooms' part of the list stays: say how much, so the browser can tell
   // the list was not removed for everyone.
-  // Distinct videos, counted like the list counts them.
-  const remaining = isSearchesList(name)
+  // Distinct videos, counted like the list counts them. With sharing off this
+  // room never sees the other rooms' part, so the list is simply gone for it.
+  const remaining = isSearchesList(name) || !isShared(flags)
     ? 0
     : (await catalog.distinct("video.id.videoId", { catalog: name })).length;
   return { status: 200, body: { deleted: result.deletedCount, remaining } };
@@ -539,7 +550,7 @@ export default async function handler(req, res) {
     }
 
     let result;
-    if (req.method === "GET") result = await handleList(catalog, owner, req.query);
+    if (req.method === "GET") result = await handleList(catalog, owner, req.query, await getAppFlags());
     else if (req.method === "DELETE") {
       result = await handleDelete(catalog, owner, req.query, await getAppFlags());
     }

@@ -14,6 +14,7 @@ export const FEATURE_FLAGS = {
   personalPlaylists: false,
   librarySearchAutofocus: false,
   settingsPassword: true,
+  shareSavedLists: true,
 };
 
 const REFRESH_MS = 30000;

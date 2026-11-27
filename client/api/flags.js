@@ -21,6 +21,7 @@ export const DEFAULT_FLAGS = {
   personalPlaylists: false,
   librarySearchAutofocus: false,
   settingsPassword: true,
+  shareSavedLists: true,
 };
 const FLAGS_ID = "flags";
 
