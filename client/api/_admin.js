@@ -22,8 +22,7 @@ const bad = (error) => ({ status: 400, body: { error } });
 
 export async function getAdminCollections() {
   const db = await getDb();
-  const adminSessions = db.collection("admin_sessions");
-  await adminSessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+  const adminSessions = db.collection("admin_sessions"); // TTL index: prepareDatabase in _db.js
   return {
     settings: db.collection("app_settings"),
     adminSessions,

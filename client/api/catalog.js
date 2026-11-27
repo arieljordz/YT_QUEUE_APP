@@ -42,6 +42,7 @@ import { requireRoom } from "./_session.js";
 import {
   SEARCHES_LIST,
   decodeEntities,
+  CATALOG_OVERVIEW_INDEX,
   getCatalog,
   isSearchesList,
   slimVideo,
@@ -178,7 +179,9 @@ export async function handleList(catalog, owner, query) {
           },
           { $sort: { _id: 1 } },
         ],
-        { allowDiskUse: true }
+        // The catalog+videoId+owner index holds every field used here, so the
+        // overview reads the small index entries, never the video documents.
+        { allowDiskUse: true, hint: CATALOG_OVERVIEW_INDEX }
       )
       .toArray();
     return {
@@ -499,20 +502,11 @@ export async function handleSaveList(catalog, owner, body) {
   return { status: 200, body: { added: videos.length } };
 }
 
-let indexReady = false;
-
 export default async function handler(req, res) {
   try {
     const owner = await requireRoom(req);
     if (!owner) return res.status(401).json({ error: "Not in a room" });
-    const catalog = await getCatalog();
-    if (!indexReady) {
-      await catalog.createIndex({ owner: 1, catalog: 1, order: 1 });
-      await catalog.createIndex({ catalog: 1, order: 1 });
-      // Counting a list's distinct videos and listing its ids.
-      await catalog.createIndex({ catalog: 1, "video.id.videoId": 1 });
-      indexReady = true;
-    }
+    const catalog = await getCatalog(); // its indexes: prepareDatabase in _db.js
 
     // Saving a searched video is part of normal use. Everything else (listing,
     // importing and deleting lists) is in Settings and needs the admin sign-in,

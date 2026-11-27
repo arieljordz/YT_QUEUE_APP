@@ -45,7 +45,6 @@ const isVideoId = (id) => typeof id === "string" && id.length > 0 && id.length <
 
 /** Copies an old-style room library (one array) into library_videos, inside the database. */
 export async function moveOldLibrary(rooms, videos, roomId) {
-  await videos.createIndex({ roomId: 1, seq: 1 });
   const into = { into: videos.collectionName, on: "_id", whenMatched: "keepExisting", whenNotMatched: "insert" };
   const entry = (field, i, extra) => ({
     $project: {

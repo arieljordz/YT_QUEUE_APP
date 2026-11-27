@@ -147,7 +147,8 @@ async function addFail(attempts, key, current, max, now) {
   const locks = fails >= max;
   await attempts.updateOne(
     { _id: key },
-    { $set: { fails: locks ? 0 : fails, lockedUntil: locks ? now + LOCK_MS : 0 } },
+    // updatedAt: the counter expires a day after its last wrong PIN (TTL index, see _db.js).
+    { $set: { fails: locks ? 0 : fails, lockedUntil: locks ? now + LOCK_MS : 0, updatedAt: new Date(now) } },
     { upsert: true }
   );
   return locks;
@@ -174,7 +175,8 @@ export async function verifySecret({ attempts }, { key, matches, ip, wrong }, op
     return { status: 401, body: { error: wrong, attemptsLeft: MAX_ROOM_FAILS - (keyAtt.fails + 1) } };
   }
 
-  await attempts.updateOne({ _id: key }, { $set: { fails: 0, lockedUntil: 0 } }, { upsert: true });
+  // A right PIN: nothing left to count, so no counter is kept.
+  await attempts.deleteOne({ _id: key });
   return null;
 }
 
@@ -257,7 +259,7 @@ export async function getSessionCollections() {
   const db = await getDb();
   const sessions = db.collection("room_sessions");
   const attempts = db.collection("room_attempts");
-  await sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+  // Indexes (the sessions' TTL too) are made in one place: prepareDatabase in _db.js.
   return { rooms: await getRooms(), sessions, attempts, presence: db.collection("room_presence") };
 }
 

@@ -131,7 +131,6 @@ export default async function handler(req, res) {
     const roomId = await requireRoom(req);
     if (!roomId) return res.status(401).json({ error: "Not in a room" });
     const playlists = await getPlaylists();
-    await playlists.createIndex({ roomId: 1, updatedAt: -1 });
     const result = await handlePlaylists(playlists, roomId, req.body, await getAppFlags());
     return res.status(result.status).json(result.body);
   } catch (error) {

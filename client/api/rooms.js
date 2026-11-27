@@ -30,8 +30,7 @@ export default async function handler(req, res) {
     const cols = await getSessionCollections();
     if (req.method === "GET") {
       res.setHeader("Cache-Control", "no-store");
-      // Old presence entries clean themselves up.
-      await cols.presence.createIndex({ lastSeen: 1 }, { expireAfterSeconds: 600 });
+      // Old presence entries clean themselves up (TTL index, see _db.js).
       return res.status(200).json({ rooms: await listRooms(cols.rooms, cols.presence) });
     }
     if (req.method !== "POST") {
@@ -56,11 +55,7 @@ export default async function handler(req, res) {
       if (!(await requireAdmin(req))) {
         return res.status(401).json({ error: "Sign in as admin to manage rooms.", adminRequired: true });
       }
-      // One room per slot, enforced by the database when two creates race.
-      await cols.rooms.createIndex(
-        { slot: 1 },
-        { unique: true, partialFilterExpression: { slot: { $exists: true } } }
-      );
+      // One room per slot is enforced by a unique index (see _db.js) when two creates race.
       const b = req.body;
       const input = {
         roomId: b.roomId,

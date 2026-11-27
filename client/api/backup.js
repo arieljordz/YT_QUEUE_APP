@@ -22,7 +22,7 @@
 // now), and the admin password, which a restore keeps as it is, so restoring
 // an old backup never locks the admin out.
 import { BSON } from "mongodb";
-import { getDb } from "./_db.js";
+import { getDb, prepareDatabase } from "./_db.js";
 import { requireSettingsAccess } from "./flags.js";
 
 const { EJSON } = BSON;
@@ -149,6 +149,9 @@ async function restoreFinish(db, { counts }) {
     await rooms.updateOne({ _id: room._id }, { $set: { rev: above("rev"), libraryEpoch: above("libraryEpoch") } });
   }
   await dropStaging(db);
+  // A collection the restore created from nothing has no indexes yet.
+  // The data is already restored: a failure here is logged, not reported.
+  await prepareDatabase(db).catch((error) => console.error("indexes after restore failed", error));
   return { status: 200, body: { restored } };
 }
 
