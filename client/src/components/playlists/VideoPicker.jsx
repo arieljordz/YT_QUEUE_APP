@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { FaSearch, FaList } from "react-icons/fa";
 import VideoList from "../videos/VideoList";
-import { playableFirstByTitle } from "../../lib/sort";
+import { sortedByTitle, playableFirst, matchesSearch } from "../../lib/sort";
 
 // The list grows by this many rows each time the user scrolls near the bottom.
 const PAGE_SIZE = 100;
@@ -17,18 +17,19 @@ export default function VideoPicker({ library, selected, onChange, excludeIds = 
   const [filter, setFilter] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
+  // Playable videos first, then the YouTube-only ones, each group by title (the
+  // library's title sort is shared with the Library tab and done once).
   const candidates = useMemo(
-    () => library.filter((v) => !excludeIds.has(v.id.videoId)).sort(playableFirstByTitle(youtubeOnlyIds)),
+    () =>
+      playableFirst(
+        sortedByTitle(library).filter((v) => !excludeIds.has(v.id.videoId)),
+        youtubeOnlyIds
+      ),
     [library, excludeIds, youtubeOnlyIds]
   );
   const shown = useMemo(() => {
     const needle = filter.trim().toLowerCase();
-    if (!needle) return candidates;
-    return candidates.filter(
-      (v) =>
-        v.snippet.title.toLowerCase().includes(needle) ||
-        v.snippet.channelTitle?.toLowerCase().includes(needle)
-    );
+    return needle ? candidates.filter((v) => matchesSearch(v, needle)) : candidates;
   }, [candidates, filter]);
   const visible = useMemo(() => shown.slice(0, visibleCount), [shown, visibleCount]);
 

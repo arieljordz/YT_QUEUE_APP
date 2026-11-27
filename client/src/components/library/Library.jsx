@@ -5,7 +5,7 @@ import { MdPlaylistAdd } from "react-icons/md";
 import VideoList from "../videos/VideoList";
 import useLocalStorage from "../../hooks/useLocalStorage";
 import useFeatureFlags from "../../hooks/useFeatureFlags";
-import { playableFirstByTitle } from "../../lib/sort";
+import { sortedByTitle, playableFirst, matchesSearch } from "../../lib/sort";
 import { useFavorites } from "../../hooks/useExtras";
 import { notify } from "../../lib/notify";
 
@@ -95,20 +95,22 @@ function Library({
     () => library.filter((v) => favoriteSet.has(v.id.videoId)),
     [library, favoriteSet]
   );
-  const shown = useMemo(() => {
-    const base = view === "recent" ? recent : view === "favorites" ? favorites : library;
-    const needle = filter.trim().toLowerCase();
-    const matches = base.filter(
-      (v) =>
-        !needle ||
-        v.snippet.title.toLowerCase().includes(needle) ||
-        v.snippet.channelTitle?.toLowerCase().includes(needle)
-    );
-    if (view === "recent") return matches;
-    if (sort === "newest") return matches.reverse();
+  // The library in the chosen order, before the search. The A-Z sort is done once
+  // per library (and remembered across tab switches); typing only filters it.
+  const ordered = useMemo(() => {
+    if (view === "recent") return recent;
+    const base = view === "favorites" ? favorites : library;
+    if (sort === "newest") return [...base].reverse();
     // A-Z: playable videos first, then the YouTube-only ones, each group by title.
-    return matches.sort(playableFirstByTitle(youtubeOnlyIds));
-  }, [view, recent, favorites, library, filter, sort, youtubeOnlyIds]);
+    // Favorites keep the library's sorted order, so they need no sort of their own.
+    const sorted = sortedByTitle(library);
+    const inView = view === "favorites" ? sorted.filter((v) => favoriteSet.has(v.id.videoId)) : sorted;
+    return playableFirst(inView, youtubeOnlyIds);
+  }, [view, recent, favorites, library, favoriteSet, sort, youtubeOnlyIds]);
+  const shown = useMemo(() => {
+    const needle = filter.trim().toLowerCase();
+    return needle ? ordered.filter((v) => matchesSearch(v, needle)) : ordered;
+  }, [ordered, filter]);
 
   const visible = useMemo(() => shown.slice(0, visibleCount), [shown, visibleCount]);
   // Load the next page of rows when the user scrolls close to the bottom.
