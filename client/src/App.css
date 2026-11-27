@@ -849,21 +849,52 @@
   }
 }
 
-/* Settings tabs: the main tab style, sharing the full width evenly. */
+/* Settings tabs: the main tab style, sharing the full width. The dialog is
+   narrower than the screen (800px, 500px, or the whole phone), so the tabs
+   follow the width of the bar itself (container queries), not the screen's:
+     wide bar   -> icon + full name in a row
+     medium bar -> icon + short name in a row
+     narrow bar -> icon above the short name (phones)
+   A name that still doesn't fit ends in "…"; hovering shows the full one. */
+.settings-tabs {
+  container-type: inline-size;
+}
 .settings-tabs .nav-item {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-width: 0;
 }
 .settings-tabs .nav-link {
+  flex-direction: row;
+  gap: 0.4rem;
   width: 100%;
-  padding-left: 0.4rem;
-  padding-right: 0.4rem;
+  padding: 0.6rem 0.5rem;
+  font-size: 0.95rem;
 }
-/* Below lg the Settings dialog is only 500px wide (landscape phones, tablets):
-   the full names do not fit there, so the short ones stay. */
-@media (min-width: 576px) and (max-width: 991.98px) {
-  .settings-tabs .tab-label .d-sm-inline { display: none !important; }
-  .settings-tabs .tab-label .d-sm-none { display: inline !important; }
+.settings-tabs .tab-icon { flex: 0 0 auto; font-size: 1.2rem; }
+.settings-tabs .tab-label { min-width: 0; }
+.settings-tabs .tab-label > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-tabs .tab-label .tab-label-full { display: block !important; }
+.settings-tabs .tab-label .tab-label-short { display: none !important; }
+
+@container (max-width: 759.98px) {
+  .settings-tabs .tab-label .tab-label-full { display: none !important; }
+  .settings-tabs .tab-label .tab-label-short { display: block !important; }
+  .settings-tabs .nav-item { flex-basis: 0; flex-grow: 1; }
+  .settings-tabs .nav-link { gap: 0.3rem; padding: 0.55rem 0.3rem; font-size: 0.9rem; }
+}
+
+@container (max-width: 479.98px) {
+  .settings-tabs .nav-link {
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.45rem 0.15rem;
+    font-size: 0.75rem;
+  }
+  .settings-tabs .tab-label { max-width: 100%; }
 }
 
 /* ==== Toasts: one card style; the type sets the color (lib/notify.jsx has the messages) ==== */

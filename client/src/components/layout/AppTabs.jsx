@@ -18,8 +18,8 @@ function AppTabs({ tabs, active, onSelect, className = "", ariaLabel }) {
             <span className="tab-label">
               {shortLabel ? (
                 <>
-                  <span className="d-none d-sm-inline">{label}</span>
-                  <span className="d-sm-none">{shortLabel}</span>
+                  <span className="tab-label-full d-none d-sm-inline">{label}</span>
+                  <span className="tab-label-short d-sm-none">{shortLabel}</span>
                 </>
               ) : (
                 label
