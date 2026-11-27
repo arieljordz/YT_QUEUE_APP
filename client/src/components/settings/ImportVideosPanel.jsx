@@ -17,9 +17,12 @@ const ALL = 8000;
 // A channel is read from its uploads playlist: every upload, 2 quota units per 50.
 const CHANNEL_OPTIONS = [100, 250, 500, 1000, 2000, ALL];
 const CHANNEL_MAX_PAGES = ALL / 50;
-// Without a channel, YouTube search is used: 100 units per 50, about 500 results at most.
-const SEARCH_OPTIONS = [100, 250, 500];
+// Without a channel, YouTube search is used: 100 units per 50, and it usually
+// gives about 500 results at most. "All videos" reads it until it has no more,
+// with a cap so one import never spends more than 2,000 of the 10,000 daily units.
+const SEARCH_OPTIONS = [100, 250, 500, ALL];
 const SEARCH_MAX_PAGES = 10;
+const SEARCH_ALL_MAX_PAGES = 20;
 
 /**
  * Menu > Import Videos: collect videos from a YouTube channel or search into a
@@ -70,7 +73,11 @@ export default function ImportVideosPanel() {
     setProgress({ phase: oldestFirst ? "reading" : "saving", saved: 0, target: limit, checked: 0, found: 0 });
     setChannelFound(null);
 
-    const maxPages = hasChannel ? CHANNEL_MAX_PAGES : SEARCH_MAX_PAGES;
+    const maxPages = hasChannel
+      ? CHANNEL_MAX_PAGES
+      : limit === ALL
+        ? SEARCH_ALL_MAX_PAGES
+        : SEARCH_MAX_PAGES;
     let pages = 0;
     let saved = 0;
     let checked = 0;
@@ -256,6 +263,8 @@ export default function ImportVideosPanel() {
           ? "Oldest first: YouTube lists a channel newest first only, so the whole channel is read before anything is saved (about 2 of YouTube's 10,000 free daily units per 50 uploads), then its oldest videos are kept."
           : hasChannel
           ? "A channel is read newest first until enough videos are saved: each 50 videos checked use about 2 of YouTube's 10,000 free daily units."
+          : limit === ALL
+          ? "Without a channel, YouTube search is used: each 50 videos checked use 100 of YouTube's 10,000 free daily units. All videos reads it until YouTube has no more results (usually about 500), never more than 1,000 checked: up to 2,000 units."
           : "Without a channel, YouTube search is used: each 50 videos checked use 100 of YouTube's 10,000 free daily units, and at most 500 are checked per import."}
       </div>
 
