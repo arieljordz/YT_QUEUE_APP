@@ -39,7 +39,7 @@ const SECTIONS = [
       { name: "librarySelection", label: "Library video selection", description: "Show a checkbox on each video in the Library, plus Select all." },
       { name: "deleteSelectedButton", label: "Delete selected button", description: "Show the Delete selected button above the Library list (works with Library video selection)." },
       { name: "deleteListButton", label: "Delete list button", description: "Show the trash button on each saved list in Add Library." },
-      { name: "shareSavedLists", label: "Share saved lists across rooms", description: "Every room sees, in Add Library, the lists imported by any room. Off: each room sees only the lists (and the part of a list) it imported itself. Turning it off or on hides or shows lists; nothing is deleted or moved. Each room's Library is always its own." },
+      { name: "shareSavedLists", label: "Share saved lists across rooms", description: "Every room sees, in Add Library, the lists imported by any room. Off: a list belongs to the room that imported it, and other rooms see it only after that room taps its Private switch to share it. Turning this on or off only hides or shows lists; nothing is deleted or moved, and each room's sharing choices are kept. Each room's Library is always its own." },
     ],
   },
   {

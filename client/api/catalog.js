@@ -8,21 +8,27 @@
 // that imported a list can delete its part of it. "My Searches" is private to
 // the room that saved it.
 //
-// With the "shareSavedLists" feature flag off, each room sees only the videos
-// it imported itself (its own lists, and its own part of a list another room
-// also imported). Nothing is moved or deleted: every video keeps its `owner`,
-// so turning the flag back on shows the other rooms' lists again.
+// With the "shareSavedLists" feature flag off, a list belongs to the room that
+// imported it: other rooms see it only after that room shares it (the list's
+// Share switch in Add Library; the names are kept in rooms.sharedLists). A room
+// always sees what it imported itself. Nothing is moved or deleted: every video
+// keeps its `owner`, so turning the flag back on shows every list again, and
+// turning it off again brings back each room's choices.
 //
-//   GET    /api/catalog               -> { catalogs: [{ name, count, mine, mineCount, others }] }
+//   GET    /api/catalog               -> { catalogs: [{ name, count, mine, mineCount, others, sharing }] }
 //                                        (count = distinct videos; mine = this room
 //                                         imported part of it, mineCount of them;
-//                                         others = other rooms imported part of it)
+//                                         others = other rooms' videos are in it;
+//                                         sharing = this room shares its part)
 //   GET    /api/catalog?name=X&ids=1  -> { ids }  (the list's distinct video ids)
 //   GET    /api/catalog?name=X&after=N -> { videos: [...], next }  (up to 1,000 videos;
 //                                        next = the `after` for the next page, or null)
 //   DELETE /api/catalog?name=X        -> { deleted, remaining }  (this room's part only;
 //                                        remaining = other rooms' videos left; needs the
 //                                        "deleteListButton" feature flag)
+//   POST   /api/catalog { share: { name, shared } } -> { name, sharing }  shares (or
+//                                        stops sharing) this room's part of a list with the
+//                                        other rooms; matters while "shareSavedLists" is off
 //   POST   /api/catalog { save: video } -> adds one video to the "My Searches" list
 //   POST   /api/catalog               -> collects ONE page (50) of YouTube
 //          { name, channel?, channelId?, title?, pageToken?, offset?, any?, noShorts?, newest?, readOnly? }
@@ -50,6 +56,7 @@ import {
   SEARCHES_LIST,
   decodeEntities,
   CATALOG_OVERVIEW_INDEX,
+  getRooms,
   getSavedListVideos,
   isSearchesList,
   slimVideo,
@@ -156,14 +163,46 @@ function fromPlaylistItem(item) {
 
 const fail = (status, error) => ({ status, body: { error } });
 
-/** False when the "shareSavedLists" flag is off: each room sees only what it imported. */
+/** False when the "shareSavedLists" flag is off: lists are private unless their room shares them. */
 const isShared = (flags) => flags?.shareSavedLists !== false;
 
-export async function handleList(catalog, owner, query, flags) {
-  // Imported lists are visible to every room (unless sharing is off); "My
-  // Searches" only to its own room.
+const MAX_SHARED_LISTS = 500;
+
+/**
+ * Which lists each room shares: { mine: Set of this room's shared names,
+ * others: Map otherRoomId -> [names] }. Only read while sharing is off.
+ */
+export async function readShares(rooms, owner) {
+  const docs = await rooms
+    .find({ sharedLists: { $exists: true, $ne: [] } }, { projection: { sharedLists: 1 } })
+    .toArray();
+  const mine = new Set();
+  const others = new Map();
+  for (const doc of docs) {
+    const names = (doc.sharedLists ?? []).filter((n) => typeof n === "string" && !isSearchesList(n));
+    if (doc._id === owner) names.forEach((n) => mine.add(n));
+    else if (names.length > 0) others.set(doc._id, names);
+  }
+  return { mine, others };
+}
+
+/** The other rooms that share their part of the list `name`. */
+const sharersOf = (shares, name) =>
+  [...(shares?.others ?? [])].filter(([, names]) => names.includes(name)).map(([id]) => id);
+
+export async function handleList(catalog, owner, query, flags, shares) {
+  // Imported lists are visible to every room while sharing is on. While it is
+  // off: this room's own lists, plus the lists other rooms chose to share.
+  // "My Searches" is only ever visible to its own room.
   const shared = isShared(flags);
-  const visible = shared ? { $or: [{ catalog: { $ne: SEARCHES_LIST } }, { owner }] } : { owner };
+  const visible = shared
+    ? { $or: [{ catalog: { $ne: SEARCHES_LIST } }, { owner }] }
+    : {
+        $or: [
+          { owner },
+          ...[...(shares?.others ?? [])].map(([room, names]) => ({ owner: room, catalog: { $in: names } })),
+        ],
+      };
 
   const name = cleanName(query?.name);
   if (!name) {
@@ -204,13 +243,20 @@ export async function handleList(catalog, owner, query, flags) {
           count: r.count,
           mine: r.mineCount > 0,
           mineCount: r.mineCount, // videos this room imported (what Delete removes)
-          others: r.others === 1, // other rooms imported part of it too
+          others: r.others === 1, // other rooms' videos are in it (shared with this room)
+          // This room shares its part with the others (only meaningful while sharing is off).
+          sharing: shared || (r.mineCount > 0 && Boolean(shares?.mine?.has(r._id))),
         })),
       },
     };
   }
 
-  const filter = name === SEARCHES_LIST || !shared ? { owner, catalog: name } : { catalog: name };
+  const filter =
+    name === SEARCHES_LIST
+      ? { owner, catalog: name }
+      : shared
+        ? { catalog: name }
+        : { catalog: name, owner: { $in: [owner, ...sharersOf(shares, name)] } };
 
   // Just the video ids of one list, so the browser can tell how much of it is
   // already in the library without downloading every video.
@@ -246,20 +292,50 @@ export async function handleList(catalog, owner, query, flags) {
   return { status: 200, body: { videos, next: more ? skip + docs.length : null } };
 }
 
-export async function handleDelete(catalog, owner, query, flags) {
+export async function handleDelete(catalog, owner, query, flags, { rooms, shares } = {}) {
   // Deleting a saved list needs its feature flag (see flags.js) to be on.
   if (!flags?.deleteListButton) return fail(403, "Deleting saved lists is turned off");
   const name = cleanName(query?.name);
   if (!name) return fail(400, "Missing list name");
   const result = await catalog.deleteMany({ owner, catalog: name });
-  // Other rooms' part of the list stays: say how much, so the browser can tell
-  // the list was not removed for everyone.
-  // Distinct videos, counted like the list counts them. With sharing off this
-  // room never sees the other rooms' part, so the list is simply gone for it.
-  const remaining = isSearchesList(name) || !isShared(flags)
-    ? 0
-    : (await catalog.distinct("video.id.videoId", { catalog: name })).length;
+  // Nothing of this room's is left to share.
+  if (rooms) await rooms.updateOne({ _id: owner }, { $pull: { sharedLists: name } });
+  // Other rooms' part of the list stays: say how much (the part this room can
+  // see), so the browser can tell the list was not removed for everyone.
+  // Distinct videos, counted like the list counts them.
+  let remaining = 0;
+  if (!isSearchesList(name)) {
+    const others = isShared(flags) ? { catalog: name } : { catalog: name, owner: { $in: sharersOf(shares, name) } };
+    if (isShared(flags) || others.owner.$in.length > 0) {
+      remaining = (await catalog.distinct("video.id.videoId", others)).length;
+    }
+  }
   return { status: 200, body: { deleted: result.deletedCount, remaining } };
+}
+
+/**
+ * Shares (or stops sharing) this room's part of a list with the other rooms.
+ * Only a list this room imported into can be shared; "My Searches" never is.
+ */
+export async function handleShare(catalog, rooms, owner, body) {
+  const name = cleanName(body?.share?.name);
+  const on = body?.share?.shared;
+  if (!name || typeof on !== "boolean") return fail(400, "Invalid share request");
+  if (isSearchesList(name)) return fail(400, `"${SEARCHES_LIST}" stays private to its room`);
+  if (on) {
+    if ((await catalog.countDocuments({ owner, catalog: name }, { limit: 1 })) === 0) {
+      return fail(404, "Your room has no videos in this list");
+    }
+    const room = await rooms.findOne({ _id: owner }, { projection: { sharedLists: 1 } });
+    const current = room?.sharedLists ?? [];
+    if (!current.includes(name) && current.length >= MAX_SHARED_LISTS) {
+      return fail(400, `A room can share at most ${MAX_SHARED_LISTS} lists`);
+    }
+    await rooms.updateOne({ _id: owner }, { $addToSet: { sharedLists: name } });
+  } else {
+    await rooms.updateOne({ _id: owner }, { $pull: { sharedLists: name } });
+  }
+  return { status: 200, body: { name, sharing: on } };
 }
 
 /** Calls a YouTube API. `fetchFn` is injectable for tests. */
@@ -549,14 +625,25 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "Sign in as admin first.", adminRequired: true });
     }
 
+    // Which lists the rooms share only matters while the "shareSavedLists" flag is off.
+    const sharing = async () => {
+      const flags = await getAppFlags();
+      const rooms = await getRooms();
+      return { flags, rooms, shares: isShared(flags) ? null : await readShares(rooms, owner) };
+    };
+
     let result;
-    if (req.method === "GET") result = await handleList(catalog, owner, req.query, await getAppFlags());
-    else if (req.method === "DELETE") {
-      result = await handleDelete(catalog, owner, req.query, await getAppFlags());
+    if (req.method === "GET") {
+      const { flags, shares } = await sharing();
+      result = await handleList(catalog, owner, req.query, flags, shares);
+    } else if (req.method === "DELETE") {
+      const { flags, rooms, shares } = await sharing();
+      result = await handleDelete(catalog, owner, req.query, flags, { rooms, shares });
     }
     else if (req.method === "POST") {
       const apiKey = process.env.YT_API_KEY || process.env.VITE_YT_API_KEY;
-      if (req.body?.save !== undefined) result = await handleSaveSearched(catalog, owner, req.body);
+      if (req.body?.share !== undefined) result = await handleShare(catalog, await getRooms(), owner, req.body);
+      else if (req.body?.save !== undefined) result = await handleSaveSearched(catalog, owner, req.body);
       else if (req.body?.videos !== undefined) result = await handleSaveList(catalog, owner, req.body);
       else result = await handleCollect(catalog, owner, req.body, { apiKey });
     } else {

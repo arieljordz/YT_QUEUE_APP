@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { notify } from "../../lib/notify";
-import { FaBookOpen, FaCheck, FaSearch, FaTrash } from "react-icons/fa";
+import { FaBookOpen, FaCheck, FaLock, FaSearch, FaShareAlt, FaTrash } from "react-icons/fa";
 import useLocalStorage from "../../hooks/useLocalStorage";
 import useFeatureFlags from "../../hooks/useFeatureFlags";
 import { mergeLibrary } from "../../lib/library";
@@ -8,7 +8,9 @@ import {
   deleteCatalog,
   getCatalogIds,
   getCatalogVideos,
+  isSearchesList,
   listCatalogs,
+  shareCatalog,
 } from "../../api/catalog";
 import {
   pruneCachedIds,
@@ -220,6 +222,24 @@ function SavedLists() {
     }
   };
 
+  // While sharing is off, a room's lists are private until it shares them.
+  const toggleShare = async (name, on) => {
+    setWorkingOn({ name, action: "share" });
+    try {
+      await shareCatalog(name, on);
+      setLists((prev) => {
+        const next = prev.map((l) => (l.name === name ? { ...l, sharing: on } : l));
+        writeCachedLists(cacheKey, next);
+        return next;
+      });
+      notify.catalog.shared(name, on);
+    } catch (err) {
+      notify.catalog.shareFailed(err);
+    } finally {
+      setWorkingOn(null);
+    }
+  };
+
   if (lists === null) return <p className="text-muted mb-0">Loading…</p>;
   if (lists.length === 0) {
     return (
@@ -295,7 +315,7 @@ function SavedLists() {
           flags.deleteListButton && lists.some((l) => l.mine) ? "has-delete" : ""
         }`}
       >
-        {shown.map(({ name, count, mine, mineCount, others }) => {
+        {shown.map(({ name, count, mine, mineCount, others, sharing }) => {
           // Unknown until the list's ids have loaded: then only the count shows.
           const ids = idsByName[name]?.count === count ? idsByName[name].ids : null;
           const inLibrary = ids ? ids.filter((id) => libraryIds.has(id)).length : 0;
@@ -306,6 +326,9 @@ function SavedLists() {
           const runs = (action) => workingOn?.name === name && workingOn.action === action;
           const asking = confirming?.name === name ? confirming.action : null;
           const ask = (action) => setConfirming({ name, action });
+          // While sharing is off, the room that imported a list decides whether
+          // other rooms can see it.
+          const canShare = !flags.shareSavedLists && mine && !isSearchesList(name);
 
           let box = null;
           if (asking === "add") {
@@ -373,6 +396,25 @@ function SavedLists() {
               <div className="add-library-info">
                 <div className="fw-semibold text-break">
                   {name}{" "}
+                  {canShare && (
+                    <button
+                      type="button"
+                      className={`badge rounded-pill fw-normal add-library-share ${
+                        sharing ? "text-bg-info" : "text-bg-secondary"
+                      }`}
+                      onClick={() => toggleShare(name, !sharing)}
+                      disabled={busy}
+                      aria-pressed={Boolean(sharing)}
+                      title={
+                        sharing
+                          ? "Other rooms can add your part of this list. Tap to make it private."
+                          : "Only your room sees this list. Tap to share it with the other rooms."
+                      }
+                    >
+                      {sharing ? <FaShareAlt aria-hidden="true" /> : <FaLock aria-hidden="true" />}{" "}
+                      {runs("share") ? "Saving…" : sharing ? "Shared with rooms" : "Private"}
+                    </button>
+                  )}{" "}
                   {shared && (
                     <span
                       className="badge text-bg-info fw-normal"

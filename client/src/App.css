@@ -1196,6 +1196,17 @@
   padding-left: 0;
   padding-right: 0;
 }
+/* A list's Private / Shared switch, next to its name (sharing flag off). */
+.add-library-share {
+  border: 0;
+  padding: 0.4em 0.7em;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.add-library-share:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
 .add-library-cancel {
   flex: 0 0 auto;
   padding-left: 1rem;

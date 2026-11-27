@@ -83,3 +83,10 @@ export const isSearchesList = (name) =>
 /** Saves a video the user searched for and queued into the "My Searches" list. */
 export const saveSearchedVideo = (video) =>
   request({ method: "POST", body: { save: video } });
+
+/**
+ * Shares (shared: true) or stops sharing this room's part of a saved list with
+ * the other rooms. Matters while the "shareSavedLists" flag is off.
+ */
+export const shareCatalog = (name, shared) =>
+  request({ method: "POST", body: { share: { name, shared } } });

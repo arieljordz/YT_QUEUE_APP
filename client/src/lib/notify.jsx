@@ -88,6 +88,13 @@ export const notify = {
             )
           : toast.success(`Deleted the list "${name}"`),
     deleteFailed: (err) => toast.error(errorText(err)),
+    shared: (name, on) =>
+      toast.success(
+        on
+          ? `Shared "${name}": other rooms can add it to their library`
+          : `"${name}" is private to your room again`
+      ),
+    shareFailed: (err) => toast.error(errorText(err, "Could not change sharing. Please try again.")),
   },
 
   import: {
