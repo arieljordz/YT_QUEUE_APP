@@ -159,7 +159,7 @@ export default function ImportVideosPanel() {
           <input
             id="imp-title"
             className="form-control"
-            placeholder="e.g. Karaoke"
+            placeholder="e.g. Karaoke, or Artist, Music Video"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             disabled={busy}
@@ -250,7 +250,8 @@ export default function ImportVideosPanel() {
       <div className="form-text">
         Fill in a channel, a title, or both. A channel can be its name, its
         @handle or a link to it; the @handle is the surest. With a title, only
-        videos whose own title contains those words are saved.{" "}
+        videos whose own title contains those words are saved; separate phrases
+        with commas (e.g. "New Found Glory, Music Video") to require each one.{" "}
         {oldestFirst
           ? "Oldest first: YouTube lists a channel newest first only, so the whole channel is read before anything is saved (about 2 of YouTube's 10,000 free daily units per 50 uploads), then its oldest videos are kept."
           : hasChannel

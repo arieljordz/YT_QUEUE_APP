@@ -67,14 +67,24 @@ const cleanName = (value) => {
   return name && name.length <= MAX_NAME ? name : null;
 };
 
-/** True when the title contains every word of `wanted` (ignoring case). */
+const squash = (value) => value.toLowerCase().replace(/\s+/g, " ").trim();
+
+/** "New Found Glory,  Music Video ," -> ["new found glory", "music video"]. */
+export function titleTerms(wanted) {
+  return wanted.split(",").map(squash).filter(Boolean);
+}
+
+/**
+ * True when the title matches `wanted`, ignoring case and extra spaces.
+ * One term (no commas): the title contains every word of it, in any order.
+ * Several terms ("New Found Glory, Music Video"): the title contains every
+ * term as a phrase, in any order.
+ */
 export function titleMatches(title, wanted) {
-  const haystack = decodeEntities(title).toLowerCase();
-  return wanted
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .every((word) => haystack.includes(word));
+  const haystack = squash(decodeEntities(title));
+  const terms = titleTerms(wanted);
+  const needles = terms.length === 1 ? terms[0].split(" ") : terms;
+  return needles.every((needle) => haystack.includes(needle));
 }
 
 /** "PT1H2M5S" -> 3725. Returns null for live streams and anything unreadable. */
@@ -354,7 +364,8 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
     return fail(400, `"${SEARCHES_LIST}" is reserved for videos you search and queue. Pick another name.`);
   }
 
-  const title = text(body?.title);
+  const rawTitle = text(body?.title);
+  const title = titleTerms(rawTitle).length ? rawTitle : ""; // "," alone is no filter
   const channel = text(body?.channel);
   let channelId = CHANNEL_ID.test(text(body?.channelId)) ? text(body.channelId) : "";
   if (!title && !channel && !channelId) return fail(400, "Enter a channel, a title, or both");
@@ -405,7 +416,8 @@ export async function handleCollect(catalog, owner, body, { apiKey, fetchFn = fe
     items = (result.data?.items ?? []).map(fromPlaylistItem);
   } else {
     const params = { part: "snippet", type: "video", maxResults: "50", key: apiKey };
-    params.q = title; // helps YouTube find them; the title check below is the real filter
+    // Helps YouTube find them; the title check below is the real filter.
+    params.q = titleTerms(title).join(" ");
     if (embeddableOnly) params.videoEmbeddable = "true";
     if (body?.newest === true) params.order = "date";
     if (pageToken) params.pageToken = pageToken;
