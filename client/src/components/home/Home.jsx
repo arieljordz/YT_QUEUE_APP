@@ -80,11 +80,10 @@ function Home({ libraryApi, roomName, onSignedOut }) {
       : selectedTab;
   // The player can run inside this page, in the Player tab. Once opened it
   // stays loaded, hidden, so the music keeps playing while the other tabs are
-  // used. The installed app always plays here (a separate window can't be
-  // reached with Back); in a browser the Player tab first asks whether to play
-  // here or in a new browser tab.
+  // used. On every device (browser or installed app) the Player tab first asks
+  // whether to play here or in a separate browser tab.
   const [installed] = useState(isInstalledApp);
-  const [playerHere, setPlayerHere] = useState(installed);
+  const [playerHere, setPlayerHere] = useState(false);
   const [playerOpened, setPlayerOpened] = useState(false);
   const [choosingPlayer, setChoosingPlayer] = useState(false);
   const openPlayerHere = useCallback(() => {
@@ -98,7 +97,7 @@ function Home({ libraryApi, roomName, onSignedOut }) {
   const selectTab = useCallback(
     (key) => {
       if (key === "player") {
-        // Already playing here (or the installed app): just show it. Otherwise ask.
+        // Already playing here: just show it. Otherwise ask.
         if (!playerHere) {
           setChoosingPlayer(true);
           return;
@@ -418,14 +417,13 @@ function Home({ libraryApi, roomName, onSignedOut }) {
         </div>
       </div>
 
-      {!installed && (
-        <PlayerChoiceModal
-          show={choosingPlayer}
-          onNewTab={openPlayerTab}
-          onHere={openPlayerHere}
-          onClose={() => setChoosingPlayer(false)}
-        />
-      )}
+      <PlayerChoiceModal
+        show={choosingPlayer}
+        installed={installed}
+        onNewTab={openPlayerTab}
+        onHere={openPlayerHere}
+        onClose={() => setChoosingPlayer(false)}
+      />
 
       {queuePanel && (
         <aside className="queue-panel" id="queue-panel" aria-label="Queue">
