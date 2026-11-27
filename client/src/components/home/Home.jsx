@@ -16,7 +16,7 @@ import usePlaylists from "../../hooks/usePlaylists";
 import useMediaQuery from "../../hooks/useMediaQuery";
 
 // From this width the queue sits in a panel beside the other tabs instead of in a tab of its own.
-const QUEUE_PANEL_QUERY = "(min-width: 1400px)";
+const QUEUE_PANEL_QUERY = "(min-width: 992px)"; // laptops, landscape tablets and up (matches App.css)
 import PlayerPage from "../player/PlayerPage";
 import PlayerBoundary from "../player/PlayerBoundary";
 import PlayerChoiceModal from "../player/PlayerChoiceModal";

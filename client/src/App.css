@@ -1099,8 +1099,10 @@
 .queue-panel-title { display: flex; align-items: center; gap: 0.4rem; margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--yq-text); }
 .queue-panel-title svg { color: var(--yq-accent); font-size: 1.15rem; }
 
-/* ==== Wide screens: two panels, the tabs on the left and the queue on the right ==== */
-@media (min-width: 1400px) {
+/* ==== Wide screens (laptops, landscape tablets, desktops): two panels, the tabs on
+   the left and the queue on the right. Keep the width in sync with QUEUE_PANEL_QUERY
+   in Home.jsx. ==== */
+@media (min-width: 992px) {
   /* The whole width, and exactly the screen's height under the header: the page
      itself does not scroll, each panel scrolls inside. */
   .container-xl.home-wide {
@@ -1113,7 +1115,8 @@
     gap: 1.25rem;
   }
   /* The queue panel takes the right column while it is open (it can be hidden). */
-  .container-xl.home-wide.has-queue-panel { grid-template-columns: minmax(0, 1fr) 420px; }
+  /* 320px on a 1024px tablet, growing to 420px from about 1400px wide. */
+  .container-xl.home-wide.has-queue-panel { grid-template-columns: minmax(0, 1fr) clamp(320px, 30vw, 420px); }
   /* Both columns get the same frame. */
   .home-wide .home-main,
   .queue-panel {
