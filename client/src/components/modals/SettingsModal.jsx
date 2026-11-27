@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { notify } from "../../lib/notify";
 import { FaCog } from "react-icons/fa";
-import { MdFileDownload, MdLibraryAdd, MdToggleOn, MdLock } from "react-icons/md";
+import { MdBackup, MdFileDownload, MdLibraryAdd, MdToggleOn, MdLock } from "react-icons/md";
 import AppTabs from "../layout/AppTabs";
 import useAdmin from "../../hooks/useAdmin";
 import { logoutAdmin } from "../../api/admin";
@@ -10,9 +10,11 @@ import AdminSignIn from "../settings/AdminSignIn";
 import ImportVideosPanel from "../settings/ImportVideosPanel";
 import AddLibraryPanel from "../settings/AddLibraryPanel";
 import FeatureFlagsPanel from "../settings/FeatureFlagsPanel";
+import BackupPanel from "../settings/BackupPanel";
 
 /**
- * Settings: Import Videos, Add Library, Feature Flags and the admin password.
+ * Settings: Import Videos, Add Library, Feature Flags, the admin password and
+ * Backup & Restore of the database.
  * Opening it always asks for the admin password, and closing it signs the
  * admin out again, because this app often runs on a shared device (a TV).
  * The server checks the admin sign-in on every one of these requests too.
@@ -23,6 +25,7 @@ const TABS = [
   { key: "library", label: "Add Library", shortLabel: "Library", icon: <MdLibraryAdd aria-hidden="true" /> },
   { key: "flags", label: "Feature Flags", shortLabel: "Flags", icon: <MdToggleOn aria-hidden="true" /> },
   { key: "password", label: "Admin Password", shortLabel: "Password", icon: <MdLock aria-hidden="true" /> },
+  { key: "backup", label: "Backup & Restore", shortLabel: "Backup", icon: <MdBackup aria-hidden="true" /> },
 ];
 
 function SettingsBody({ onClose }) {
@@ -65,6 +68,7 @@ function SettingsBody({ onClose }) {
       {tab === "import" && <ImportVideosPanel />}
       {tab === "library" && <AddLibraryPanel />}
       {tab === "flags" && <FeatureFlagsPanel onAdminRequired={expired} />}
+      {tab === "backup" && <BackupPanel onAdminRequired={expired} />}
       {tab === "password" && (
         <AdminSignIn
           mode="change"

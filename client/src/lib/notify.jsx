@@ -117,6 +117,15 @@ export const notify = {
     flagFailed: (err) => toast.error(errorText(err)),
   },
 
+  backup: {
+    saved: (count) => toast.success(`Backup downloaded (${plural(count, "document")})`),
+    restored: (count) =>
+      toast.success(`Database restored (${plural(count, "document")}). Reload the app on each device to see it.`, {
+        autoClose: 10000,
+      }),
+    failed: (err) => toast.error(errorText(err)),
+  },
+
   external: {
     tabMayBeOpen: () =>
       toast.info("The queue moved on. The YouTube tab may still be open; close it there.", {
