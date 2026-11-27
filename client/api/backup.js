@@ -1,4 +1,5 @@
-// Vercel serverless function: backing up and restoring the database (admin only).
+// Vercel serverless function: backing up and restoring the database (admin
+// only, unless the "settingsPassword" feature flag is off).
 //
 // A backup is the app's data collections, read a page at a time and put
 // together in the browser (a Vercel response is limited to about 4.5 MB):
@@ -17,7 +18,7 @@
 // an old backup never locks the admin out.
 import { BSON } from "mongodb";
 import { getDb } from "./_db.js";
-import { requireAdmin } from "./_admin.js";
+import { requireSettingsAccess } from "./flags.js";
 
 const { EJSON } = BSON;
 export const BACKUP_COLLECTIONS = ["rooms", "library_videos", "room_playlists", "catalog_videos", "app_settings"];
@@ -151,7 +152,7 @@ export default async function handler(req, res) {
   }
   res.setHeader("Cache-Control", "no-store");
   try {
-    if (!(await requireAdmin(req))) {
+    if (!(await requireSettingsAccess(req))) {
       return res.status(401).json({ error: "Sign in as admin to back up or restore.", adminRequired: true });
     }
     const result = await handleBackup(await getDb(), req.body);

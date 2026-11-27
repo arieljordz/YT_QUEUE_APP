@@ -5,6 +5,7 @@ import { FaCog } from "react-icons/fa";
 import { MdBackup, MdFileDownload, MdLibraryAdd, MdToggleOn, MdLock } from "react-icons/md";
 import AppTabs from "../layout/AppTabs";
 import useAdmin from "../../hooks/useAdmin";
+import useFeatureFlags from "../../hooks/useFeatureFlags";
 import { logoutAdmin } from "../../api/admin";
 import AdminSignIn from "../settings/AdminSignIn";
 import ImportVideosPanel from "../settings/ImportVideosPanel";
@@ -15,9 +16,10 @@ import BackupPanel from "../settings/BackupPanel";
 /**
  * Settings: Import Videos, Add Library, Feature Flags, the admin password and
  * Backup & Restore of the database.
- * Opening it always asks for the admin password, and closing it signs the
- * admin out again, because this app often runs on a shared device (a TV).
- * The server checks the admin sign-in on every one of these requests too.
+ * Opening it asks for the admin password (unless the "Settings password"
+ * feature flag is off), and closing it signs the admin out again, because this
+ * app often runs on a shared device (a TV). The server checks the same on
+ * every one of these requests too (requireSettingsAccess in api/flags.js).
  */
 // The Settings tabs: full names on wide screens, short ones under the icon on phones.
 const TABS = [
@@ -30,22 +32,29 @@ const TABS = [
 
 function SettingsBody({ onClose }) {
   const admin = useAdmin();
+  const { flags } = useFeatureFlags();
   const [signedIn, setSignedIn] = useState(false);
+  // The server asked for the password although this device thought the
+  // "Settings password" flag was off (it was turned on elsewhere).
+  const [mustSignIn, setMustSignIn] = useState(false);
   const [tab, setTab] = useState("import");
 
-  if (admin.error) return <p className="text-danger">{admin.error}</p>;
-  if (!admin.status) return <p className="text-body-secondary">Checking…</p>;
+  // The "Settings password" feature flag: off = Settings open without the password.
+  const open = !flags.settingsPassword && !mustSignIn;
 
-  if (!admin.status.configured) {
-    return (
-      <p className="mb-0">
-        No admin password has been set yet. To set it, choose <strong>Leave Room</strong>, then{" "}
-        <strong>Manage Rooms</strong> on the room screen.
-      </p>
-    );
-  }
+  if (!open && !signedIn) {
+    if (admin.error) return <p className="text-danger">{admin.error}</p>;
+    if (!admin.status) return <p className="text-body-secondary">Checking…</p>;
 
-  if (!signedIn) {
+    if (!admin.status.configured) {
+      return (
+        <p className="mb-0">
+          No admin password has been set yet. To set it, choose <strong>Leave Room</strong>, then{" "}
+          <strong>Manage Rooms</strong> on the room screen.
+        </p>
+      );
+    }
+
     return (
       <AdminSignIn
         mode="login"
@@ -58,18 +67,24 @@ function SettingsBody({ onClose }) {
   }
 
   const expired = () => {
-    notify.admin.sessionExpired();
+    if (signedIn) notify.admin.sessionExpired();
+    else notify.admin.passwordRequired();
     setSignedIn(false);
+    setMustSignIn(true);
   };
+
+  // Changing the password needs the admin sign-in, even when Settings are open.
+  const tabs = signedIn ? TABS : TABS.filter((t) => t.key !== "password");
+  const shown = tabs.some((t) => t.key === tab) ? tab : "import";
 
   return (
     <>
-      <AppTabs tabs={TABS} active={tab} onSelect={setTab} className="settings-tabs" ariaLabel="Settings sections" />
-      {tab === "import" && <ImportVideosPanel />}
-      {tab === "library" && <AddLibraryPanel />}
-      {tab === "flags" && <FeatureFlagsPanel onAdminRequired={expired} />}
-      {tab === "backup" && <BackupPanel onAdminRequired={expired} />}
-      {tab === "password" && (
+      <AppTabs tabs={tabs} active={shown} onSelect={setTab} className="settings-tabs" ariaLabel="Settings sections" />
+      {shown === "import" && <ImportVideosPanel />}
+      {shown === "library" && <AddLibraryPanel />}
+      {shown === "flags" && <FeatureFlagsPanel onAdminRequired={expired} />}
+      {shown === "backup" && <BackupPanel onAdminRequired={expired} />}
+      {shown === "password" && (
         <AdminSignIn
           mode="change"
           onDone={() => {

@@ -42,6 +42,12 @@ const SECTIONS = [
     ],
   },
   {
+    title: "Security",
+    flags: [
+      { name: "settingsPassword", label: "Ask for the admin password in Settings", description: "Off: anyone in any room can open Settings without the password, and import videos, delete saved lists, change these flags, and back up or restore (replace) the whole database. Managing rooms and changing the admin password still need it." },
+    ],
+  },
+  {
     title: "Playlists",
     flags: [
       { name: "personalPlaylists", label: "Personal playlists", description: "Show the Playlists tab, where each room makes, edits and plays its own playlists from the Library." },

@@ -37,8 +37,7 @@
 //     one, YouTube search is used: 100 units per page and about 500 results at most.
 //     The browser calls POST repeatedly until it has enough videos, so no
 //     single request runs long.
-import { getAppFlags } from "./flags.js";
-import { requireAdmin } from "./_admin.js";
+import { getAppFlags, requireSettingsAccess } from "./flags.js";
 import { requireRoom } from "./_session.js";
 import {
   SEARCHES_LIST,
@@ -504,9 +503,10 @@ export default async function handler(req, res) {
     }
 
     // Saving a searched video is part of normal use. Everything else (listing,
-    // importing and deleting lists) is in Settings and needs the admin sign-in.
+    // importing and deleting lists) is in Settings and needs the admin sign-in,
+    // unless the "settingsPassword" flag is off.
     const saving = req.method === "POST" && req.body?.save !== undefined;
-    if (!saving && !(await requireAdmin(req))) {
+    if (!saving && !(await requireSettingsAccess(req))) {
       return res.status(401).json({ error: "Sign in as admin first.", adminRequired: true });
     }
 

@@ -20,6 +20,7 @@ export const DEFAULT_FLAGS = {
   deleteSelectedButton: false,
   personalPlaylists: false,
   librarySearchAutofocus: false,
+  settingsPassword: true,
 };
 const FLAGS_ID = "flags";
 
@@ -57,6 +58,16 @@ export async function getAppFlags() {
   return readAppFlags((await getDb()).collection("app_settings"), await getRooms());
 }
 
+/**
+ * Can this request use Settings (import, saved lists, flags, backup)? Yes for
+ * a signed-in admin, and for anyone while the "settingsPassword" flag is off.
+ * Managing rooms always needs the admin (see rooms.js).
+ */
+export async function requireSettingsAccess(req) {
+  if ((await getAppFlags()).settingsPassword === false) return true;
+  return requireAdmin(req);
+}
+
 /** Core logic, separated from the HTTP layer so it can be tested with any collection. */
 export async function handleFlags({ settings, rooms }, body, isAdmin) {
   const flags = await readAppFlags(settings, rooms);
@@ -88,7 +99,7 @@ export default async function handler(req, res) {
   }
   res.setHeader("Cache-Control", "no-store");
   try {
-    const isAdmin = req.body?.flags !== undefined && (await requireAdmin(req));
+    const isAdmin = req.body?.flags !== undefined && (await requireSettingsAccess(req));
     const cols = { settings: (await getDb()).collection("app_settings"), rooms: await getRooms() };
     const result = await handleFlags(cols, req.body, isAdmin);
     return res.status(result.status).json(result.body);

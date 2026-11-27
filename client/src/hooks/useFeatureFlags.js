@@ -13,6 +13,7 @@ export const FEATURE_FLAGS = {
   deleteSelectedButton: false,
   personalPlaylists: false,
   librarySearchAutofocus: false,
+  settingsPassword: true,
 };
 
 const REFRESH_MS = 30000;

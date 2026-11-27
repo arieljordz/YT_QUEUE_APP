@@ -113,6 +113,7 @@ export const notify = {
 
   admin: {
     sessionExpired: () => toast.info("Your admin sign-in expired. Enter the password again."),
+    passwordRequired: () => toast.info("Settings need the admin password again. Enter it to continue."),
     passwordChanged: () => toast.success("Admin password changed. It now works in every room."),
     flagFailed: (err) => toast.error(errorText(err)),
   },
