@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import { FaDownload, FaUpload } from "react-icons/fa";
+import { FaDownload, FaTrash, FaUpload } from "react-icons/fa";
 import { notify } from "../../lib/notify";
-import { createBackup, readBackupFile, restoreBackup } from "../../api/backup";
+import { clearDatabase, createBackup, readBackupFile, restoreBackup } from "../../api/backup";
 
 // What each part of the database is, in the app's words.
 const PARTS = {
@@ -50,7 +50,10 @@ function Progress({ label, done, total }) {
  * onAdminRequired() is called when the admin sign-in has expired.
  */
 export default function BackupPanel({ onAdminRequired }) {
-  const [busy, setBusy] = useState(null); // "backup" | "restore" | null
+  const [busy, setBusy] = useState(null); // "backup" | "restore" | "clear" | null
+  // Clear database: asking (the confirmation is open) and what was typed.
+  const [askClear, setAskClear] = useState(false);
+  const [typed, setTyped] = useState("");
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   // The checked backup waiting for the admin to confirm the restore.
   const [pending, setPending] = useState(null); // { backup, fileName }
@@ -91,6 +94,23 @@ export default function BackupPanel({ onAdminRequired }) {
       const restored = await restoreBackup(pending.backup, (done, total) => setProgress({ done, total }));
       setPending(null);
       notify.backup.restored(Object.values(restored).reduce((a, b) => a + b, 0));
+    } catch (err) {
+      failed(err);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Always downloads a backup first: if that fails, nothing is cleared.
+  const clear = async () => {
+    setBusy("clear");
+    try {
+      const backup = await createBackup((done, total) => setProgress({ done, total }));
+      saveFile(backup);
+      const cleared = await clearDatabase();
+      setAskClear(false);
+      setTyped("");
+      notify.backup.cleared(Object.entries(cleared).reduce((sum, [name, n]) => (name === "rooms" ? sum : sum + n), 0));
     } catch (err) {
       failed(err);
     } finally {
@@ -160,6 +180,74 @@ export default function BackupPanel({ onAdminRequired }) {
               </button>
             </div>
             {busy === "restore" && <Progress label="Uploaded" {...progress} />}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-4">
+        <h3 className="fs-6 text-uppercase text-body-secondary mb-2">Clear database</h3>
+        <p className="small text-body-secondary">
+          Empties the database, for example to try a restore. The rooms (names, avatars, PINs) and the admin
+          password stay, so everyone can still get in.
+        </p>
+        {!askClear && (
+          <button
+            className="btn btn-outline-danger d-inline-flex align-items-center gap-2"
+            onClick={() => setAskClear(true)}
+            disabled={busy !== null || pending !== null}
+          >
+            <FaTrash aria-hidden="true" /> Clear database…
+          </button>
+        )}
+
+        {askClear && (
+          <div className="add-library-confirm is-danger" role="alert">
+            <p className="mb-2 small">This deletes, for every room and every device:</p>
+            <ul className="small mb-2 ps-3">
+              <li>every queue, favorite and history</li>
+              <li>every library and playlist</li>
+              <li>every saved list (Import Videos)</li>
+              <li>the feature flags (they go back to their defaults, so Settings asks for the password again)</li>
+            </ul>
+            <p className="mb-2 small">
+              A backup is downloaded first, and nothing is cleared if that fails. Keep the file: it is the
+              only way to get this data back.
+            </p>
+            <label className="form-label small mb-1" htmlFor="clear-confirm">
+              Type <strong>CLEAR</strong> to confirm
+            </label>
+            <input
+              id="clear-confirm"
+              className="form-control form-control-sm mb-2"
+              style={{ maxWidth: "12rem" }}
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              disabled={busy !== null}
+            />
+            <div className="d-flex gap-2 flex-wrap">
+              <button
+                className="btn btn-sm btn-danger d-inline-flex align-items-center gap-2"
+                onClick={clear}
+                disabled={busy !== null || typed.trim() !== "CLEAR"}
+              >
+                {busy === "clear" ? <span className="spinner-border spinner-border-sm" aria-hidden="true" /> : <FaTrash aria-hidden="true" />}
+                {busy === "clear" ? "Backing up and clearing…" : "Back up and clear"}
+              </button>
+              <button
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => {
+                  setAskClear(false);
+                  setTyped("");
+                }}
+                disabled={busy !== null}
+              >
+                Cancel
+              </button>
+            </div>
+            {busy === "clear" && <Progress label="Backed up" {...progress} />}
           </div>
         )}
       </section>

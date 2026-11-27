@@ -13,6 +13,11 @@
 //   POST { action: "restoreChunk", collection, docs }                -> { ok }
 //   POST { action: "restoreFinish", counts: { [collection]: n } }    -> { restored: { [collection]: n } }
 //
+// Clearing the database (to try a restore, or start over) keeps the rooms
+// themselves (name, avatar, description, PIN) and the admin password, and
+// deletes everything else. The body must say confirm: "CLEAR".
+//   POST { action: "clear", confirm: "CLEAR" }   -> { cleared: { [what]: n } }
+//
 // Not backed up: sign-ins, PIN attempts and presence (they only matter right
 // now), and the admin password, which a restore keeps as it is, so restoring
 // an old backup never locks the admin out.
@@ -126,17 +131,60 @@ async function restoreFinish(db, { counts }) {
   // Keep the current admin password.
   const admin = await db.collection("app_settings").findOne({ _id: ADMIN_DOC });
   if (admin) await db.collection(STAGING("app_settings")).replaceOne({ _id: ADMIN_DOC }, admin, { upsert: true });
+  // The rooms' sync counters (queue rev, library epoch) as the devices know them now.
+  const before = new Map(
+    (await db.collection("rooms").find({}, { projection: { rev: 1, libraryEpoch: 1 } }).toArray()).map((r) => [String(r._id), r])
+  );
   // $out swaps each collection in one step and keeps the indexes it already has.
   for (const name of BACKUP_COLLECTIONS) {
     await db.collection(STAGING(name)).aggregate([{ $out: name }]).toArray();
+  }
+  // Put each room's counters above both the old and the current values, so
+  // every device takes the restored queue and library instead of keeping (or
+  // sending back) its own.
+  const rooms = db.collection("rooms");
+  for (const room of await rooms.find({}, { projection: { rev: 1, libraryEpoch: 1 } }).toArray()) {
+    const now = before.get(String(room._id));
+    const above = (field) => Math.max(Number(room[field]) || 0, Number(now?.[field]) || 0) + 1;
+    await rooms.updateOne({ _id: room._id }, { $set: { rev: above("rev"), libraryEpoch: above("libraryEpoch") } });
   }
   await dropStaging(db);
   return { status: 200, body: { restored } };
 }
 
+/**
+ * Deletes everything but the rooms and the admin password. Each room loses its
+ * queue, player position, favorites and history, and its library epoch goes up
+ * (like Delete all in library.js), so devices drop their copy of the library
+ * instead of sending it back. Feature flags go back to their defaults.
+ */
+async function clearDatabase(db, { confirm }) {
+  if (confirm !== "CLEAR") return bad('Type CLEAR to confirm.');
+  const now = new Date();
+  const rooms = await db.collection("rooms").updateMany(
+    { slot: { $exists: true } },
+    {
+      $set: { queue: [], isPaused: true, isRepeat: false, favorites: [], history: [], libraryMoved: true, updatedAt: now },
+      $inc: { rev: 1, libraryEpoch: 1 },
+      // library/removals: the old one-array library; flags: the old per-room flags.
+      $unset: { progress: "", played: "", library: "", removals: "", flags: "" },
+    }
+  );
+  const count = async (name, filter = {}) => (await db.collection(name).deleteMany(filter)).deletedCount;
+  const cleared = {
+    rooms: rooms.modifiedCount,
+    library_videos: await count("library_videos"),
+    room_playlists: await count("room_playlists"),
+    catalog_videos: await count("catalog_videos"),
+    app_settings: await count("app_settings", skipFilter("app_settings")),
+  };
+  return { status: 200, body: { cleared } };
+}
+
 /** Core logic, separated from the HTTP layer. */
 export async function handleBackup(db, body) {
   const { action } = body ?? {};
+  if (action === "clear") return clearDatabase(db, body);
   if (action === "info") return info(db);
   if (action === "export") return exportPage(db, body);
   if (action === "restoreStart") return restoreStart(db);

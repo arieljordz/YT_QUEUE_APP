@@ -105,6 +105,12 @@ function chunks(docs) {
 }
 
 /**
+ * Empties the database but keeps the rooms (names, avatars, PINs) and the
+ * admin password. Returns { [part]: count } of what was cleared.
+ */
+export const clearDatabase = () => post({ action: "clear", confirm: "CLEAR" }).then((d) => d.cleared);
+
+/**
  * Replaces the database with the backup. Nothing changes until every piece
  * has arrived. onProgress(done, total) after each piece. Returns { [collection]: count }.
  */

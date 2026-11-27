@@ -124,6 +124,11 @@ export const notify = {
       toast.success(`Database restored (${plural(count, "document")}). Reload the app on each device to see it.`, {
         autoClose: 10000,
       }),
+    cleared: (count) =>
+      toast.success(
+        `Database cleared (${plural(count, "document")} deleted; the rooms stay). A backup was downloaded first. Reload the app on each device.`,
+        { autoClose: 10000 }
+      ),
     failed: (err) => toast.error(errorText(err)),
   },
 
