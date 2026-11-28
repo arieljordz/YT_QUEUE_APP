@@ -4,7 +4,9 @@
 //
 // POST body:
 //   { rev }                  -> poll: { rev, exists, changed, state? }
-//   { push: { queue, isPaused, isRepeat } } -> save: { rev }
+//   { push: { queue, isPaused, isRepeat, volume?, isMuted? } } -> save: { rev }
+//     volume (0-100) and isMuted are optional: older copies of the app leave
+//     the saved values as they are.
 //   { progress: { id, queueId, position, duration, playing } } -> { ok }
 //     Where the player is in the current video. Saved apart from the queue
 //     (no new rev), and sent back with every poll as "progress", with "age"
@@ -15,13 +17,16 @@ import { getDb, getRoomQueues, slimQueueItem } from "./_db.js";
 import { readCookie, requireRoom, touchPresence } from "./_session.js";
 
 const MAX_ITEMS = 5000;
+const isVolume = (v) => Number.isInteger(v) && v >= 0 && v <= 100;
 
 function cleanState(push) {
   if (
     !Array.isArray(push?.queue) ||
     push.queue.length > MAX_ITEMS ||
     typeof push.isPaused !== "boolean" ||
-    (push.isRepeat !== undefined && typeof push.isRepeat !== "boolean")
+    (push.isRepeat !== undefined && typeof push.isRepeat !== "boolean") ||
+    (push.volume !== undefined && !isVolume(push.volume)) ||
+    (push.isMuted !== undefined && typeof push.isMuted !== "boolean")
   ) {
     return null;
   }
@@ -29,6 +34,8 @@ function cleanState(push) {
     queue: push.queue.map(slimQueueItem).filter(Boolean),
     isPaused: push.isPaused,
     isRepeat: push.isRepeat === true,
+    ...(push.volume !== undefined && { volume: push.volume }),
+    ...(push.isMuted !== undefined && { isMuted: push.isMuted }),
   };
 }
 
@@ -75,7 +82,7 @@ export async function handleQueue(queues, roomId, body, now = Date.now()) {
   const known = Number.isInteger(body?.rev) ? body.rev : -1;
   const doc = await queues.findOne(
     { _id: roomId },
-    { projection: { queue: 1, isPaused: 1, isRepeat: 1, rev: 1, progress: 1 } }
+    { projection: { queue: 1, isPaused: 1, isRepeat: 1, volume: 1, isMuted: 1, rev: 1, progress: 1 } }
   );
   if (!doc || doc.queue === undefined) {
     return { status: 200, body: { exists: false, changed: false, rev: 0 } };
@@ -95,6 +102,9 @@ export async function handleQueue(queues, roomId, body, now = Date.now()) {
         queue: doc.queue,
         isPaused: doc.isPaused,
         isRepeat: doc.isRepeat === true,
+        // Missing until a device that knows about volume saves it.
+        ...(isVolume(doc.volume) && { volume: doc.volume }),
+        ...(typeof doc.isMuted === "boolean" && { isMuted: doc.isMuted }),
         played: [], // for older copies of the app, which still read it
       },
     },

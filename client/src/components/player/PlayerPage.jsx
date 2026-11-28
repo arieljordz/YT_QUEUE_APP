@@ -7,6 +7,7 @@ import { useRecordPlayed } from "../../hooks/useExtras";
 import { useEmbeddableCache } from "../../hooks/useEmbeddable";
 import usePlayerLease from "../../hooks/usePlayerLease";
 import { decodeHtml } from "../../lib/text";
+import { VOLUME_KEY, MUTED_KEY, DEFAULT_VOLUME, clampVolume } from "../../lib/volume";
 import { notify } from "../../lib/notify";
 import PlayerNotice from "./PlayerNotice";
 import ExternalPlaybackPanel from "./ExternalPlaybackPanel";
@@ -20,6 +21,9 @@ function PlayerPage({ roomName, onSignedOut, inBackground = false }) {
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
   const [isRepeat] = useLocalStorage("isRepeat", false);
+  // Set from the queue panel (on this device or another one of the room).
+  const [volume] = useLocalStorage(VOLUME_KEY, DEFAULT_VOLUME);
+  const [isMuted] = useLocalStorage(MUTED_KEY, false);
 
   const reportProgress = useProgressReporter();
 
@@ -108,6 +112,8 @@ function PlayerPage({ roomName, onSignedOut, inBackground = false }) {
         nextVideo={nextVideo}
         onEnd={playNext}
         onNext={playNext}
+        volume={clampVolume(volume)}
+        isMuted={isMuted === true}
         isPaused={isPaused || isExternal}
         isRepeat={isRepeat}
         onPlayerPause={() => setIsPaused(true)}

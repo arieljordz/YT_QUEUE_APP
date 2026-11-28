@@ -1,6 +1,7 @@
 import { memo, useCallback, useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import YoutubeOnlyBadge from "../videos/YoutubeOnlyBadge";
+import VolumeControl from "./VolumeControl";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useNowPosition } from "../../hooks/usePlayerProgress";
 import { formatClock } from "../../lib/progress";
@@ -89,6 +90,7 @@ const NowPlaying = memo(function NowPlaying({
         </div>
       </div>
       <NowProgress queueId={video.queueId} isPaused={isPaused} />
+      <VolumeControl />
       <div className="now-controls" role="group" aria-label="Playback">
         <button
           className="btn yq-btn-primary now-btn"

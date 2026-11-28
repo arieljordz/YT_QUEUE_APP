@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import useLocalStorage from "./useLocalStorage";
 import { slimVideo } from "../lib/library";
 import { PROGRESS_KEY } from "../lib/progress";
+import { VOLUME_KEY, MUTED_KEY, DEFAULT_VOLUME, isVolume } from "../lib/volume";
 
 const POLL_MS = 3000;
 // A hidden tab with nothing playing has no need to follow remote changes quickly.
@@ -13,11 +14,13 @@ const slimQueueItem = (video) => {
   return slim && { ...slim, queueId: video.queueId };
 };
 
-function serialize(queue, isPaused, isRepeat) {
+function serialize({ queue, isPaused, isRepeat, volume, isMuted }) {
   return JSON.stringify({
     queue: queue.map(slimQueueItem).filter(Boolean),
     isPaused,
     isRepeat,
+    volume: isVolume(volume) ? volume : DEFAULT_VOLUME,
+    isMuted: isMuted === true,
   });
 }
 
@@ -44,7 +47,7 @@ export function pushProgress({ id, queueId, position, duration, playing }) {
 }
 
 /**
- * Keeps the queue, pause and repeat state identical on every device that
+ * Keeps the queue, pause, repeat and volume state identical on every device that
  * uses the same sync code. The state lives in MongoDB (/api/queue): each device
  * saves its changes and polls for the other devices' changes every few
  * seconds. Mount it once, high in the tree, so it runs on every page.
@@ -60,11 +63,13 @@ export default function useRemoteSync() {
   const [queue, setQueue] = useLocalStorage("videoQueue", []);
   const [isPaused, setIsPaused] = useLocalStorage("isPaused", false);
   const [isRepeat, setIsRepeat] = useLocalStorage("isRepeat", false);
+  const [volume, setVolume] = useLocalStorage(VOLUME_KEY, DEFAULT_VOLUME);
+  const [isMuted, setIsMuted] = useLocalStorage(MUTED_KEY, false);
   const [, setProgress] = useLocalStorage(PROGRESS_KEY, null);
   const [status, setStatus] = useState("off");
 
-  const stateRef = useRef({ queue, isPaused, isRepeat });
-  stateRef.current = { queue, isPaused, isRepeat };
+  const stateRef = useRef({ queue, isPaused, isRepeat, volume, isMuted });
+  stateRef.current = { queue, isPaused, isRepeat, volume, isMuted };
   // What the server is known to hold (as a string) and its revision.
   const syncedJsonRef = useRef(null);
   const revRef = useRef(-1);
@@ -87,20 +92,18 @@ export default function useRemoteSync() {
 
     const adopt = (state, rev) => {
       revRef.current = rev;
-      syncedJsonRef.current = serialize(
-        state.queue,
-        state.isPaused,
-        state.isRepeat
-      );
+      syncedJsonRef.current = serialize(state);
       setQueue(state.queue);
       setIsPaused(state.isPaused);
       // An older server does not know about repeat; keep this device's setting then.
       if (typeof state.isRepeat === "boolean") setIsRepeat(state.isRepeat);
+      // The same for volume (an older server does not keep it).
+      if (isVolume(state.volume)) setVolume(state.volume);
+      if (typeof state.isMuted === "boolean") setIsMuted(state.isMuted);
     };
 
     const push = async () => {
-      const { queue, isPaused, isRepeat } = stateRef.current;
-      const json = serialize(queue, isPaused, isRepeat);
+      const json = serialize(stateRef.current);
       if (json === syncedJsonRef.current) return;
       const { rev } = await callQueueApi({ push: JSON.parse(json) }, controller.signal);
       revRef.current = rev;
@@ -168,12 +171,12 @@ export default function useRemoteSync() {
       controller.abort();
       pushNowRef.current = null;
     };
-  }, [syncCode, setQueue, setIsPaused, setIsRepeat, setProgress]);
+  }, [syncCode, setQueue, setIsPaused, setIsRepeat, setVolume, setIsMuted, setProgress]);
 
   // Save local changes shortly after they happen.
   useEffect(() => {
     if (status !== "connected") return;
-    if (serialize(queue, isPaused, isRepeat) === syncedJsonRef.current) return;
+    if (serialize({ queue, isPaused, isRepeat, volume, isMuted }) === syncedJsonRef.current) return;
 
     busyRef.current = true;
     const timer = setTimeout(async () => {
@@ -190,7 +193,7 @@ export default function useRemoteSync() {
       clearTimeout(timer);
       busyRef.current = false;
     };
-  }, [queue, isPaused, isRepeat, status]);
+  }, [queue, isPaused, isRepeat, volume, isMuted, status]);
 
   return status;
 }

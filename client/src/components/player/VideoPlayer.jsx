@@ -38,6 +38,8 @@ const VideoPlayer = ({
   nextVideo,
   onEnd,
   onNext,
+  volume = 100,
+  isMuted = false,
   isPaused,
   isRepeat,
   onPlayerPause,
@@ -121,6 +123,28 @@ const VideoPlayer = ({
         document.removeEventListener(name, handleFullscreenChange)
       );
   }, []);
+
+  // Apply the volume set in the queue panel. YouTube puts back its own saved
+  // volume when it loads a video, so it is applied again as each video loads
+  // and starts (see handleStateChange). Phones and iPads may ignore the level
+  // (only their own buttons set it); mute still works there.
+  const volumeRef = useRef({ volume, isMuted });
+  volumeRef.current = { volume, isMuted };
+  const applyVolume = useCallback(() => {
+    const player = playerRef.current;
+    if (!player) return;
+    const { volume: level, isMuted: muted } = volumeRef.current;
+    try {
+      if (player.getVolume?.() !== level) player.setVolume?.(level);
+      if (muted && !player.isMuted?.()) player.mute?.();
+      else if (!muted && player.isMuted?.()) player.unMute?.();
+    } catch {
+      // The player is being replaced; the new one applies it when ready.
+    }
+  }, []);
+  useEffect(() => {
+    if (ready) applyVolume();
+  }, [ready, volume, isMuted, applyVolume]);
 
   // Apply play/pause changes made from the queue controls.
   useEffect(() => {
@@ -247,6 +271,8 @@ const VideoPlayer = ({
     (e) => {
       setPlaying(e.data === 1);
       reportProgress();
+      // A video loaded, cued or started: YouTube may have reset the volume.
+      if (e.data === 1 || e.data === 5 || e.data === -1) applyVolume();
 
       if (e.data === 2 && !isPausedRef.current && userIsInPlayer()) {
         pauseCallbackRef.current?.(); // paused in the player: the queue is paused too
@@ -259,7 +285,7 @@ const VideoPlayer = ({
         command((p) => p.playVideo());
       }
     },
-    [command, reportProgress]
+    [command, reportProgress, applyVolume]
   );
 
   // Watchdog: if the player has not been playing for a few checks in a row
