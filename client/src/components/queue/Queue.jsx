@@ -1,7 +1,7 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useId, useRef, useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import YoutubeOnlyBadge from "../videos/YoutubeOnlyBadge";
-import VolumeControl from "./VolumeControl";
+import { VolumeToggle, VolumePanel } from "./VolumeControl";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useNowPosition } from "../../hooks/usePlayerProgress";
 import { formatClock } from "../../lib/progress";
@@ -25,10 +25,14 @@ const thumbOf = (video) => {
   return (thumbnails.medium ?? thumbnails.default).url;
 };
 
-/** Elapsed time, a bar, and the length, as reported by the player (wherever it runs). */
-function NowProgress({ queueId, isPaused }) {
+/**
+ * Elapsed time, a bar, and the length, as reported by the player (wherever it
+ * runs), with `children` (the volume button) at the end of the row. Before the
+ * player reports anything, the row holds only the children.
+ */
+function NowProgress({ queueId, isPaused, children }) {
   const progress = useNowPosition(queueId, isPaused);
-  if (!progress) return null;
+  if (!progress) return <div className="now-progress now-progress-empty">{children}</div>;
   const { position, duration } = progress;
   const percent = (position / duration) * 100;
   return (
@@ -46,6 +50,7 @@ function NowProgress({ queueId, isPaused }) {
         <div className="now-bar-fill" style={{ width: `${percent}%` }} />
       </div>
       <span className="now-time">{formatClock(duration)}</span>
+      {children}
     </div>
   );
 }
@@ -62,6 +67,10 @@ const NowPlaying = memo(function NowPlaying({
   onSkip,
   youtubeOnly,
 }) {
+  // The volume slider stays folded behind its button until asked for.
+  const [volumeOpen, setVolumeOpen] = useState(false);
+  const volumePanelId = useId();
+  const volumeButtonRef = useRef(null);
   return (
     <div className="now-card">
       <div className="now-media">
@@ -89,8 +98,23 @@ const NowPlaying = memo(function NowPlaying({
           )}
         </div>
       </div>
-      <NowProgress queueId={video.queueId} isPaused={isPaused} />
-      <VolumeControl />
+      <NowProgress queueId={video.queueId} isPaused={isPaused}>
+        <VolumeToggle
+          open={volumeOpen}
+          onToggle={() => setVolumeOpen((open) => !open)}
+          panelId={volumePanelId}
+          buttonRef={volumeButtonRef}
+        />
+      </NowProgress>
+      {volumeOpen && (
+        <VolumePanel
+          id={volumePanelId}
+          onClose={() => {
+            setVolumeOpen(false);
+            volumeButtonRef.current?.focus();
+          }}
+        />
+      )}
       <div className="now-controls" role="group" aria-label="Playback">
         <button
           className="btn yq-btn-primary now-btn"

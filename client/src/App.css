@@ -625,17 +625,27 @@
 /* Elapsed · bar · length. The fill eases over each 1s tick so it moves smoothly. */
 .now-progress { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.85rem; }
 .now-time { color: var(--yq-muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; min-width: 2.6rem; }
-.now-time:last-child { text-align: right; }
+.now-time:last-of-type { text-align: right; }
+/* Before the player reports its position, the row holds only the volume button. */
+.now-progress-empty { justify-content: flex-end; }
 .now-bar { flex: 1; height: 4px; border-radius: 999px; background: var(--yq-surface-2); overflow: hidden; }
 .now-bar-fill { height: 100%; background: var(--yq-accent); border-radius: inherit; transition: width 1s linear; }
 @media (prefers-reduced-motion: reduce) { .now-bar-fill { transition: none; } }
 .now-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 7.5rem)); gap: 0.5rem; margin-top: 1rem; }
 .now-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; height: 2.5rem; white-space: nowrap; }
 
-/* Mute · volume slider · level. The track fills up to the thumb (--fill). */
-.now-volume { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
-.now-volume-btn { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; padding: 0; border: 0; color: var(--yq-muted); background: transparent; flex-shrink: 0; }
+/* Volume: a small speaker button at the end of the progress row opens the
+   row below (mute · slider · level). The track fills up to the thumb (--fill). */
+.now-volume-btn { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 6px; color: var(--yq-muted); background: transparent; flex-shrink: 0; }
 .now-volume-btn:hover, .now-volume-btn[aria-pressed="true"] { color: var(--yq-text); }
+/* Same tap target, but the negative margins keep the progress row as thin as before. */
+.now-volume-toggle { margin: -0.6rem -0.4rem -0.6rem -0.2rem; }
+.now-volume-toggle.is-open { color: var(--yq-accent); background: var(--yq-surface-2); }
+.now-volume { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; padding: 0.15rem 0.6rem 0.15rem 0.15rem; border-radius: 8px; background: var(--yq-surface-2); animation: now-volume-open 0.15s ease-out; }
+.now-volume .now-volume-slider::-webkit-slider-runnable-track { background: linear-gradient(to right, var(--yq-accent) var(--fill), var(--yq-border, rgba(127, 127, 127, 0.35)) var(--fill)); }
+.now-volume .now-volume-slider::-moz-range-track { background: var(--yq-border, rgba(127, 127, 127, 0.35)); }
+@keyframes now-volume-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .now-volume { animation: none; } }
 .now-volume-value { color: var(--yq-muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; min-width: 2.6rem; text-align: right; }
 .now-volume-slider { flex: 1; min-width: 0; height: 1.5rem; margin: 0; background: transparent; cursor: pointer; -webkit-appearance: none; appearance: none; }
 .now-volume-slider:focus-visible { outline: 2px solid var(--yq-accent); outline-offset: 2px; border-radius: 4px; }

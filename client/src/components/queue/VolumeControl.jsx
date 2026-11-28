@@ -1,17 +1,50 @@
+import { useEffect, useRef } from "react";
 import { FaVolumeMute, FaVolumeDown, FaVolumeUp } from "react-icons/fa";
 import useLocalStorage from "../../hooks/useLocalStorage";
 import { VOLUME_KEY, MUTED_KEY, DEFAULT_VOLUME, clampVolume } from "../../lib/volume";
 
-/**
- * Mute button and volume slider for the player, wherever it runs (this tab,
- * another tab, or another device of the room).
- */
-export default function VolumeControl() {
+/** The player's volume (wherever it runs: this tab, another tab or another device). */
+function useVolume() {
   const [volume, setVolume] = useLocalStorage(VOLUME_KEY, DEFAULT_VOLUME);
   const [isMuted, setIsMuted] = useLocalStorage(MUTED_KEY, false);
   const level = clampVolume(volume);
   const silent = isMuted || level === 0;
   const Icon = silent ? FaVolumeMute : level < 50 ? FaVolumeDown : FaVolumeUp;
+  return { level, isMuted, silent, Icon, setVolume, setIsMuted };
+}
+
+/**
+ * The small speaker button beside the progress bar. It shows the current
+ * volume (muted, low, high) and opens or closes the slider below.
+ */
+export function VolumeToggle({ open, onToggle, panelId, buttonRef }) {
+  const { level, silent, Icon } = useVolume();
+  const label = silent ? "Volume: muted" : `Volume: ${level}%`;
+  return (
+    <button
+      ref={buttonRef}
+      type="button"
+      className={`btn now-volume-btn now-volume-toggle${open ? " is-open" : ""}`}
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-controls={panelId}
+      aria-label={`${label}. ${open ? "Hide" : "Show"} volume control`}
+      title={label}
+    >
+      <Icon aria-hidden="true" />
+    </button>
+  );
+}
+
+/** Mute button and volume slider, shown when the toggle is open. */
+export function VolumePanel({ id, onClose }) {
+  const { level, isMuted, silent, setVolume, setIsMuted } = useVolume();
+  const sliderRef = useRef(null);
+
+  // Opening it with a click or a key puts the focus on the slider, ready to use.
+  useEffect(() => {
+    sliderRef.current?.focus({ preventScroll: true });
+  }, []);
 
   const change = (event) => {
     const next = clampVolume(event.target.value);
@@ -26,8 +59,17 @@ export default function VolumeControl() {
     setIsMuted(!silent);
   };
 
+  const MuteIcon = silent ? FaVolumeMute : FaVolumeUp;
   return (
-    <div className="now-volume">
+    <div
+      id={id}
+      className="now-volume"
+      role="group"
+      aria-label="Volume"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") onClose();
+      }}
+    >
       <button
         type="button"
         className="btn now-volume-btn"
@@ -36,9 +78,10 @@ export default function VolumeControl() {
         aria-pressed={silent}
         title={silent ? "Unmute" : "Mute"}
       >
-        <Icon aria-hidden="true" />
+        <MuteIcon aria-hidden="true" />
       </button>
       <input
+        ref={sliderRef}
         type="range"
         className="now-volume-slider"
         min={0}
