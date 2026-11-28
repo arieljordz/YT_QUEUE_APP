@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import YouTube from "react-youtube";
 import { decodeHtml } from "../../lib/text";
+import useMediaSession from "../../hooks/useMediaSession";
 
 const PLAYER_OPTS = { width: "100%", playerVars: { autoplay: 1 } };
 // The "Next:" banner shows during the last seconds of a song.
@@ -36,6 +37,7 @@ const VideoPlayer = ({
   video,
   nextVideo,
   onEnd,
+  onNext,
   isPaused,
   isRepeat,
   onPlayerPause,
@@ -305,6 +307,26 @@ const VideoPlayer = ({
       document.removeEventListener("keydown", nudge);
     };
   }, [startIfStalled]);
+
+  // Lock-screen / notification controls. A phone pauses the player when it
+  // locks; Play there resumes it (and the queue, if it was paused).
+  const nextCallbackRef = useRef(onNext);
+  nextCallbackRef.current = onNext;
+  useMediaSession(videoId ? video : null, {
+    isPaused: !playing, // what the player really does, so a paused player offers Play
+    hasNext: Boolean(nextVideo),
+    handlers: {
+      play: () => {
+        command((p) => p.playVideo?.());
+        if (isPausedRef.current) playCallbackRef.current?.();
+      },
+      pause: () => {
+        command((p) => p.pauseVideo?.());
+        if (!isPausedRef.current) pauseCallbackRef.current?.();
+      },
+      nexttrack: () => nextCallbackRef.current?.(),
+    },
+  });
 
   // Show "Next: ..." while the current song is about to finish.
   const [endingSoon, setEndingSoon] = useState(false);

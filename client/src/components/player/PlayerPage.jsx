@@ -107,6 +107,7 @@ function PlayerPage({ roomName, onSignedOut, inBackground = false }) {
         video={isExternal ? null : currentVideo}
         nextVideo={nextVideo}
         onEnd={playNext}
+        onNext={playNext}
         isPaused={isPaused || isExternal}
         isRepeat={isRepeat}
         onPlayerPause={() => setIsPaused(true)}
